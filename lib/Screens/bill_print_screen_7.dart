@@ -18,7 +18,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:orders_dev/Methods/printerenum.dart' as printerenum;
 
-class BillPrintWithSerialNumber extends StatefulWidget {
+class BillPrintSerialNumberCorrection extends StatefulWidget {
   final String hotelName;
   final String addedItemsSet;
   final List<String> itemsID;
@@ -32,7 +32,7 @@ class BillPrintWithSerialNumber extends StatefulWidget {
   final String phoneNumberForPrint;
   final String gstCodeForPrint;
 
-  const BillPrintWithSerialNumber({
+  const BillPrintSerialNumberCorrection({
     Key? key,
     required this.hotelName,
     required this.addedItemsSet,
@@ -49,11 +49,12 @@ class BillPrintWithSerialNumber extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BillPrintWithSerialNumber> createState() =>
-      _BillPrintWithSerialNumberState();
+  State<BillPrintSerialNumberCorrection> createState() =>
+      _BillPrintSerialNumberCorrectionState();
 }
 
-class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
+class _BillPrintSerialNumberCorrectionState
+    extends State<BillPrintSerialNumberCorrection> {
   bool _connected = false;
   BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
 
@@ -107,7 +108,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
   List<num> totalPriceOfOneDistinctItem = [];
   num totalPriceOfAllItems = 0;
   num totalQuantityOfAllItems = 0;
-  Map<String, num> statisticsMap = HashMap();
+  Map<String, dynamic> statisticsMap = HashMap();
   Map<String, String> printOrdersMap = HashMap();
   num discount = 0;
   String discountEnteredValue = '';
@@ -122,11 +123,13 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
   int serialNumber = 0;
   late StreamSubscription internetCheckerSubscription;
   bool pageHasInternet = true;
+  bool thisIsParcelTrueElseFalse = false;
+  bool gotSerialNumber = false;
 
   Widget discountsSection() {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -137,9 +140,9 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                 child: ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          discountValueClickedTruePercentageClickedFalse
-                              ? MaterialStateProperty.all(Colors.grey)
-                              : MaterialStateProperty.all(Colors.green),
+                      discountValueClickedTruePercentageClickedFalse
+                          ? MaterialStateProperty.all(Colors.grey)
+                          : MaterialStateProperty.all(Colors.green),
                     ),
                     onPressed: () {
                       setState(() {
@@ -159,13 +162,13 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
               ),
               SizedBox(width: 10),
               Expanded(
-                  // width: double.infinity,
+                // width: double.infinity,
                   child: ElevatedButton(
                       style: ButtonStyle(
                         backgroundColor:
-                            discountValueClickedTruePercentageClickedFalse
-                                ? MaterialStateProperty.all(Colors.green)
-                                : MaterialStateProperty.all(Colors.grey),
+                        discountValueClickedTruePercentageClickedFalse
+                            ? MaterialStateProperty.all(Colors.green)
+                            : MaterialStateProperty.all(Colors.grey),
                       ),
                       onPressed: () {
                         setState(() {
@@ -196,20 +199,20 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                 discountEnteredValue = value;
               },
               decoration:
-                  // kTextFieldInputDecoration,
-                  InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: discountValueClickedTruePercentageClickedFalse
-                          ? 'Enter ₹'
-                          : 'Enter %',
-                      hintStyle: TextStyle(color: Colors.grey),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green))),
+              // kTextFieldInputDecoration,
+              InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  hintText: discountValueClickedTruePercentageClickedFalse
+                      ? 'Enter ₹'
+                      : 'Enter %',
+                  hintStyle: TextStyle(color: Colors.grey),
+                  enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                      borderSide: BorderSide(color: Colors.green)),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                      borderSide: BorderSide(color: Colors.green))),
             ),
           ),
           ElevatedButton(
@@ -230,7 +233,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                     setState(() {
                       if (discountEnteredValue != '') {
                         discount = num.parse((totalPriceOfAllItems *
-                                (num.parse(discountEnteredValue) / 100))
+                            (num.parse(discountEnteredValue) / 100))
                             .toStringAsFixed(2));
                       } else {
                         discount = 0;
@@ -256,7 +259,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
     printingOver = true;
     tappedPrintButton = false;
     printingError = false;
-    print('inside initState');
+    gotSerialNumber = false;
     items = [];
     distinctItemNames = [];
     serialNumber = 0;
@@ -272,7 +275,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
   void internetAvailabilityChecker() async {
     if (pageHasInternet) {
       var netAvailableTrueElseFalse =
-          await InternetConnectionChecker().hasConnection;
+      await InternetConnectionChecker().hasConnection;
       setState(() {
         pageHasInternet = netAvailableTrueElseFalse;
       });
@@ -281,27 +284,27 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
     int _everySecondForInternetChecking = 0;
     _timerToCheckInternet =
         Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_everySecondForInternetChecking < 2) {
-        _everySecondForInternetChecking++;
-        print(
-            '_everySecondForInternetChecking $_everySecondForInternetChecking');
-      } else {
-        internetCheckerSubscription =
-            InternetConnectionChecker().onStatusChange.listen((status) {
-          final hasInternet = status == InternetConnectionStatus.connected;
+          if (_everySecondForInternetChecking < 2) {
+            _everySecondForInternetChecking++;
+            print(
+                '_everySecondForInternetChecking $_everySecondForInternetChecking');
+          } else {
+            internetCheckerSubscription =
+                InternetConnectionChecker().onStatusChange.listen((status) {
+                  final hasInternet = status == InternetConnectionStatus.connected;
 
 //WeSetStateOfPageHasInternet
-          if (pageHasInternet != hasInternet) {
-            setState(() {
-              pageHasInternet = hasInternet;
-            });
+                  if (pageHasInternet != hasInternet) {
+                    setState(() {
+                      pageHasInternet = hasInternet;
+                    });
+                  }
+                });
+
+            _timerToCheckInternet!.cancel();
+            _everySecondForInternetChecking = 0;
           }
         });
-
-        _timerToCheckInternet!.cancel();
-        _everySecondForInternetChecking = 0;
-      }
-    });
   }
 
   void makingDistinctItemsList() {
@@ -312,11 +315,11 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
 //ItWon'tComeInAscendingOrder
     String tempYear = now.year.toString();
     String tempMonth =
-        now.month < 10 ? '0${now.month.toString()}' : '${now.month.toString()}';
+    now.month < 10 ? '0${now.month.toString()}' : '${now.month.toString()}';
     String tempDay =
-        now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
+    now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
     String tempHour =
-        now.hour < 10 ? '0${now.hour.toString()}' : '${now.hour.toString()}';
+    now.hour < 10 ? '0${now.hour.toString()}' : '${now.hour.toString()}';
     String tempMinute = now.minute < 10
         ? '0${now.minute.toString()}'
         : '${now.minute.toString()}';
@@ -325,18 +328,16 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
         : '${now.second.toString()}';
 
     orderHistoryDocID =
-        '${tempYear}${tempMonth}${tempDay}${tempHour}${tempMinute}${tempSecond}';
+    '${tempYear}${tempMonth}${tempDay}${tempHour}${tempMinute}${tempSecond}';
     statisticsDocID = '$tempYear*$tempMonth*$tempDay';
     printingDate =
-        '${tempDay}/${tempMonth}/${tempYear} at ${tempHour}:${tempMinute}';
+    '${tempDay}/${tempMonth}/${tempYear} at ${tempHour}:${tempMinute}';
     //InThePrintOrdersMap(HashMap),FirstWeSaveKeyAs "DateOfOrder"&ValueAs,,
 //year/Month/Day At Hour:Minute
     printOrdersMap.addAll({
       ' Date of Order  :':
-          '$tempYear/$tempMonth/$tempDay at $tempHour:$tempMinute'
+      '$tempYear/$tempMonth/$tempDay at $tempHour:$tempMinute'
     });
-//thisWillHelpForTakingOneParticularDay'sOrdersAloneInTheFuture
-    printOrdersMap.addAll({'statisticsDocID': statisticsDocID});
 
     Map<String, dynamic> mapToAddIntoItems = {};
     String eachItemFromEntireItemsString = '';
@@ -346,12 +347,14 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
     tableorparcel = setSplit[0];
 
     if (setSplit[0] == 'Parcel') {
-      statisticsMap.addAll({'numberofparcel': 1});
-      statisticsMap.addAll({'totalnumberoforders': 1});
+      thisIsParcelTrueElseFalse = true;
+      statisticsMap.addAll({'numberofparcel': FieldValue.increment(1)});
+      statisticsMap.addAll({'totalnumberoforders': FieldValue.increment(1)});
     } else {
+      thisIsParcelTrueElseFalse = false;
 //ElseIfItIsTable,WeAddParcelNumbers0&TotalNumberOfOrdersAdd1InStatisticsMap
-      statisticsMap.addAll({'numberofparcel': 0});
-      statisticsMap.addAll({'totalnumberoforders': 1});
+      statisticsMap.addAll({'numberofparcel': FieldValue.increment(0)});
+      statisticsMap.addAll({'totalnumberoforders': FieldValue.increment(1)});
     }
     tableorparcelnumber = num.parse(setSplit[1]);
     num timecustomercametoseat = num.parse(setSplit[2]);
@@ -449,10 +452,10 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
       for (var eachItem in items) {
         if (distinctItemName == eachItem['item']) {
           individualPriceOfOneDistinctItemForAddingIntoList =
-              eachItem['priceofeach'];
+          eachItem['priceofeach'];
           numberOfEachDistinctItemForAddingIntoList += eachItem['number'];
           totalPriceOfEachDistinctItemForAddingIntoList +=
-              (eachItem['priceofeach'] * eachItem['number']);
+          (eachItem['priceofeach'] * eachItem['number']);
         }
       }
       if (individualPriceOfOneDistinctItemForAddingIntoList != 0) {
@@ -460,8 +463,10 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
             .add(individualPriceOfOneDistinctItemForAddingIntoList);
       }
       if (numberOfEachDistinctItemForAddingIntoList != 0) {
-        statisticsMap.addAll(
-            {distinctItemName: numberOfEachDistinctItemForAddingIntoList});
+        statisticsMap.addAll({
+          distinctItemName:
+          FieldValue.increment(numberOfEachDistinctItemForAddingIntoList)
+        });
         numberOfOneDistinctItem.add(numberOfEachDistinctItemForAddingIntoList);
       }
       if (totalPriceOfEachDistinctItemForAddingIntoList != 0) {
@@ -472,18 +477,20 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
       if (printOrdersMap.length < 10) {
         printOrdersMap.addAll({
           '0${printOrdersMap.length} . ${distinctItemName} x ${individualPriceOfOneDistinctItemForAddingIntoList.toString()} x ${numberOfEachDistinctItemForAddingIntoList.toString()} = ':
-              (totalPriceOfEachDistinctItemForAddingIntoList).toString()
+          (totalPriceOfEachDistinctItemForAddingIntoList).toString()
         });
       } else {
 //ifNumberMoreThan9,WeDon'tNeedTheAdditionOf 0 at First
         printOrdersMap.addAll({
           '${printOrdersMap.length} . ${distinctItemName} x ${individualPriceOfOneDistinctItemForAddingIntoList} x  ${numberOfEachDistinctItemForAddingIntoList} = ':
-              (totalPriceOfEachDistinctItemForAddingIntoList).toString()
+          (totalPriceOfEachDistinctItemForAddingIntoList).toString()
         });
       }
     }
     totalPriceOfAllItems =
-        (totalPriceOfOneDistinctItem.reduce((a, b) => a + b));
+    (totalPriceOfOneDistinctItem.reduce((a, b) => a + b));
+    //thisWillHelpForTakingOneParticularDay'sOrdersAloneInTheFuture
+    printOrdersMap.addAll({'statisticsDocID': statisticsDocID});
     // printOrdersMap.addAll({'Total = ': (totalPriceOfAllItems.toString())});
 
     // cgstCalculatedForBillFunction();
@@ -534,9 +541,9 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
     //     sgstCalculatedForBillFunction())
     //     .toStringAsFixed(2));
     return num.parse((totalPriceOfAllItems -
-            discount +
-            cgstCalculatedForBillFunction() +
-            sgstCalculatedForBillFunction())
+        discount +
+        cgstCalculatedForBillFunction() +
+        sgstCalculatedForBillFunction())
         .toStringAsFixed(2));
   }
 
@@ -566,9 +573,9 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
   // }
 
   Future show(
-    String message, {
-    Duration duration: const Duration(seconds: 2),
-  }) async {
+      String message, {
+        Duration duration: const Duration(seconds: 2),
+      }) async {
     await new Future.delayed(new Duration(milliseconds: 100));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -943,30 +950,30 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
             Timer? _timerInDisconnectAndConnect;
             _timerInDisconnectAndConnect =
                 Timer.periodic(const Duration(seconds: 1), (_) async {
-              if (_everySecondHelpingToDisconnectBeforeConnectingAgain < 4) {
-                _timerWorkingCheck++;
-                print('timerWorkingCheck id $_timerWorkingCheck');
-                _everySecondHelpingToDisconnectBeforeConnectingAgain++;
-                print(
-                    '_everySecondHelpingToDisconnectBeforeConnectingAgainInBillScreen $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-              } else {
-                print('need a dosconnection here4');
-                _timerInDisconnectAndConnect!.cancel;
-                print('need a dosconnection here4');
-                if (disconnectAndConnectAttempted == false) {
-                  disconnectAndConnectAttempted = true;
-                  printerConnectionToLastSavedPrinter();
-                } else {
-                  _timerInDisconnectAndConnect!.cancel();
-                }
-                _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
-                printerConnectionToLastSavedPrinter();
-                print(
-                    'cancelling _everySecondHelpingToDisconnectBeforeConnectingAgain $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-                _timerWorkingCheck++;
-                print('timerWorkingCheck id $_timerWorkingCheck');
-              }
-            });
+                  if (_everySecondHelpingToDisconnectBeforeConnectingAgain < 4) {
+                    _timerWorkingCheck++;
+                    print('timerWorkingCheck id $_timerWorkingCheck');
+                    _everySecondHelpingToDisconnectBeforeConnectingAgain++;
+                    print(
+                        '_everySecondHelpingToDisconnectBeforeConnectingAgainInBillScreen $_everySecondHelpingToDisconnectBeforeConnectingAgain');
+                  } else {
+                    print('need a dosconnection here4');
+                    _timerInDisconnectAndConnect!.cancel;
+                    print('need a dosconnection here4');
+                    if (disconnectAndConnectAttempted == false) {
+                      disconnectAndConnectAttempted = true;
+                      printerConnectionToLastSavedPrinter();
+                    } else {
+                      _timerInDisconnectAndConnect!.cancel();
+                    }
+                    _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
+                    printerConnectionToLastSavedPrinter();
+                    print(
+                        'cancelling _everySecondHelpingToDisconnectBeforeConnectingAgain $_everySecondHelpingToDisconnectBeforeConnectingAgain');
+                    _timerWorkingCheck++;
+                    print('timerWorkingCheck id $_timerWorkingCheck');
+                  }
+                });
           }
         }
       });
@@ -1080,16 +1087,16 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
     int _everySecondPrintThroughBluetooth = 0;
     _timerInPrintThroughBluetooth =
         Timer.periodic(Duration(seconds: 1), (_) async {
-      if (_everySecondPrintThroughBluetooth < 1) {
-        _everySecondPrintThroughBluetooth++;
-        print(
-            '_everySecondPrintThroughBluetooth $_everySecondPrintThroughBluetooth');
-      } else {
-        _timerInPrintThroughBluetooth!.cancel();
-        _everySecondPrintThroughBluetooth = 0;
-        bluetoothDisconnectFunction();
-      }
-    });
+          if (_everySecondPrintThroughBluetooth < 1) {
+            _everySecondPrintThroughBluetooth++;
+            print(
+                '_everySecondPrintThroughBluetooth $_everySecondPrintThroughBluetooth');
+          } else {
+            _timerInPrintThroughBluetooth!.cancel();
+            _everySecondPrintThroughBluetooth = 0;
+            bluetoothDisconnectFunction();
+          }
+        });
     if (showSpinner == false) {
       setState(() {
         showSpinner = true;
@@ -1114,8 +1121,8 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
           // }
           // if (localParcelReadyItemNames.length > 1) {
           if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                  .captainPrinterSizeFromClass ==
+              listen: false)
+              .captainPrinterSizeFromClass ==
               '80') {
             bluetooth.printCustom("${widget.hotelNameForPrint}",
                 printerenum.Size.extraLarge.val, printerenum.Align.center.val);
@@ -1158,7 +1165,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                 printerenum.Align.center.val);
             if (customername != '' || customermobileNumber != '') {
               String customerPrintingName =
-                  customername != '' ? 'Customer: ${customername}' : '';
+              customername != '' ? 'Customer: ${customername}' : '';
               String customerPrintingMobile = customermobileNumber != ''
                   ? 'Phone: ${customermobileNumber}'
                   : '';
@@ -1194,7 +1201,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                 format: "%-20s %20s %n");
             // bluetooth.printCustom("BILL NO: ${widget.orderHistoryDocID}",
             //     printerenum.Size.medium.val, printerenum.Align.left.val);
-            if (statisticsMap['numberofparcel']! > 0) {
+            if (thisIsParcelTrueElseFalse) {
               bluetooth.printLeftRight(
                   "BILL NO:${orderHistoryDocID}",
                   "TYPE:TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}",
@@ -1340,8 +1347,8 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                 printerenum.Size.boldLarge.val,
                 printerenum.Align.right.val);
           } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                  .captainPrinterSizeFromClass ==
+              listen: false)
+              .captainPrinterSizeFromClass ==
               '58') {
             bluetooth.printCustom("${widget.hotelNameForPrint}",
                 printerenum.Size.extraLarge.val, printerenum.Align.center.val);
@@ -1381,7 +1388,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                 printerenum.Size.medium.val, printerenum.Align.center.val);
             if (customername != '' || customermobileNumber != '') {
               String customerPrintingName =
-                  customername != '' ? 'Customer: ${customername}' : '';
+              customername != '' ? 'Customer: ${customername}' : '';
               String customerPrintingMobile = customermobileNumber != ''
                   ? 'Phone: ${customermobileNumber}'
                   : '';
@@ -1416,7 +1423,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                 printerenum.Align.left.val);
             bluetooth.printCustom("BILL NO: ${orderHistoryDocID}",
                 printerenum.Size.medium.val, printerenum.Align.left.val);
-            if (statisticsMap['numberofparcel']! > 0) {
+            if (thisIsParcelTrueElseFalse) {
               bluetooth.printCustom(
                   "TYPE: TAKE-AWAY : ${tableorparcel}:${tableorparcelnumber}${parentOrChild}",
                   printerenum.Size.medium.val,
@@ -3227,12 +3234,14 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
 
   void serverUpdateOfBill() async {
     if (serialNumber != 0) {
-      statisticsMap.addAll({'totaldiscount': discount});
-      statisticsMap
-          .addAll({'totalbillamounttoday': totalBillWithTaxes().round()});
+      statisticsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
+      statisticsMap.addAll({
+        'totalbillamounttoday':
+        FieldValue.increment(totalBillWithTaxes().round())
+      });
 
 //IfBillHadAlreadyBeenPrintedSerialNumberNeedNotBeAdded
-      statisticsMap.addAll({'serialNumber': 0});
+      statisticsMap.addAll({'serialNumber': FieldValue.increment(0)});
 
       //  print(widget.printOrdersMap);
       Map<String, String> updatePrintOrdersMap = HashMap();
@@ -3254,13 +3263,13 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
       if (widget.cgstPercentage > 0) {
         updatePrintOrdersMap.addAll({
           '989*CGST@${widget.cgstPercentage}%':
-              (cgstCalculatedForBillFunction()).toString()
+          (cgstCalculatedForBillFunction()).toString()
         });
       }
       if (widget.sgstPercentage > 0) {
         updatePrintOrdersMap.addAll({
           '993*SGST@${widget.sgstPercentage}%':
-              (sgstCalculatedForBillFunction()).toString()
+          (sgstCalculatedForBillFunction()).toString()
         });
       }
       updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
@@ -3294,7 +3303,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
             numberOfEachDistinctItemForPrint + '*';
       }
       for (var priceOfEachDistinctItem
-          in updatedPriceOfEachDistinctItemWithoutTotal) {
+      in updatedPriceOfEachDistinctItemWithoutTotal) {
         priceOfEachDistinctItemWithoutTotalForPrint =
             priceOfEachDistinctItemWithoutTotalForPrint +
                 priceOfEachDistinctItem.toString();
@@ -3322,36 +3331,36 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
           {'totalNumberOfItemsForPrint': '${distinctItemNames.length}'});
       updatePrintOrdersMap
           .addAll({'billNumberForPrint': '${orderHistoryDocID}'});
-      if (statisticsMap['numberofparcel']! > 0) {
+      if (thisIsParcelTrueElseFalse) {
         updatePrintOrdersMap.addAll({
           'takeAwayOrDineInForPrint':
-              'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+          'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
         });
       } else {
         updatePrintOrdersMap.addAll({
           'takeAwayOrDineInForPrint':
-              'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+          'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
         });
       }
       updatePrintOrdersMap
           .addAll({'distinctItemsForPrint': distinctItemsForPrint});
       updatePrintOrdersMap.addAll({
         'individualPriceOfEachDistinctItemForPrint':
-            individualPriceOfEachDistinctItemForPrint
+        individualPriceOfEachDistinctItemForPrint
       });
       updatePrintOrdersMap.addAll({
         'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint
       });
       updatePrintOrdersMap.addAll({
         'priceOfEachDistinctItemWithoutTotalForPrint':
-            priceOfEachDistinctItemWithoutTotalForPrint
+        priceOfEachDistinctItemWithoutTotalForPrint
       });
       updatePrintOrdersMap.addAll({'discount': discount.toString()});
       updatePrintOrdersMap
           .addAll({'discountEnteredValue': discountEnteredValue.toString()});
       updatePrintOrdersMap.addAll({
         'discountValueClickedTruePercentageClickedFalse':
-            discountValueClickedTruePercentageClickedFalse.toString()
+        discountValueClickedTruePercentageClickedFalse.toString()
       });
 
       updatePrintOrdersMap.addAll(
@@ -3371,42 +3380,63 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
       });
       updatePrintOrdersMap
           .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
+      if (billUpdatedInServer == false) {
+        billUpdatedInServer = true;
 
-      //WithThisUpdateBill,itWillPutPrintOrdersMapAsMapItselfInServer
-      FireStoreUpdateBill(
-              hotelName: widget.hotelName,
-              orderHistoryDocID: orderHistoryDocID,
-              //        printOrdersMap: widget.printOrdersMap
-              printOrdersMap: updatePrintOrdersMap)
-          .updateBill();
+        //WithThisUpdateBill,itWillPutPrintOrdersMapAsMapItselfInServer
+        FireStoreUpdateBill(
+            hotelName: widget.hotelName,
+            orderHistoryDocID: orderHistoryDocID,
+            //        printOrdersMap: widget.printOrdersMap
+            printOrdersMap: updatePrintOrdersMap)
+            .updateBill();
+//MakingThisToEnsureThereAreNoRipplesAndTheOrderHistoryIsn'tSentAgain
+        orderHistoryDocID = '';
+        updatePrintOrdersMap = {};
+
+        FireStoreUpdateStatisticsWithMap(
+            hotelName: widget.hotelName,
+            docID: statisticsDocID,
+            statisticsUpdateMap: statisticsMap)
+            .updateStatistics();
+        statisticsMap = {};
+        statisticsDocID = '';
+//MakingThisToEnsureThereAreNoRipplesAndTheStatisticsIsn'tSentAgain
+
+        FireStoreDeleteFinishedOrderInPresentOrders(
+            hotelName: widget.hotelName,
+            eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
+            .deleteFinishedOrder();
+
 //ToUpdateStatistics,WeGoThroughEachKeyAndUsingIncrementByFunction,We,,
 //CanIncrementTheNumberThatIsAlreadyThereInTheServer
 //ThisWillHelpToAddToTheStatisticsThat'sAlreadyThere
-      int counterToDeleteTableOrParcelOrderFromFireStore = 1;
-      statisticsMap.forEach((key, value) {
-        counterToDeleteTableOrParcelOrderFromFireStore++;
-        double? incrementBy = statisticsMap[key]?.toDouble();
-        FireStoreUpdateStatistics(
-                hotelName: widget.hotelName,
-                docID: statisticsDocID,
-                incrementBy: incrementBy,
-                key: key)
-            .updateStatistics();
-        if (counterToDeleteTableOrParcelOrderFromFireStore ==
-            statisticsMap.length) {
-          FireStoreDeleteFinishedOrderInPresentOrders(
-                  hotelName: widget.hotelName,
-                  eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
-              .deleteFinishedOrder();
-        }
-      });
-      //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
-      // for (String eachItemId in widget.itemsID) {
-      //   FireStoreDeleteFinishedOrder(
-      //           hotelName: widget.hotelName, eachItemId: eachItemId)
-      //       .deleteFinishedOrder();
-      // }
-      billUpdatedInServer = true;
+        int counterToDeleteTableOrParcelOrderFromFireStore = 1;
+        // statisticsMap.forEach((key, value) {
+        //   counterToDeleteTableOrParcelOrderFromFireStore++;
+        //   double? incrementBy = statisticsMap[key]?.toDouble();
+        //   FireStoreUpdateStatistics(
+        //       hotelName: widget.hotelName,
+        //       docID: statisticsDocID,
+        //       incrementBy: incrementBy,
+        //       key: key)
+        //       .updateStatistics();
+        //   if (counterToDeleteTableOrParcelOrderFromFireStore ==
+        //       statisticsMap.length) {
+        //     FireStoreDeleteFinishedOrderInPresentOrders(
+        //         hotelName: widget.hotelName,
+        //         eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
+        //         .deleteFinishedOrder();
+        //   }
+        // });
+        //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
+        // for (String eachItemId in widget.itemsID) {
+        //   FireStoreDeleteFinishedOrder(
+        //           hotelName: widget.hotelName, eachItemId: eachItemId)
+        //       .deleteFinishedOrder();
+        // }
+
+      }
       screenPopOutTimerAfterServerUpdate();
     } else {
       bool hasInternet = await InternetConnectionChecker().hasConnection;
@@ -3415,6 +3445,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
       } else {
         setState(() {
           pageHasInternet = hasInternet;
+          showSpinner = false;
         });
         show('You are Offline!\nPlease turn on Internet&Close bill');
       }
@@ -3439,25 +3470,31 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
           .doc(statisticsDocID)
           .get()
           .then((value) {
-        statisticsData = value.data();
-        if (statisticsData == null || statisticsData!['serialNumber'] == null) {
-          serialNumber = 1;
-        } else {
-          serialNumber =
-              num.parse((statisticsData!['serialNumber']).toString()).toInt() +
-                  1;
-        }
-//SinceSerialNumberIsZeroWeWillHaveToIncrementSerialNumberByOneAnyway
-        FireStoreUpdateStatistics(
-                hotelName: widget.hotelName,
-                docID: statisticsDocID,
-                incrementBy: 1,
-                key: 'serialNumber')
-            .updateStatistics();
+        if (gotSerialNumber == false) {
+          gotSerialNumber = true;
 
-        serialNumberUpdateInServerWhenPrintClickedFirstTime();
-        tappedPrintButton = false;
-        startOfCallForPrintingBill();
+          statisticsData = value.data();
+          if (statisticsData == null ||
+              statisticsData!['serialNumber'] == null) {
+            serialNumber = 1;
+          } else {
+            serialNumber =
+                num.parse((statisticsData!['serialNumber']).toString())
+                    .toInt() +
+                    1;
+          }
+//SinceSerialNumberIsZeroWeWillHaveToIncrementSerialNumberByOneAnyway
+          FireStoreUpdateStatisticsIndividualField(
+              hotelName: widget.hotelName,
+              docID: statisticsDocID,
+              incrementBy: 1,
+              key: 'serialNumber')
+              .updateStatistics();
+
+          serialNumberUpdateInServerWhenPrintClickedFirstTime();
+          tappedPrintButton = false;
+          startOfCallForPrintingBill();
+        }
       });
     } else {
       setState(() {
@@ -3477,193 +3514,218 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
         .doc(statisticsDocID)
         .get()
         .then((value) {
-      Map<String, dynamic>? statisticsData = value.data();
-      if (statisticsData == null || statisticsData!['serialNumber'] == null) {
-        serialNumber = 1;
-      } else {
-        serialNumber =
-            num.parse((statisticsData['serialNumber']).toString()).toInt() + 1;
-      }
-      statisticsMap.addAll({'serialNumber': 1});
-      statisticsMap.addAll({'totaldiscount': discount});
-      statisticsMap
-          .addAll({'totalbillamounttoday': totalBillWithTaxes().round()});
+      if (gotSerialNumber == false) {
+        gotSerialNumber = true;
 
-      //  print(widget.printOrdersMap);
-      Map<String, String> updatePrintOrdersMap = HashMap();
-
-      updatePrintOrdersMap = printOrdersMap;
-      updatePrintOrdersMap
-          .addAll({'serialNumberForPrint': serialNumber.toString()});
-
-      if (discount != 0) {
-        if (discountValueClickedTruePercentageClickedFalse) {
-          updatePrintOrdersMap.addAll({'981*Discount': discount.toString()});
+        Map<String, dynamic>? statisticsData = value.data();
+        if (statisticsData == null || statisticsData!['serialNumber'] == null) {
+          serialNumber = 1;
         } else {
-          updatePrintOrdersMap.addAll(
-              {'981*Discount $discountEnteredValue%': discount.toString()});
+          serialNumber =
+              num.parse((statisticsData['serialNumber']).toString()).toInt() +
+                  1;
         }
-      }
-      updatePrintOrdersMap
-          .addAll({'985*Total': (totalPriceOfAllItems - discount).toString()});
-      if (widget.cgstPercentage > 0) {
-        updatePrintOrdersMap.addAll({
-          '989*CGST@${widget.cgstPercentage}%':
-              (cgstCalculatedForBillFunction()).toString()
+        statisticsMap.addAll({'serialNumber': FieldValue.increment(1)});
+        statisticsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
+        statisticsMap.addAll({
+          'totalbillamounttoday':
+          FieldValue.increment(totalBillWithTaxes().round())
         });
-      }
-      if (widget.sgstPercentage > 0) {
+
+        //  print(widget.printOrdersMap);
+        Map<String, String> updatePrintOrdersMap = HashMap();
+
+        updatePrintOrdersMap = printOrdersMap;
+        updatePrintOrdersMap
+            .addAll({'serialNumberForPrint': serialNumber.toString()});
+
+        if (discount != 0) {
+          if (discountValueClickedTruePercentageClickedFalse) {
+            updatePrintOrdersMap.addAll({'981*Discount': discount.toString()});
+          } else {
+            updatePrintOrdersMap.addAll(
+                {'981*Discount $discountEnteredValue%': discount.toString()});
+          }
+        }
+        updatePrintOrdersMap.addAll(
+            {'985*Total': (totalPriceOfAllItems - discount).toString()});
+        if (widget.cgstPercentage > 0) {
+          updatePrintOrdersMap.addAll({
+            '989*CGST@${widget.cgstPercentage}%':
+            (cgstCalculatedForBillFunction()).toString()
+          });
+        }
+        if (widget.sgstPercentage > 0) {
+          updatePrintOrdersMap.addAll({
+            '993*SGST@${widget.sgstPercentage}%':
+            (sgstCalculatedForBillFunction()).toString()
+          });
+        }
+        updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
+        updatePrintOrdersMap.addAll({'roundOff': roundOff()});
+        updatePrintOrdersMap.addAll(
+            {'997*Total Bill With Taxes': totalBillWithTaxesAsString()});
+        String distinctItemsForPrint = '';
+        String individualPriceOfEachDistinctItemForPrint = '';
+        String numberOfEachDistinctItemForPrint = '';
+        String priceOfEachDistinctItemWithoutTotalForPrint = '';
+        //itIsWronglyAddingTotalAlsoToPriceOfEachDistinctItem.SoRemovingThatWithBelowVariable
+        List<num> updatedPriceOfEachDistinctItemWithoutTotal =
+            totalPriceOfOneDistinctItem;
+        // updatedPriceOfEachDistinctItemWithoutTotal.removeLast();
+
+        for (var distinctItem in distinctItemNames) {
+          distinctItemsForPrint = distinctItemsForPrint + distinctItem;
+          distinctItemsForPrint = distinctItemsForPrint + '*';
+        }
+        for (var individualPrice in individualPriceOfOneDistinctItem) {
+          individualPriceOfEachDistinctItemForPrint =
+              individualPriceOfEachDistinctItemForPrint +
+                  individualPrice.toString();
+          individualPriceOfEachDistinctItemForPrint =
+              individualPriceOfEachDistinctItemForPrint + '*';
+        }
+        for (var numberOfEachItem in numberOfOneDistinctItem) {
+          numberOfEachDistinctItemForPrint =
+              numberOfEachDistinctItemForPrint + numberOfEachItem.toString();
+          numberOfEachDistinctItemForPrint =
+              numberOfEachDistinctItemForPrint + '*';
+        }
+        for (var priceOfEachDistinctItem
+        in updatedPriceOfEachDistinctItemWithoutTotal) {
+          priceOfEachDistinctItemWithoutTotalForPrint =
+              priceOfEachDistinctItemWithoutTotalForPrint +
+                  priceOfEachDistinctItem.toString();
+          priceOfEachDistinctItemWithoutTotalForPrint =
+              priceOfEachDistinctItemWithoutTotalForPrint + '*';
+        }
+        updatePrintOrdersMap
+            .addAll({'hotelNameForPrint': '${widget.hotelNameForPrint}'});
+        updatePrintOrdersMap
+            .addAll({'addressline1ForPrint': '${widget.addressLine1ForPrint}'});
+        updatePrintOrdersMap
+            .addAll({'addressline2ForPrint': '${widget.addressLine2ForPrint}'});
+        updatePrintOrdersMap
+            .addAll({'addressline3ForPrint': '${widget.addressLine3ForPrint}'});
+        updatePrintOrdersMap
+            .addAll({'phoneNumberForPrint': '${widget.phoneNumberForPrint}'});
+        updatePrintOrdersMap.addAll({'customerNameForPrint': '$customername'});
+        updatePrintOrdersMap
+            .addAll({'customerMobileForPrint': '${customermobileNumber}'});
+        updatePrintOrdersMap
+            .addAll({'customerAddressForPrint': '${customeraddressline1}'});
+        updatePrintOrdersMap.addAll({'dateForPrint': '${printingDate}'});
+
+        updatePrintOrdersMap.addAll(
+            {'totalNumberOfItemsForPrint': '${distinctItemNames.length}'});
+        updatePrintOrdersMap
+            .addAll({'billNumberForPrint': '${orderHistoryDocID}'});
+        if (thisIsParcelTrueElseFalse) {
+          updatePrintOrdersMap.addAll({
+            'takeAwayOrDineInForPrint':
+            'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+          });
+        } else {
+          updatePrintOrdersMap.addAll({
+            'takeAwayOrDineInForPrint':
+            'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+          });
+        }
+        updatePrintOrdersMap
+            .addAll({'distinctItemsForPrint': distinctItemsForPrint});
         updatePrintOrdersMap.addAll({
-          '993*SGST@${widget.sgstPercentage}%':
-              (sgstCalculatedForBillFunction()).toString()
+          'individualPriceOfEachDistinctItemForPrint':
+          individualPriceOfEachDistinctItemForPrint
         });
-      }
-      updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
-      updatePrintOrdersMap.addAll({'roundOff': roundOff()});
-      updatePrintOrdersMap
-          .addAll({'997*Total Bill With Taxes': totalBillWithTaxesAsString()});
-      String distinctItemsForPrint = '';
-      String individualPriceOfEachDistinctItemForPrint = '';
-      String numberOfEachDistinctItemForPrint = '';
-      String priceOfEachDistinctItemWithoutTotalForPrint = '';
-      //itIsWronglyAddingTotalAlsoToPriceOfEachDistinctItem.SoRemovingThatWithBelowVariable
-      List<num> updatedPriceOfEachDistinctItemWithoutTotal =
-          totalPriceOfOneDistinctItem;
-      // updatedPriceOfEachDistinctItemWithoutTotal.removeLast();
-
-      for (var distinctItem in distinctItemNames) {
-        distinctItemsForPrint = distinctItemsForPrint + distinctItem;
-        distinctItemsForPrint = distinctItemsForPrint + '*';
-      }
-      for (var individualPrice in individualPriceOfOneDistinctItem) {
-        individualPriceOfEachDistinctItemForPrint =
-            individualPriceOfEachDistinctItemForPrint +
-                individualPrice.toString();
-        individualPriceOfEachDistinctItemForPrint =
-            individualPriceOfEachDistinctItemForPrint + '*';
-      }
-      for (var numberOfEachItem in numberOfOneDistinctItem) {
-        numberOfEachDistinctItemForPrint =
-            numberOfEachDistinctItemForPrint + numberOfEachItem.toString();
-        numberOfEachDistinctItemForPrint =
-            numberOfEachDistinctItemForPrint + '*';
-      }
-      for (var priceOfEachDistinctItem
-          in updatedPriceOfEachDistinctItemWithoutTotal) {
-        priceOfEachDistinctItemWithoutTotalForPrint =
-            priceOfEachDistinctItemWithoutTotalForPrint +
-                priceOfEachDistinctItem.toString();
-        priceOfEachDistinctItemWithoutTotalForPrint =
-            priceOfEachDistinctItemWithoutTotalForPrint + '*';
-      }
-      updatePrintOrdersMap
-          .addAll({'hotelNameForPrint': '${widget.hotelNameForPrint}'});
-      updatePrintOrdersMap
-          .addAll({'addressline1ForPrint': '${widget.addressLine1ForPrint}'});
-      updatePrintOrdersMap
-          .addAll({'addressline2ForPrint': '${widget.addressLine2ForPrint}'});
-      updatePrintOrdersMap
-          .addAll({'addressline3ForPrint': '${widget.addressLine3ForPrint}'});
-      updatePrintOrdersMap
-          .addAll({'phoneNumberForPrint': '${widget.phoneNumberForPrint}'});
-      updatePrintOrdersMap.addAll({'customerNameForPrint': '$customername'});
-      updatePrintOrdersMap
-          .addAll({'customerMobileForPrint': '${customermobileNumber}'});
-      updatePrintOrdersMap
-          .addAll({'customerAddressForPrint': '${customeraddressline1}'});
-      updatePrintOrdersMap.addAll({'dateForPrint': '${printingDate}'});
-
-      updatePrintOrdersMap.addAll(
-          {'totalNumberOfItemsForPrint': '${distinctItemNames.length}'});
-      updatePrintOrdersMap
-          .addAll({'billNumberForPrint': '${orderHistoryDocID}'});
-      if (statisticsMap['numberofparcel']! > 0) {
         updatePrintOrdersMap.addAll({
-          'takeAwayOrDineInForPrint':
-              'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+          'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint
         });
-      } else {
         updatePrintOrdersMap.addAll({
-          'takeAwayOrDineInForPrint':
-              'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+          'priceOfEachDistinctItemWithoutTotalForPrint':
+          priceOfEachDistinctItemWithoutTotalForPrint
         });
-      }
-      updatePrintOrdersMap
-          .addAll({'distinctItemsForPrint': distinctItemsForPrint});
-      updatePrintOrdersMap.addAll({
-        'individualPriceOfEachDistinctItemForPrint':
-            individualPriceOfEachDistinctItemForPrint
-      });
-      updatePrintOrdersMap.addAll({
-        'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint
-      });
-      updatePrintOrdersMap.addAll({
-        'priceOfEachDistinctItemWithoutTotalForPrint':
-            priceOfEachDistinctItemWithoutTotalForPrint
-      });
-      updatePrintOrdersMap.addAll({'discount': discount.toString()});
-      updatePrintOrdersMap
-          .addAll({'discountEnteredValue': discountEnteredValue.toString()});
-      updatePrintOrdersMap.addAll({
-        'discountValueClickedTruePercentageClickedFalse':
-            discountValueClickedTruePercentageClickedFalse.toString()
-      });
+        updatePrintOrdersMap.addAll({'discount': discount.toString()});
+        updatePrintOrdersMap
+            .addAll({'discountEnteredValue': discountEnteredValue.toString()});
+        updatePrintOrdersMap.addAll({
+          'discountValueClickedTruePercentageClickedFalse':
+          discountValueClickedTruePercentageClickedFalse.toString()
+        });
 
-      updatePrintOrdersMap.addAll(
-          {'totalQuantityForPrint': totalQuantityOfAllItems.toString()});
+        updatePrintOrdersMap.addAll(
+            {'totalQuantityForPrint': totalQuantityOfAllItems.toString()});
 
-      updatePrintOrdersMap.addAll(
-          {'subTotalForPrint': (totalPriceOfAllItems - discount).toString()});
-      updatePrintOrdersMap
-          .addAll({'cgstPercentageForPrint': widget.cgstPercentage.toString()});
-      updatePrintOrdersMap.addAll({
-        'cgstCalculatedForPrint': cgstCalculatedForBillFunction().toString()
-      });
-      updatePrintOrdersMap
-          .addAll({'sgstPercentageForPrint': widget.sgstPercentage.toString()});
-      updatePrintOrdersMap.addAll({
-        'sgstCalculatedForPrint': sgstCalculatedForBillFunction().toString()
-      });
-      updatePrintOrdersMap
-          .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
+        updatePrintOrdersMap.addAll(
+            {'subTotalForPrint': (totalPriceOfAllItems - discount).toString()});
+        updatePrintOrdersMap.addAll(
+            {'cgstPercentageForPrint': widget.cgstPercentage.toString()});
+        updatePrintOrdersMap.addAll({
+          'cgstCalculatedForPrint': cgstCalculatedForBillFunction().toString()
+        });
+        updatePrintOrdersMap.addAll(
+            {'sgstPercentageForPrint': widget.sgstPercentage.toString()});
+        updatePrintOrdersMap.addAll({
+          'sgstCalculatedForPrint': sgstCalculatedForBillFunction().toString()
+        });
+        updatePrintOrdersMap
+            .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
+        if (billUpdatedInServer == false) {
+          billUpdatedInServer = true;
 
-      //WithThisUpdateBill,itWillPutPrintOrdersMapAsMapItselfInServer
-      FireStoreUpdateBill(
+          //WithThisUpdateBill,itWillPutPrintOrdersMapAsMapItselfInServer
+          FireStoreUpdateBill(
               hotelName: widget.hotelName,
               orderHistoryDocID: orderHistoryDocID,
               //        printOrdersMap: widget.printOrdersMap
               printOrdersMap: updatePrintOrdersMap)
-          .updateBill();
+              .updateBill();
+//MakingThisToEnsureThereAreNoRipplesAndTheOrderHistoryIsn'tSentAgain
+          orderHistoryDocID = '';
+          updatePrintOrdersMap = {};
+          FireStoreUpdateStatisticsWithMap(
+              hotelName: widget.hotelName,
+              docID: statisticsDocID,
+              statisticsUpdateMap: statisticsMap)
+              .updateStatistics();
+          statisticsMap = {};
+          statisticsDocID = '';
+//MakingThisToEnsureThereAreNoRipplesAndTheStatisticsIsn'tSentAgain
+
+          FireStoreDeleteFinishedOrderInPresentOrders(
+              hotelName: widget.hotelName,
+              eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
+              .deleteFinishedOrder();
+
 //ToUpdateStatistics,WeGoThroughEachKeyAndUsingIncrementByFunction,We,,
 //CanIncrementTheNumberThatIsAlreadyThereInTheServer
 //ThisWillHelpToAddToTheStatisticsThat'sAlreadyThere
-      int counterToDeleteTableOrParcelOrderFromFireStore = 1;
-      print(statisticsMap.length);
-      statisticsMap.forEach((key, value) {
-        counterToDeleteTableOrParcelOrderFromFireStore++;
-        double? incrementBy = statisticsMap[key]?.toDouble();
-        FireStoreUpdateStatistics(
-                hotelName: widget.hotelName,
-                docID: statisticsDocID,
-                incrementBy: incrementBy,
-                key: key)
-            .updateStatistics();
-        if (counterToDeleteTableOrParcelOrderFromFireStore ==
-            statisticsMap.length) {
-          FireStoreDeleteFinishedOrderInPresentOrders(
-                  hotelName: widget.hotelName,
-                  eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
-              .deleteFinishedOrder();
+          int counterToDeleteTableOrParcelOrderFromFireStore = 1;
+          // statisticsMap.forEach((key, value) {
+          //   counterToDeleteTableOrParcelOrderFromFireStore++;
+          //   double? incrementBy = statisticsMap[key]?.toDouble();
+          //   FireStoreUpdateStatistics(
+          //       hotelName: widget.hotelName,
+          //       docID: statisticsDocID,
+          //       incrementBy: incrementBy,
+          //       key: key)
+          //       .updateStatistics();
+          //   if (counterToDeleteTableOrParcelOrderFromFireStore ==
+          //       statisticsMap.length) {
+          //     FireStoreDeleteFinishedOrderInPresentOrders(
+          //         hotelName: widget.hotelName,
+          //         eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
+          //         .deleteFinishedOrder();
+          //   }
+          // });
+          //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
+          // for (String eachItemId in widget.itemsID) {
+          //   FireStoreDeleteFinishedOrder(
+          //           hotelName: widget.hotelName, eachItemId: eachItemId)
+          //       .deleteFinishedOrder();
+          // }
         }
-      });
-      //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
-      // for (String eachItemId in widget.itemsID) {
-      //   FireStoreDeleteFinishedOrder(
-      //           hotelName: widget.hotelName, eachItemId: eachItemId)
-      //       .deleteFinishedOrder();
-      // }
-      billUpdatedInServer = true;
-      screenPopOutTimerAfterServerUpdate();
+        screenPopOutTimerAfterServerUpdate();
+      }
     });
   }
 
@@ -3678,9 +3740,9 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
     }
 
     FireStoreUpdateSerialNumber(
-            hotelName: widget.hotelName,
-            itemsUpdaterString: tempSerialNumberUpdaterString,
-            seatingNumber: widget.itemsFromThisDocumentInFirebaseDoc)
+        hotelName: widget.hotelName,
+        itemsUpdaterString: tempSerialNumberUpdaterString,
+        seatingNumber: widget.itemsFromThisDocumentInFirebaseDoc)
         .updateSerialNumber();
   }
 
@@ -3719,7 +3781,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                     '${index + 1}.$itemName x $itemPrice x $numberOfEachItems =',
                     style: TextStyle(fontSize: 18.0)),
                 trailing:
-                    Text('$eachItemPrice', style: TextStyle(fontSize: 18.0)),
+                Text('$eachItemPrice', style: TextStyle(fontSize: 18.0)),
               );
             }),
       );
@@ -3809,7 +3871,7 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
             child: const Text(
               'Discount',
               style:
-                  TextStyle(color: Colors.black, fontWeight: FontWeight.w900),
+              TextStyle(color: Colors.black, fontWeight: FontWeight.w900),
             ),
             onPressed: () {
 //shouldBeActiveOnlyWhenThereIsNoOtherImportantActivityLikePrintHappening
@@ -3836,6 +3898,9 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
                   onTap: () {
                     if (showSpinner == false) {
                       if (billUpdatedInServer == false && pageHasInternet) {
+                        setState(() {
+                          showSpinner = true;
+                        });
                         serverUpdateOfBill();
                       }
                     }
@@ -3847,103 +3912,107 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
               ),
               SizedBox(width: 10),
               Provider.of<PrinterAndOtherDetailsProvider>(context)
-                          .captainPrinterAddressFromClass ==
-                      ''
+                  .captainPrinterAddressFromClass ==
+                  ''
                   ? Expanded(
 //IfNoPrinterAddressWeWillSayWeNeedThePrinterSetUpScreen
-                      child: BottomButton(
-                        onTap: () async {
-                          disconnectAndConnectAttempted = false;
-                          // tappedPrintButton = true;
-                          print(
-                              'from bottom button 1 entry-tapped Print Button $tappedPrintButton');
+                child: BottomButton(
+                  onTap: () async {
+                    if (showSpinner == false) {
+                      disconnectAndConnectAttempted = false;
+                      // tappedPrintButton = true;
+                      print(
+                          'from bottom button 1 entry-tapped Print Button $tappedPrintButton');
 
-                          bluetoothStateChangeFunction();
+                      bluetoothStateChangeFunction();
 
-                          if (bluetoothOnTrueOrOffFalse) {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        SearchingConnectingPrinter(
-                                            chefOrCaptain: 'Captain')));
-                            // getAllPairedDevices();
-                            // setState(() {
-                            //   noNeedPrinterConnectionScreen = false;
-                            // });
-                            print('nknsjkdndjsndsjk');
-                          } else if (bluetoothOnTrueOrOffFalse == false &&
-                              tappedPrintButton == false &&
-                              _connected == false) {
+                      if (bluetoothOnTrueOrOffFalse) {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    SearchingConnectingPrinter(
+                                        chefOrCaptain: 'Captain')));
+                        // getAllPairedDevices();
+                        // setState(() {
+                        //   noNeedPrinterConnectionScreen = false;
+                        // });
+                        print('nknsjkdndjsndsjk');
+                      } else if (bluetoothOnTrueOrOffFalse == false &&
+                          tappedPrintButton == false &&
+                          _connected == false) {
 //HereOnlyBluetoothIsTheIssue HenceTappedPrintButtonCanBeFalseItself
-                            tappedPrintButton = false;
-                            print('14 $tappedPrintButton');
+                        tappedPrintButton = false;
+                        print('14 $tappedPrintButton');
 
-                            const snackBar = SnackBar(
-                              content: Text(
-                                'Please Turn On Bluetooth!',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 30),
-                              ),
-                            );
+                        const snackBar = SnackBar(
+                          content: Text(
+                            'Please Turn On Bluetooth!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 30),
+                          ),
+                        );
 
 // Find the ScaffoldMessenger in the widget tree
 // and use it to show a SnackBar.
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(snackBar);
-                          }
-                        },
-                        buttonTitle: 'Print',
-                        buttonColor: Colors.red,
-                        // buttonWidth: double.infinity,
-                      ),
-                    )
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(snackBar);
+                      }
+                    }
+                  },
+                  buttonTitle: 'Print',
+                  buttonColor: Colors.red,
+                  // buttonWidth: double.infinity,
+                ),
+              )
                   : Expanded(
-                      child: BottomButton(
-                        onTap: () async {
-                          disconnectAndConnectAttempted = false;
-                          if (tappedPrintButton == false) {
-                            bluetoothStateChangeFunction();
-                          }
+                child: BottomButton(
+                  onTap: () async {
+                    if (showSpinner == false) {
+                      disconnectAndConnectAttempted = false;
+                      if (tappedPrintButton == false) {
+                        bluetoothStateChangeFunction();
+                      }
 
-                          //ThisWayYouCan'tPrintAgainOnceBillHasBeenUpdatedInServer
+                      //ThisWayYouCan'tPrintAgainOnceBillHasBeenUpdatedInServer
 //                               bluetoothPrint.state.listen((state) {
-                          // print('state is $state');
-                          print('tapped button state is $tappedPrintButton');
-                          if (bluetoothOnTrueOrOffFalse &&
-                              tappedPrintButton == false &&
-                              pageHasInternet) {
-                            if (serialNumber != 0) {
-                              startOfCallForPrintingBill();
-                            } else {
-                              serialNumberStatisticsExistsOrNot();
-                            }
-                          } else if (bluetoothOnTrueOrOffFalse == false &&
-                              tappedPrintButton == false &&
-                              _connected == false) {
+                      // print('state is $state');
+                      print('tapped button state is $tappedPrintButton');
+                      if (bluetoothOnTrueOrOffFalse &&
+                          tappedPrintButton == false &&
+                          pageHasInternet) {
+                        if (serialNumber != 0) {
+                          startOfCallForPrintingBill();
+                        } else {
+                          serialNumberStatisticsExistsOrNot();
+                        }
+                      } else if (bluetoothOnTrueOrOffFalse == false &&
+                          tappedPrintButton == false &&
+                          _connected == false) {
 //HereOnlyBluetoothIsTheIssue HenceTappedPrintButtonCanBeFalseItself
-                            tappedPrintButton = false;
-                            print('14 $tappedPrintButton');
+                        tappedPrintButton = false;
+                        print('14 $tappedPrintButton');
 
-                            const snackBar = SnackBar(
-                              content: Text(
-                                'Please Turn On Bluetooth!',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 30),
-                              ),
-                            );
+                        const snackBar = SnackBar(
+                          content: Text(
+                            'Please Turn On Bluetooth!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 30),
+                          ),
+                        );
 
 // Find the ScaffoldMessenger in the widget tree
 // and use it to show a SnackBar.
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(snackBar);
-                          }
-                        },
-                        buttonTitle: 'Print',
-                        buttonColor: Colors.orangeAccent,
-                        // buttonWidth: double.infinity,
-                      ),
-                    ),
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(snackBar);
+                      }
+                    }
+                  },
+                  buttonTitle: 'Print',
+                  buttonColor: Colors.orangeAccent,
+                  // buttonWidth: double.infinity,
+                ),
+              ),
             ],
           ),
         ],
@@ -3960,16 +4029,16 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
         children: [
           pageHasInternet
               ? const SizedBox(
-                  height: 30.0,
-                )
+            height: 30.0,
+          )
               : Container(
-                  width: double.infinity,
-                  color: Colors.red,
-                  child: const Center(
-                    child: Text('You are Offline',
-                        style: TextStyle(color: Colors.white, fontSize: 30.0)),
-                  ),
-                ),
+            width: double.infinity,
+            color: Colors.red,
+            child: const Center(
+              child: Text('You are Offline',
+                  style: TextStyle(color: Colors.white, fontSize: 30.0)),
+            ),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -3994,65 +4063,65 @@ class _BillPrintWithSerialNumberState extends State<BillPrintWithSerialNumber> {
           ),
           discount != 0
               ? ListTile(
-                  title: discountValueClickedTruePercentageClickedFalse
-                      ? Text('Discount ₹', style: TextStyle(fontSize: 20.0))
-                      : Text('Discount $discountEnteredValue % ',
-                          style: TextStyle(fontSize: 20.0)),
-                  trailing: Text('$discount', style: TextStyle(fontSize: 20.0)),
-                )
+            title: discountValueClickedTruePercentageClickedFalse
+                ? Text('Discount ₹', style: TextStyle(fontSize: 20.0))
+                : Text('Discount $discountEnteredValue % ',
+                style: TextStyle(fontSize: 20.0)),
+            trailing: Text('$discount', style: TextStyle(fontSize: 20.0)),
+          )
               : SizedBox.shrink(),
           discount != 0
               ? Divider(
-                  thickness: 2,
-                  color: Colors.black,
-                )
+            thickness: 2,
+            color: Colors.black,
+          )
               : SizedBox.shrink(),
           widget.cgstPercentage > 0
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text('Sub-Total', style: TextStyle(fontSize: 25.0)),
-                    Text('${totalPriceOfAllItems - discount}',
-                        style: TextStyle(fontSize: 25.0))
-                  ],
-                )
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('Sub-Total', style: TextStyle(fontSize: 25.0)),
+              Text('${totalPriceOfAllItems - discount}',
+                  style: TextStyle(fontSize: 25.0))
+            ],
+          )
               : SizedBox.shrink(),
           widget.cgstPercentage > 0
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text('CGST@ ${widget.cgstPercentage}%',
-                        style: TextStyle(fontSize: 25.0)),
-                    Text('${cgstCalculatedForBillFunction()}',
-                        style: TextStyle(fontSize: 25.0))
-                  ],
-                )
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('CGST@ ${widget.cgstPercentage}%',
+                  style: TextStyle(fontSize: 25.0)),
+              Text('${cgstCalculatedForBillFunction()}',
+                  style: TextStyle(fontSize: 25.0))
+            ],
+          )
               : SizedBox.shrink(),
           widget.sgstPercentage > 0
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text('SGST@ ${widget.sgstPercentage}%',
-                        style: TextStyle(fontSize: 25.0)),
-                    Text('${sgstCalculatedForBillFunction()}',
-                        style: TextStyle(fontSize: 25.0))
-                  ],
-                )
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('SGST@ ${widget.sgstPercentage}%',
+                  style: TextStyle(fontSize: 25.0)),
+              Text('${sgstCalculatedForBillFunction()}',
+                  style: TextStyle(fontSize: 25.0))
+            ],
+          )
               : SizedBox.shrink(),
           roundOff() != '0'
               ? Divider(
-                  thickness: 2,
-                  color: Colors.black,
-                )
+            thickness: 2,
+            color: Colors.black,
+          )
               : SizedBox.shrink(),
           roundOff() != '0'
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text('Round Off', style: TextStyle(fontSize: 15.0)),
-                    Text('${roundOff()}', style: TextStyle(fontSize: 15.0))
-                  ],
-                )
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('Round Off', style: TextStyle(fontSize: 15.0)),
+              Text('${roundOff()}', style: TextStyle(fontSize: 15.0))
+            ],
+          )
               : SizedBox.shrink(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,

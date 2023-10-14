@@ -1,7 +1,12 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
+import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
+import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/firestore_services.dart';
@@ -28,6 +33,7 @@ class _EditCategoriesState extends State<EditCategories> {
   TextEditingController _editNamecontroller = TextEditingController();
   int maxNumberOfCategories = 0;
   List<String> deleteList = [];
+  bool showSpinner = false;
 
   @override
   void initState() {
@@ -40,6 +46,9 @@ class _EditCategoriesState extends State<EditCategories> {
   }
 
   void getCategories() async {
+    setState(() {
+      showSpinner = true;
+    });
     List<num> temporaryOrderingNum = [];
     final menuCategories =
         await _fireStore.collection(widget.hotelName).doc('menu').get();
@@ -90,6 +99,9 @@ class _EditCategoriesState extends State<EditCategories> {
           }
         }
       }
+    });
+    setState(() {
+      showSpinner = false;
     });
   }
 
@@ -448,8 +460,20 @@ class _EditCategoriesState extends State<EditCategories> {
     );
   }
 
+  List<String> dynamicTokensToStringToken() {
+    List<String> tokensList = [];
+    Map<String, dynamic> allUsersTokenMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .allUserTokensFromClass);
+    for (var tokens in allUsersTokenMap.values) {
+      tokensList.add(tokens.toString());
+    }
+    return tokensList;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final fcmProvider = Provider.of<NotificationProvider>(context);
     return WillPopScope(
       onWillPop: () async {
         if (updatedCategories.isNotEmpty) {
@@ -503,6 +527,24 @@ class _EditCategoriesState extends State<EditCategories> {
 
           maxNumberOfCategories = 0;
         }
+
+        if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .menuOrRestaurantInfoUpdatedFromClass) {
+          fcmProvider.sendNotification(
+              token: dynamicTokensToStringToken(),
+              title: widget.hotelName,
+              restaurantNameForNotification: json.decode(
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .allUserProfilesFromClass)[
+                  Provider.of<PrinterAndOtherDetailsProvider>(context,
+                          listen: false)
+                      .currentUserPhoneNumberFromClass]['restaurantName'],
+              body: '*menuUpdated*');
+        }
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .menuOrRestaurantInfoUpdated(false);
+        Navigator.pop(context);
 
         Navigator.pop(context);
         return false;
@@ -566,6 +608,25 @@ class _EditCategoriesState extends State<EditCategories> {
                 maxNumberOfCategories = 0;
               }
 
+              if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .menuOrRestaurantInfoUpdatedFromClass) {
+                fcmProvider.sendNotification(
+                    token: dynamicTokensToStringToken(),
+                    title: widget.hotelName,
+                    restaurantNameForNotification: json.decode(
+                            Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                    listen: false)
+                                .allUserProfilesFromClass)[
+                        Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                listen: false)
+                            .currentUserPhoneNumberFromClass]['restaurantName'],
+                    body: '*menuUpdated*');
+              }
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .menuOrRestaurantInfoUpdated(false);
+
               Navigator.pop(context);
             },
           ),
@@ -574,65 +635,72 @@ class _EditCategoriesState extends State<EditCategories> {
             style: kAppBarTextStyle,
           ),
         ),
-        body: Column(
-          children: [
-            SizedBox(height: 10),
-            Expanded(
-                child: ReorderableListView.builder(
-                    onReorder: (oldIndex, newIndex) {
-                      setState(() {
-                        final index =
-                            newIndex > oldIndex ? newIndex - 1 : newIndex;
-                        final reorderedCategory =
-                            updatedCategories.removeAt(oldIndex);
-                        updatedCategories.insert(index, reorderedCategory);
-                      });
-                    },
-                    itemCount: updatedCategories.length,
-                    itemBuilder: (context, index) {
-                      final itemCategory = updatedCategories[index];
+        body: ModalProgressHUD(
+          inAsyncCall: showSpinner,
+          child: Visibility(
+            visible: !showSpinner,
+            child: Column(
+              children: [
+                SizedBox(height: 10),
+                Expanded(
+                    child: ReorderableListView.builder(
+                        onReorder: (oldIndex, newIndex) {
+                          setState(() {
+                            final index =
+                                newIndex > oldIndex ? newIndex - 1 : newIndex;
+                            final reorderedCategory =
+                                updatedCategories.removeAt(oldIndex);
+                            updatedCategories.insert(index, reorderedCategory);
+                          });
+                        },
+                        itemCount: updatedCategories.length,
+                        itemBuilder: (context, index) {
+                          final itemCategory = updatedCategories[index];
 
-                      return Container(
-                        key: ValueKey(itemCategory['randomID']),
-                        //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                        margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                        child: ListTile(
-                            leading: Icon(Icons.menu),
-                            tileColor: Colors.white54,
+                          return Container(
+                            key: ValueKey(itemCategory['randomID']),
+                            //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                            margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                            child: ListTile(
+                                leading: Icon(Icons.menu),
+                                tileColor: Colors.white54,
 //FirstWeCheckWhetherMenuTitlesListContainsItem
 //ThisMeansIt'sAHeading,WeGiveItBiggerFontThen
 //NextWeCheckWhetherUnavailableItemsListHasTheItem,ifYes,WeGiveSlightlyGreyFont
 //IfItIsn'tInEither,TheFoodItemIsNormallyShownInTheList
-                            title: Text(itemCategory['category']),
+                                title: Text(itemCategory['category']),
 
 //RightSide-WeCheckWhetherItIsHeading,IfYesWeShowNothing,
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
-                            trailing: IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempCategoryNameForEdit =
-                                    updatedCategories[index]['category'];
-                                tempCategoryInitialKey =
-                                    updatedCategories[index]['initialKey'];
-                                tempCategoryRandomID =
-                                    updatedCategories[index]['randomID'];
-                                tempCategoryExisting = updatedCategories[index]
-                                    ['existingCategory'];
+                                trailing: IconButton(
+                                  icon: Icon(Icons.edit,
+                                      size: 20, color: Colors.green),
+                                  onPressed: () {
+                                    tempCategoryNameForEdit =
+                                        updatedCategories[index]['category'];
+                                    tempCategoryInitialKey =
+                                        updatedCategories[index]['initialKey'];
+                                    tempCategoryRandomID =
+                                        updatedCategories[index]['randomID'];
+                                    tempCategoryExisting =
+                                        updatedCategories[index]
+                                            ['existingCategory'];
 
-                                _editNamecontroller = TextEditingController(
-                                    text: tempCategoryNameForEdit);
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return categoryNameEditBottomBar(
-                                          context, index);
-                                    });
-                              },
-                            )),
-                      );
-                    })),
-          ],
+                                    _editNamecontroller = TextEditingController(
+                                        text: tempCategoryNameForEdit);
+                                    showModalBottomSheet(
+                                        context: context,
+                                        builder: (context) {
+                                          return categoryNameEditBottomBar(
+                                              context, index);
+                                        });
+                                  },
+                                )),
+                          );
+                        })),
+              ],
+            ),
+          ),
         ),
         floatingActionButton: Container(
           width: 75.0,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/permissions_screen.dart';
+import 'package:orders_dev/Screens/permissions_screen_2.dart';
 import 'package:orders_dev/Screens/printer_settings_screen.dart';
 import 'package:orders_dev/Screens/searching_Connecting_Printer_Screen.dart';
 import 'package:orders_dev/constants.dart';
@@ -92,7 +93,7 @@ class MainSettings extends StatelessWidget {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (BuildContext) => PermissionsApproval(
+                        builder: (BuildContext) => PermissionsWithAutoStart(
                               fromFirstScreenTrueElseFalse: false,
                             )));
               },

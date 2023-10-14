@@ -8,14 +8,13 @@ import 'package:flutter_background/flutter_background.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:orders_dev/Methods/table_Button.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:orders_dev/Screens/items_each_order_6.dart';
 import 'package:orders_dev/Screens/menu_page_add_items_3.dart';
 import 'package:orders_dev/Screens/tableOrParcelSplit_2.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/notification_service.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:wakelock/wakelock.dart';
-
-import 'items_each_order_5.dart';
 
 //TheCaptainScreenForTheWaiter,InputsBeingTitles,Items,Price&NumberOfTables
 class CaptainScreenTileChange extends StatefulWidget {
@@ -238,7 +237,6 @@ class _CaptainScreenTileChangeState extends State<CaptainScreenTileChange>
       num i = 0;
       for (var eachOrder in presentOrdersCheck.docs) {
         i++;
-        print('counter $i');
         if (eachOrder['captainStatus'] == 11) {
           someItemRejected = true;
         } else if (eachOrder['captainStatus'] == 10 &&
@@ -645,7 +643,7 @@ class _CaptainScreenTileChangeState extends State<CaptainScreenTileChange>
                         context,
                         MaterialPageRoute(
                             builder: (context) =>
-                                ItemsInEachOrderWithDeleteTillEnd(
+                                ItemsInEachOrderBottomButtonEdit(
                                   hotelName: widget.hotelName,
                                   menuItems: widget.entireMenuItems,
                                   menuTitles: widget.menuTitles,
@@ -792,7 +790,7 @@ class _CaptainScreenTileChangeState extends State<CaptainScreenTileChange>
                         context,
                         MaterialPageRoute(
                             builder: (context) =>
-                                ItemsInEachOrderWithDeleteTillEnd(
+                                ItemsInEachOrderBottomButtonEdit(
                                   hotelName: widget.hotelName,
                                   menuItems: widget.entireMenuItems,
                                   menuTitles: widget.menuTitles,
@@ -1169,7 +1167,7 @@ class _CaptainScreenTileChangeState extends State<CaptainScreenTileChange>
                         context,
                         MaterialPageRoute(
                             builder: (context) =>
-                                ItemsInEachOrderWithDeleteTillEnd(
+                                ItemsInEachOrderBottomButtonEdit(
                                   hotelName: widget.hotelName,
                                   menuItems: widget.entireMenuItems,
                                   menuTitles: widget.menuTitles,
@@ -1547,7 +1545,7 @@ class _CaptainScreenTileChangeState extends State<CaptainScreenTileChange>
                         context,
                         MaterialPageRoute(
                             builder: (context) =>
-                                ItemsInEachOrderWithDeleteTillEnd(
+                                ItemsInEachOrderBottomButtonEdit(
                                   hotelName: widget.hotelName,
                                   menuItems: widget.entireMenuItems,
                                   menuTitles: widget.menuTitles,

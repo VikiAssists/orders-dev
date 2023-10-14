@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
+import 'package:orders_dev/Screens/bill_print_screen_7.dart';
 import 'package:orders_dev/Screens/menu_page_add_items_3.dart';
 import 'package:orders_dev/Screens/tableOrParcelSplit_2.dart';
 import 'package:orders_dev/constants.dart';
@@ -15,12 +16,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
-import 'bill_print_screen_6.dart';
-
 //ThisIsTheScreenIfTheWaiterClicksOnAnyTable/Parcel
 //ItWillShowHimAllItemsThatHaveBeenOrderedTillNow
 //AndHeWillHaveOptionToAddMenuOrHeCanGoForBillPrintScreen
-class ItemsInEachOrderWithDeleteTillEnd extends StatefulWidget {
+class ItemsInEachOrderBottomButtonEdit extends StatefulWidget {
 //WhenWeClickOnATable/Parcel,WeWillDownloadAllTheBelowDataFromFireStore,
 //AndInputToThisClass
   final String hotelName;
@@ -48,7 +47,7 @@ class ItemsInEachOrderWithDeleteTillEnd extends StatefulWidget {
   final num numberOfTables;
   final String gstCodeForPrint;
 
-  const ItemsInEachOrderWithDeleteTillEnd(
+  const ItemsInEachOrderBottomButtonEdit(
       {Key? key,
       required this.hotelName,
       required this.menuItems,
@@ -77,12 +76,12 @@ class ItemsInEachOrderWithDeleteTillEnd extends StatefulWidget {
       : super(key: key);
 
   @override
-  State<ItemsInEachOrderWithDeleteTillEnd> createState() =>
-      _ItemsInEachOrderWithDeleteTillEndState();
+  State<ItemsInEachOrderBottomButtonEdit> createState() =>
+      _ItemsInEachOrderBottomButtonEditState();
 }
 
-class _ItemsInEachOrderWithDeleteTillEndState
-    extends State<ItemsInEachOrderWithDeleteTillEnd>
+class _ItemsInEachOrderBottomButtonEditState
+    extends State<ItemsInEachOrderBottomButtonEdit>
     with WidgetsBindingObserver {
 //KeepingInitialStateOfAllItemsDeliveredAsFalse
   bool allItemsDeliveredToCustomerTrueElseFalse = true;
@@ -105,6 +104,7 @@ class _ItemsInEachOrderWithDeleteTillEndState
   List<String> parcelsAlreadyOccupied = [];
   List<Map<String, dynamic>> presentTablesParcelsOccupied = [];
   late VideoPlayerController _videoController;
+  bool noItemsInTable = false;
 
   @override
   void initState() {
@@ -369,6 +369,7 @@ class _ItemsInEachOrderWithDeleteTillEndState
                 child: TextField(
                   maxLength: 100,
                   controller: TextEditingController(text: customername),
+                  textCapitalization: TextCapitalization.sentences,
                   onChanged: (value) {
                     customername = value;
                   },
@@ -1204,7 +1205,6 @@ class _ItemsInEachOrderWithDeleteTillEndState
 
     return WillPopScope(
       onWillPop: () async {
-        print('inside this back');
         Navigator.pop(context);
         return false;
       },
@@ -1433,6 +1433,7 @@ class _ItemsInEachOrderWithDeleteTillEndState
                           } else if (snapshot.hasData) {
                             if (snapshot.data!.data() == null) {
                               print('came inside null');
+                              noItemsInTable = true;
                               // Navigator.pop(context);
                               // if (parentOrChild == 'parent') {
                               //   Navigator.pop(context);
@@ -1478,6 +1479,8 @@ class _ItemsInEachOrderWithDeleteTillEndState
                                 ),
                               );
                             } else {
+                              noItemsInTable = false;
+
                               items = [];
                               localItemsStatus = [];
 //RemakingTheEntireListPassedIntoThisPageEachTimeStreamBuilderRebuildsIt
@@ -2188,12 +2191,14 @@ class _ItemsInEachOrderWithDeleteTillEndState
 //InPersistentFooterButton,WeGiveTheWaiterTheOptionToGoForTheBill
           BottomButton(
               buttonWidth: double.infinity,
-              buttonColor: allItemsDeliveredToCustomerTrueElseFalse
-                  ? kBottomContainerColour
-                  : Colors.grey,
+              buttonColor:
+                  (allItemsDeliveredToCustomerTrueElseFalse && !noItemsInTable)
+                      ? kBottomContainerColour
+                      : Colors.grey,
               onTap: () {
 //OnlyIfAllItemAreDelivered,WeGoForwardWithPrint
-                if (allItemsDeliveredToCustomerTrueElseFalse) {
+                if (allItemsDeliveredToCustomerTrueElseFalse &&
+                    !noItemsInTable) {
 //WeWantListWhereDuplicateItemsAreRemoved,WeUse toSetWithToListToGetDistinctItems
 //Initially,WeWillHaveTheOtherListsEmpty
                   List<String> distinctItems =
@@ -2359,7 +2364,7 @@ class _ItemsInEachOrderWithDeleteTillEndState
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => BillPrintWithSerialNumber(
+                          builder: (context) => BillPrintSerialNumberCorrection(
                                 hotelName: widget.hotelName,
                                 addedItemsSet: addedItemsSet,
                                 itemsID: widget.itemsID,
@@ -2385,6 +2390,8 @@ class _ItemsInEachOrderWithDeleteTillEndState
 //                         builder: (context) => FinalBillScreen(
 //                               eachOrderMap: printOrdersMap,
 //                             )));
+                } else if (noItemsInTable) {
+                  Navigator.pop(context);
                 }
               },
 //ButtonTitleWillBePrint

@@ -5,6 +5,7 @@ import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import 'package:orders_dev/services/background_services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:orders_dev/Methods/printerenum.dart' as printerenum;
@@ -185,49 +186,55 @@ class _SearchingConnectingPrinterState
           print('we are connected inside _connect- ${_connected}');
           intermediateFunctionToCallPrintThroughBluetooth();
         } else {
-          print('need a dosconnection here1');
+          print('need a disconnection here1');
           Timer? _timerInDisconnectAndConnect;
           int _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
+          show('Please check printer and try connecting again');
           bluetooth.disconnect();
-          setState(() => _connected = false);
+          setState(() {
+            _connected = false;
+            showSpinner = false;
+          });
+          printingOver = true;
           _everySecondForConnection = 0;
 
-          if (disconnectAndConnectAttempted) {
-            print('need a dosconnection here2');
-            setState(() {
-              showSpinner = false;
-              // print('4 $tappedPrintButton');
-              //
-              // tappedPrintButton = false;
-              // print('5 $tappedPrintButton');
-            });
-          } else {
-            print('need a disconnection here3');
-            _timerInDisconnectAndConnect =
-                Timer.periodic(const Duration(seconds: 1), (_) async {
-              if (_everySecondHelpingToDisconnectBeforeConnectingAgain < 4) {
-                _everySecondHelpingToDisconnectBeforeConnectingAgain++;
-                print(
-                    '_everySecondHelpingToDisconnectBeforeConnectingAgainInBillScreen $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-              } else {
-                print('need a dosconnection here4');
-                _timerInDisconnectAndConnect!.cancel;
-                print('need a dosconnection here4');
-                if (disconnectAndConnectAttempted == false) {
-                  disconnectAndConnectAttempted = true;
-                  show('Couldn\'t Connect. Please Try Again');
-                  // printerConnectionToLastSavedPrinter();
-                } else {
-                  _timerInDisconnectAndConnect!.cancel();
-                }
-                _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
-                show('Couldn\'t Connect. Please Try Again');
-                // printerConnectionToLastSavedPrinter();
-                print(
-                    'cancelling _everySecondHelpingToDisconnectBeforeConnectingAgain $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-              }
-            });
-          }
+          // if (disconnectAndConnectAttempted) {
+          //   print('need a dosconnection here2');
+          //   setState(() {
+          //     showSpinner = false;
+          //     // print('4 $tappedPrintButton');
+          //     //
+          //     // tappedPrintButton = false;
+          //     // print('5 $tappedPrintButton');
+          //   });
+          // }
+          // else {
+          //   print('need a disconnection here3');
+          //   _timerInDisconnectAndConnect =
+          //       Timer.periodic(const Duration(seconds: 1), (_) async {
+          //     if (_everySecondHelpingToDisconnectBeforeConnectingAgain < 4) {
+          //       _everySecondHelpingToDisconnectBeforeConnectingAgain++;
+          //       print(
+          //           '_everySecondHelpingToDisconnectBeforeConnectingAgainInBillScreen $_everySecondHelpingToDisconnectBeforeConnectingAgain');
+          //     } else {
+          //       print('need a dosconnection here4');
+          //       _timerInDisconnectAndConnect!.cancel;
+          //       print('need a dosconnection here4');
+          //       if (disconnectAndConnectAttempted == false) {
+          //         disconnectAndConnectAttempted = true;
+          //         show('Couldn\'t Connect. Please Try Again');
+          //         // printerConnectionToLastSavedPrinter();
+          //       } else {
+          //         _timerInDisconnectAndConnect!.cancel();
+          //       }
+          //       _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
+          //       show('Couldn\'t Connect. Please Try Again');
+          //       // printerConnectionToLastSavedPrinter();
+          //       print(
+          //           'cancelling _everySecondHelpingToDisconnectBeforeConnectingAgain $_everySecondHelpingToDisconnectBeforeConnectingAgain');
+          //     }
+          //   });
+          // }
         }
       });
     } else {
@@ -324,6 +331,8 @@ class _SearchingConnectingPrinterState
             // print('7 $tappedPrintButton');
           });
           print('unable to connect');
+          show('Couldn\'t Connect. Please check Printer');
+
           // bluetooth.disconnect();
           // show('Couldnt Connect. Please check Printer');
         }
@@ -480,6 +489,7 @@ class _SearchingConnectingPrinterState
 
   @override
   void initState() {
+    bluetooth.disconnect();
     // TODO: implement initState
     getAllPairedDevices();
     requestLocationPermission();
@@ -777,7 +787,12 @@ class _SearchingConnectingPrinterState
                                 ),
                                 child: Text('Connect'),
                                 onPressed: _connected
-                                    ? null
+                                    ? () {
+                                        bluetooth.disconnect();
+                                        bluetoothStateChangeFunction();
+                                        show(
+                                            'Please Try Again after 5 seconds');
+                                      }
                                     : () async {
                                         bluetoothStateChangeFunction();
                                         if (bluetoothOnTrueOrOffFalse) {

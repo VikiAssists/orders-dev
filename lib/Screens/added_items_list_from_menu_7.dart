@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
+import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Screens/menu_page_add_items_3.dart';
+import 'package:orders_dev/Screens/menu_page_add_items_4.dart';
 import 'package:orders_dev/Screens/printer_settings_screen.dart';
 import 'package:orders_dev/Screens/searching_Connecting_Printer_Screen.dart';
 import 'package:orders_dev/constants.dart';
@@ -15,7 +19,7 @@ import 'package:orders_dev/Methods/printerenum.dart' as printerenum;
 import 'package:provider/provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 
-class AddedItemsFromMenuPrintChange extends StatefulWidget {
+class AddedItemsWithRunningOrders extends StatefulWidget {
   //ThisIsTheScreenThatComesEveryTimeTheWaiterAddsItemsFromTheMenu,
   //AndClicksConfirmOrders
   //WeAreHavingMenuItems/prices/titles/UnavailableItemsAlsoAsInputBecause,
@@ -26,15 +30,17 @@ class AddedItemsFromMenuPrintChange extends StatefulWidget {
   final List<String> menuTitles;
   final String tableOrParcel;
   final num tableOrParcelNumber;
-  final String addedItemsSet;
+
   List<String> unavailableItems;
 //ThisItemsAddedMapIsHashMapWhichContainsDataOnWhatAllAreTheItemsAddedAnd,,
 //HowManyIsAdded
   Map<String, num> itemsAddedMap = HashMap();
   Map<String, String> itemsAddedComment = HashMap();
   final String parentOrChild;
+  final Map<String, dynamic> alreadyRunningTicketsMap;
+  List<Map<String, dynamic>> printingSeparateItemsListAsPerChef = [];
 
-  AddedItemsFromMenuPrintChange(
+  AddedItemsWithRunningOrders(
       {required this.hotelName,
       required this.menuItems,
       required this.menuPrices,
@@ -43,17 +49,17 @@ class AddedItemsFromMenuPrintChange extends StatefulWidget {
       required this.tableOrParcelNumber,
       required this.itemsAddedMap,
       required this.itemsAddedComment,
-      required this.addedItemsSet,
       required this.unavailableItems,
-      required this.parentOrChild});
+      required this.parentOrChild,
+      required this.alreadyRunningTicketsMap});
 
   @override
-  _AddedItemsFromMenuPrintChangeState createState() =>
-      _AddedItemsFromMenuPrintChangeState();
+  _AddedItemsWithRunningOrdersState createState() =>
+      _AddedItemsWithRunningOrdersState();
 }
 
-class _AddedItemsFromMenuPrintChangeState
-    extends State<AddedItemsFromMenuPrintChange> {
+class _AddedItemsWithRunningOrdersState
+    extends State<AddedItemsWithRunningOrders> {
   //InThisList,InInitStateWeWillAddTheNameOfAllTheItemsThatHasBeenAdded
   List<String> nameOfItemsAdded = [];
 //ThisIsTheStringToUpdateInPlaystore
@@ -86,6 +92,10 @@ class _AddedItemsFromMenuPrintChangeState
   String localSeatingNumber = '';
   String localPartOfTableOrParcel = '';
   String localPartOfTableOrParcelNumber = '';
+  Map<String, dynamic> allUserProfile = HashMap();
+  List<dynamic> allItemsFromMenuMap = [];
+  List<Map<String, dynamic>> separateKOTForEachUserPrintMap = [];
+  String ticketNumberUpdater = '1';
 
   //ThisIsTheButtonWeUseToAddItems.ItsInputIsItemNameOnly
   Widget addOrCounterButton(String item) {
@@ -158,6 +168,7 @@ class _AddedItemsFromMenuPrintChangeState
 
   @override
   void initState() {
+    bluetooth.disconnect();
     bluetoothConnected = false;
     bluetoothAlreadyConnected = false;
     disconnectAndConnectAttempted = false;
@@ -188,6 +199,31 @@ class _AddedItemsFromMenuPrintChangeState
         ),
         duration: duration,
       ),
+    );
+  }
+
+  void errorAlertDialogBox(String errorMessage) async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Center(
+            child: Text(
+          'Error!',
+          style: TextStyle(color: Colors.red),
+        )),
+        content: Text(errorMessage),
+        actions: [
+          ElevatedButton(
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text('Ok')),
+        ],
+      ),
+      barrierDismissible: false,
     );
   }
 
@@ -582,8 +618,14 @@ class _AddedItemsFromMenuPrintChangeState
           intermediateFunctionToCallPrintForKOT();
         } else {
           int _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
+          show('Please check printer and try connecting again');
           bluetooth.disconnect();
-          setState(() => _connected = false);
+          setState(() {
+            _connected = false;
+            showSpinner = false;
+          });
+          printingOver = true;
+          tappedPrintButton = false;
           _everySecondForConnection = 0;
 
           if (disconnectAndConnectAttempted) {
@@ -591,30 +633,31 @@ class _AddedItemsFromMenuPrintChangeState
             setState(() {
               showSpinner = false;
             });
-          } else {
-            Timer? _timerInDisconnectAndConnect;
-            _timerInDisconnectAndConnect =
-                Timer.periodic(const Duration(seconds: 1), (_) async {
-              if (_everySecondHelpingToDisconnectBeforeConnectingAgain < 4) {
-                _everySecondHelpingToDisconnectBeforeConnectingAgain++;
-                print(
-                    '_everySecondHelpingToDisconnectBeforeConnectingAgainInChefScreen $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-              } else {
-                _timerInDisconnectAndConnect!.cancel;
-                print('need a dosconnection here4');
-                if (disconnectAndConnectAttempted == false) {
-                  disconnectAndConnectAttempted = true;
-                  printerConnectionToLastSavedPrinterForKOT();
-                } else {
-                  _timerInDisconnectAndConnect!.cancel();
-                }
-                _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
-                printerConnectionToLastSavedPrinterForKOT();
-                print(
-                    'cancelling _everySecondHelpingToDisconnectBeforeConnectingAgain $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-              }
-            });
           }
+          // else {
+          //   Timer? _timerInDisconnectAndConnect;
+          //   _timerInDisconnectAndConnect =
+          //       Timer.periodic(const Duration(seconds: 1), (_) async {
+          //     if (_everySecondHelpingToDisconnectBeforeConnectingAgain < 4) {
+          //       _everySecondHelpingToDisconnectBeforeConnectingAgain++;
+          //       print(
+          //           '_everySecondHelpingToDisconnectBeforeConnectingAgainInChefScreen $_everySecondHelpingToDisconnectBeforeConnectingAgain');
+          //     } else {
+          //       _timerInDisconnectAndConnect!.cancel;
+          //       print('need a dosconnection here4');
+          //       if (disconnectAndConnectAttempted == false) {
+          //         disconnectAndConnectAttempted = true;
+          //         printerConnectionToLastSavedPrinterForKOT();
+          //       } else {
+          //         _timerInDisconnectAndConnect!.cancel();
+          //       }
+          //       _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
+          //       printerConnectionToLastSavedPrinterForKOT();
+          //       print(
+          //           'cancelling _everySecondHelpingToDisconnectBeforeConnectingAgain $_everySecondHelpingToDisconnectBeforeConnectingAgain');
+          //     }
+          //   });
+          // }
         }
       });
     } else {
@@ -638,15 +681,15 @@ class _AddedItemsFromMenuPrintChangeState
       if (_everySecondForConnection <= 2) {
         print('timer inside connect is $_everySecondForConnection');
         _everySecondForConnection++;
-        if (localKOTItemNames.isEmpty) {
-          localKOTItemNames.add('Printer Check');
-          localKOTNumberOfItems.add(1);
-          localKOTItemComments.add(' ');
-        }
+        // if (localKOTItemNames.isEmpty) {
+        //   localKOTItemNames.add('Printer Check');
+        //   localKOTNumberOfItems.add(1);
+        //   localKOTItemComments.add(' ');
+        // }
       } else {
         if (_connected) {
           print('Inside intermediate- it is connected');
-          printKOTThroughBluetooth();
+          printKOTThroughBluetoothForSeparateUser();
         } else {
           tappedPrintButton = false;
           setState(() {
@@ -675,6 +718,10 @@ class _AddedItemsFromMenuPrintChangeState
                   .captainPrinterSizeFromClass ==
               '80') {
             bluetooth.printNewLine();
+            bluetooth.printNewLine();
+            bluetooth.printNewLine();
+            bluetooth.printNewLine();
+
             bluetooth.printCustom(
               "KOT : ${localSlotNumber}",
               printerenum.Size.boldMedium.val,
@@ -685,9 +732,13 @@ class _AddedItemsFromMenuPrintChangeState
               printerenum.Size.bold.val,
               printerenum.Align.center.val,
             );
-            bluetooth.printNewLine();
+            bluetooth.printCustom(
+                "-----------------------------------------------",
+                printerenum.Size.bold.val,
+                printerenum.Align.center.val);
+
             for (int i = 0; i < localKOTItemNames.length; i++) {
-              if ((' '.allMatches(localKOTItemNames[i]).length >= 3)) {
+              if (' '.allMatches(localKOTItemNames[i]).length >= 2) {
                 String firstName = '';
                 String secondName = '';
                 final longItemNameSplit = localKOTItemNames[i].split(' ');
@@ -713,7 +764,6 @@ class _AddedItemsFromMenuPrintChangeState
                 bluetooth.printLeftRight(
                     "$secondName", "", printerenum.Size.bold.val,
                     format: "%-30s %10s %n");
-                bluetooth.printNewLine();
               } else {
                 bluetooth.printLeftRight(
                     "${localKOTItemNames[i]}",
@@ -727,6 +777,12 @@ class _AddedItemsFromMenuPrintChangeState
                     printerenum.Size.bold.val,
                     printerenum.Align.left.val);
               }
+              bluetooth.printCustom(
+                  "-----------------------------------------------",
+                  printerenum.Size.bold.val,
+                  printerenum.Align.center.val);
+              // bluetooth.printNewLine();
+
               if (i == (localKOTItemNames.length - 1)) {
                 _disconnectForKOTPrint();
               }
@@ -735,6 +791,9 @@ class _AddedItemsFromMenuPrintChangeState
                       listen: false)
                   .captainPrinterSizeFromClass ==
               '58') {
+            bluetooth.printNewLine();
+            bluetooth.printNewLine();
+            bluetooth.printNewLine();
             bluetooth.printNewLine();
             bluetooth.printCustom(
               "KOT : ${localSlotNumber}",
@@ -746,9 +805,12 @@ class _AddedItemsFromMenuPrintChangeState
               printerenum.Size.bold.val,
               printerenum.Align.center.val,
             );
-            bluetooth.printNewLine();
+
+            bluetooth.printCustom("-------------------------------",
+                printerenum.Size.medium.val, printerenum.Align.center.val);
             for (int i = 0; i < localKOTItemNames.length; i++) {
-              if ((' '.allMatches(localKOTItemNames[i]).length >= 3)) {
+              if ((' '.allMatches(localKOTItemNames[i]).length >= 2) ||
+                  localKOTItemNames[i].length > 14) {
                 String firstName = '';
                 String secondName = '';
                 final longItemNameSplit = localKOTItemNames[i].split(' ');
@@ -756,33 +818,22 @@ class _AddedItemsFromMenuPrintChangeState
                   if (i == 0) {
                     firstName = longItemNameSplit[i];
                   }
-                  if (i == 1) {
-                    firstName += ' ${longItemNameSplit[i]}';
-                  }
-                  if (i == 2) {
-                    secondName += '${longItemNameSplit[i]} ';
-                  }
-                  if (i > 2) {
+
+                  if (i >= 1) {
                     secondName += '${longItemNameSplit[i]} ';
                   }
                 }
-                bluetooth.printCustom(
-                  "$firstName x ${localKOTNumberOfItems[i].toString()}",
-                  printerenum.Size.bold.val,
-                  printerenum.Align.left.val,
-                );
-                bluetooth.printCustom(
-                  "$secondName",
-                  printerenum.Size.bold.val,
-                  printerenum.Align.left.val,
-                );
-                bluetooth.printNewLine();
+                bluetooth.printLeftRight(
+                    "$firstName",
+                    "${localKOTNumberOfItems[i].toString()}",
+                    printerenum.Size.bold.val);
+                bluetooth.printCustom("$secondName", printerenum.Size.bold.val,
+                    printerenum.Align.left.val);
               } else {
-                bluetooth.printCustom(
-                  "${localKOTItemNames[i]} x ${localKOTNumberOfItems[i].toString()}",
-                  printerenum.Size.bold.val,
-                  printerenum.Align.left.val,
-                );
+                bluetooth.printLeftRight(
+                    "${localKOTItemNames[i]}",
+                    "${localKOTNumberOfItems[i].toString()}",
+                    printerenum.Size.bold.val);
               }
 
               if (localKOTItemComments[i] != 'nocomments') {
@@ -791,6 +842,8 @@ class _AddedItemsFromMenuPrintChangeState
                     printerenum.Size.bold.val,
                     printerenum.Align.left.val);
               }
+              bluetooth.printCustom("-------------------------------",
+                  printerenum.Size.medium.val, printerenum.Align.center.val);
               //ToAccessDisconnectWhenWeArePrintingParcel
               if (i == (localKOTItemNames.length - 1)) {
                 _disconnectForKOTPrint();
@@ -798,8 +851,180 @@ class _AddedItemsFromMenuPrintChangeState
             }
           }
 
-          bluetooth.printNewLine();
-          bluetooth.printNewLine();
+          // bluetooth.printNewLine();
+          // bluetooth.printNewLine();
+
+          bluetooth
+              .paperCut(); //some printer not supported (sometime making image not centered)
+          //bluetooth.drawerPin2(); // or you can use bluetooth.drawerPin5();
+        } else {
+          tappedPrintButton = false;
+          setState(() {
+            showSpinner = false;
+          });
+          // show('Couldnt Connect. Please check Printer');
+        }
+      });
+    }
+    // else {
+    //   show('Couldnt Connect. Please check Printer');
+    // }
+    print('end of inside printThroughBluetooth');
+  }
+
+  void printKOTThroughBluetoothForSeparateUser() {
+    print('start of inside printThroughBluetooth');
+    if (_connected) {
+      bluetooth.isConnected.then((isConnected) {
+        print('came inside bluetooth isConnected');
+        if (isConnected == true) {
+          if (localKOTItemNames.isNotEmpty) {}
+          print('inside printThroughBluetooth-is connected is true here');
+          // bluetooth.printNewLine();
+          num numberOfUsersLength = 0;
+          for (var eachUserPrinting in separateKOTForEachUserPrintMap) {
+            bluetooth.paperCut();
+            numberOfUsersLength++;
+            print('kotNames');
+            print(eachUserPrinting['printKOTItemNames']);
+            localKOTItemNames = eachUserPrinting['printItemNames'];
+            localKOTNumberOfItems = eachUserPrinting['printItemNumbers'];
+            localKOTItemComments = eachUserPrinting['printItemComments'];
+            if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .captainPrinterSizeFromClass ==
+                '80') {
+              bluetooth.printNewLine();
+              bluetooth.printNewLine();
+              bluetooth.printNewLine();
+              bluetooth.printNewLine();
+              bluetooth.printCustom(
+                "KOT : ${eachUserPrinting['slot']}",
+                printerenum.Size.boldMedium.val,
+                printerenum.Align.center.val,
+              );
+              bluetooth.printCustom(
+                "Ticket Number : ${eachUserPrinting['ticketNumber']}",
+                printerenum.Size.bold.val,
+                printerenum.Align.center.val,
+              );
+              bluetooth.printCustom(
+                  "-----------------------------------------------",
+                  printerenum.Size.bold.val,
+                  printerenum.Align.center.val);
+
+              for (int i = 0; i < localKOTItemNames.length; i++) {
+                if (' '.allMatches(localKOTItemNames[i]).length >= 2) {
+                  String firstName = '';
+                  String secondName = '';
+                  final longItemNameSplit = localKOTItemNames[i].split(' ');
+                  for (int i = 0; i < longItemNameSplit.length; i++) {
+                    if (i == 0) {
+                      firstName = longItemNameSplit[i];
+                    }
+                    if (i == 1) {
+                      firstName += ' ${longItemNameSplit[i]}';
+                    }
+                    if (i == 2) {
+                      secondName += '${longItemNameSplit[i]} ';
+                    }
+                    if (i > 2) {
+                      secondName += '${longItemNameSplit[i]} ';
+                    }
+                  }
+                  bluetooth.printLeftRight(
+                      "$firstName",
+                      "${localKOTNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val,
+                      format: "%-30s %10s %n");
+                  bluetooth.printLeftRight(
+                      "$secondName", "", printerenum.Size.bold.val,
+                      format: "%-30s %10s %n");
+                } else {
+                  bluetooth.printLeftRight(
+                      "${localKOTItemNames[i]}",
+                      "${localKOTNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val,
+                      format: "%-30s %10s %n");
+                }
+                if (localKOTItemComments[i] != 'nocomments') {
+                  bluetooth.printCustom(
+                      "     (Comment : ${localKOTItemComments[i]})",
+                      printerenum.Size.bold.val,
+                      printerenum.Align.left.val);
+                }
+                bluetooth.printCustom(
+                    "-----------------------------------------------",
+                    printerenum.Size.bold.val,
+                    printerenum.Align.center.val);
+                // bluetooth.printNewLine();
+              }
+            } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .captainPrinterSizeFromClass ==
+                '58') {
+              bluetooth.printNewLine();
+              bluetooth.printNewLine();
+              bluetooth.printNewLine();
+              bluetooth.printNewLine();
+              bluetooth.printCustom(
+                "KOT : ${eachUserPrinting['slot']}",
+                printerenum.Size.boldMedium.val,
+                printerenum.Align.center.val,
+              );
+              bluetooth.printCustom(
+                "Ticket Number : ${eachUserPrinting['ticketNumber']}",
+                printerenum.Size.bold.val,
+                printerenum.Align.center.val,
+              );
+
+              bluetooth.printCustom("-------------------------------",
+                  printerenum.Size.medium.val, printerenum.Align.center.val);
+              for (int i = 0; i < localKOTItemNames.length; i++) {
+                if ((' '.allMatches(localKOTItemNames[i]).length >= 2) ||
+                    localKOTItemNames[i].length > 14) {
+                  String firstName = '';
+                  String secondName = '';
+                  final longItemNameSplit = localKOTItemNames[i].split(' ');
+                  for (int i = 0; i < longItemNameSplit.length; i++) {
+                    if (i == 0) {
+                      firstName = longItemNameSplit[i];
+                    }
+
+                    if (i >= 1) {
+                      secondName += '${longItemNameSplit[i]} ';
+                    }
+                  }
+                  bluetooth.printLeftRight(
+                      "$firstName",
+                      "${localKOTNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val);
+                  bluetooth.printCustom("$secondName",
+                      printerenum.Size.bold.val, printerenum.Align.left.val);
+                } else {
+                  bluetooth.printLeftRight(
+                      "${localKOTItemNames[i]}",
+                      "${localKOTNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val);
+                }
+
+                if (localKOTItemComments[i] != 'nocomments') {
+                  bluetooth.printCustom(
+                      "     (Comment : ${localKOTItemComments[i]})",
+                      printerenum.Size.bold.val,
+                      printerenum.Align.left.val);
+                }
+                bluetooth.printCustom("-------------------------------",
+                    printerenum.Size.medium.val, printerenum.Align.center.val);
+              }
+            }
+            if (numberOfUsersLength == separateKOTForEachUserPrintMap.length) {
+              _disconnectForKOTPrint();
+            }
+          }
+
+          // bluetooth.printNewLine();
+          // bluetooth.printNewLine();
 
           bluetooth
               .paperCut(); //some printer not supported (sometime making image not centered)
@@ -820,15 +1045,8 @@ class _AddedItemsFromMenuPrintChangeState
   }
 
   void _disconnectForKOTPrint() {
-    FireStoreAddOrderServiceWithSplit(
-            hotelName: widget.hotelName,
-            itemsUpdaterString: localItemsUpdaterString,
-            seatingNumber: localSeatingNumber,
-            captainStatus: localCaptainStatus,
-            chefStatus: localChefStatus,
-            partOfTableOrParcel: localPartOfTableOrParcel,
-            partOfTableOrParcelNumber: localPartOfTableOrParcelNumber)
-        .addOrder();
+    print('came into disconnect');
+    addRunningOrderToServer();
     Timer? _timer;
     int _everySecondForDisconnecting = 0;
     _everySecondForConnection = 0;
@@ -859,8 +1077,172 @@ class _AddedItemsFromMenuPrintChangeState
     });
   }
 
+  void addRunningOrderToServer() {
+    final fcmProvider =
+        Provider.of<NotificationProvider>(context, listen: false);
+    DateTime now = DateTime.now();
+
+    Map<String, dynamic> masterOrderMapToServer = HashMap();
+    Map<String, dynamic> baseInfoMap = HashMap();
+    Map<String, dynamic> itemsInOrderMap = HashMap();
+    Map<String, dynamic> tempItemAddingMap = HashMap();
+    Map<String, dynamic> ticketsMap = HashMap();
+    Map<String, dynamic> statusMap = HashMap();
+
+    if (widget.alreadyRunningTicketsMap.isEmpty) {
+      baseInfoMap.addAll({
+//WeMake7DigitRandomIDForEachTable
+        'orderID': ((1000000 + Random().nextInt(9999999 - 1000000)).toString())
+      });
+      baseInfoMap.addAll({'tableOrParcel': widget.tableOrParcel});
+      baseInfoMap.addAll(
+          {'tableOrParcelNumber': widget.tableOrParcelNumber.toString()});
+      baseInfoMap
+          .addAll({'startTime': ((now.hour * 60) + now.minute).toString()});
+      baseInfoMap.addAll({'customerName': ''});
+      baseInfoMap.addAll({'customerMobileNumber': ''});
+      baseInfoMap.addAll({'customerAddress': ''});
+      baseInfoMap.addAll({'parentOrChild': widget.parentOrChild});
+      baseInfoMap.addAll({'serialNumber': 'noSerialYet'});
+      baseInfoMap.addAll({'discountEnteredValue': ''});
+      baseInfoMap.addAll({'discountValueTruePercentageFalse': true});
+      baseInfoMap.addAll({'billYear': ''});
+      baseInfoMap.addAll({'billMonth': ''});
+      baseInfoMap.addAll({'billDay': ''});
+      baseInfoMap.addAll({'billHour': ''});
+      baseInfoMap.addAll({'billMinute': ''});
+      baseInfoMap.addAll({'billSecond': ''});
+      baseInfoMap.addAll({'billPrinted': false});
+      masterOrderMapToServer.addAll({'baseInfoMap': baseInfoMap});
+      ticketsMap.addAll({
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .currentUserPhoneNumberFromClass: FieldValue.increment(1)
+      });
+      masterOrderMapToServer.addAll({'ticketsMap': ticketsMap});
+      statusMap.addAll({'chefStatus': 9});
+      statusMap.addAll({'captainStatus': 9});
+      masterOrderMapToServer.addAll({'statusMap': statusMap});
+
+      widget.itemsAddedMap.forEach((key, value) {
+        tempItemAddingMap = {};
+        String itemComment = 'noComment';
+        num itemPrice = 0;
+//InCase,TheWaiterReducedItToZero,ThenWeShouldn'tAddItRight
+        if (widget.itemsAddedMap[key] != 0) {
+          final filteredItem = allItemsFromMenuMap
+              .firstWhere((element) => element['itemName'] == key);
+          itemPrice = filteredItem['price'];
+          tempItemAddingMap.addAll({'itemName': key});
+          if (widget.itemsAddedComment[key] != '') {
+            itemComment = widget.itemsAddedComment[key]!;
+          }
+          tempItemAddingMap.addAll({'itemComment': itemComment});
+          tempItemAddingMap.addAll({'itemPrice': itemPrice});
+          tempItemAddingMap.addAll({'numberOfItem': widget.itemsAddedMap[key]});
+          tempItemAddingMap.addAll(
+              {'orderTakingTime': ((now.hour * 60) + now.minute).toString()});
+          tempItemAddingMap.addAll({'itemStatus': 9});
+          tempItemAddingMap.addAll({'chefKOT': 'chefkotnotyet'});
+          tempItemAddingMap.addAll({'ticketNumberOfItem': '1'});
+          tempItemAddingMap.addAll({'itemCancelled': 'false'});
+          //AddingItemWithRandomID
+          itemsInOrderMap.addAll({
+            (10000 + Random().nextInt(99999 - 10000)).toString():
+                tempItemAddingMap
+          });
+        }
+      });
+      masterOrderMapToServer.addAll({'itemsInOrderMap': itemsInOrderMap});
+      masterOrderMapToServer
+          .addAll({'partOfTableOrParcel': widget.tableOrParcel});
+      masterOrderMapToServer.addAll(
+          {'partOfTableOrParcelNumber': widget.tableOrParcelNumber.toString()});
+    } else {
+      if (widget.alreadyRunningTicketsMap.isNotEmpty) {
+        num tempTicketUpdater = 1;
+        widget.alreadyRunningTicketsMap.forEach((key, value) {
+          tempTicketUpdater += value;
+        });
+        ticketNumberUpdater = tempTicketUpdater.toString();
+      }
+      ticketsMap.addAll({
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .currentUserPhoneNumberFromClass: FieldValue.increment(1)
+      });
+      masterOrderMapToServer.addAll({'ticketsMap': ticketsMap});
+      statusMap.addAll({'chefStatus': 9});
+      masterOrderMapToServer.addAll({'statusMap': statusMap});
+      widget.itemsAddedMap.forEach((key, value) {
+        tempItemAddingMap = {};
+        String itemComment = 'noComment';
+        num itemPrice = 0;
+        if (widget.itemsAddedMap[key] != 0) {
+          final filteredItem = allItemsFromMenuMap
+              .firstWhere((element) => element['itemName'] == key);
+          itemPrice = filteredItem['price'];
+          tempItemAddingMap.addAll({'itemName': key});
+          if (widget.itemsAddedComment[key] != '') {
+            itemComment = widget.itemsAddedComment[key]!;
+          }
+          tempItemAddingMap.addAll({'itemComment': itemComment});
+          tempItemAddingMap.addAll({'itemPrice': itemPrice});
+          tempItemAddingMap.addAll({'numberOfItem': widget.itemsAddedMap[key]});
+          tempItemAddingMap.addAll(
+              {'orderTakingTime': ((now.hour * 60) + now.minute).toString()});
+          tempItemAddingMap.addAll({'itemStatus': 9});
+          tempItemAddingMap.addAll({'chefKOT': 'chefkotnotyet'});
+          tempItemAddingMap.addAll({'ticketNumberOfItem': ticketNumberUpdater});
+          tempItemAddingMap.addAll({'itemCancelled': 'false'});
+          //AddingItemWithRandomID
+          itemsInOrderMap.addAll({
+            (10000 + Random().nextInt(99999 - 10000)).toString():
+                tempItemAddingMap
+          });
+        }
+      });
+      masterOrderMapToServer.addAll({'itemsInOrderMap': itemsInOrderMap});
+    }
+    String seatingNumberForOrder = widget.parentOrChild == 'parent'
+        ? '${widget.tableOrParcel}:${widget.tableOrParcelNumber}'
+        : '${widget.tableOrParcel}:${widget.tableOrParcelNumber}${widget.parentOrChild}';
+    FireStoreAddOrderInRunningOrderFolder(
+            hotelName: widget.hotelName,
+            seatingNumber: seatingNumberForOrder,
+            ordersMap: masterOrderMapToServer)
+        .addOrder();
+    fcmProvider.sendNotification(
+        token: dynamicTokensToStringToken(),
+        title: widget.hotelName,
+        restaurantNameForNotification: json.decode(
+                Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .allUserProfilesFromClass)[
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .currentUserPhoneNumberFromClass]['restaurantName'],
+        body: '*newOrderForCook*');
+  }
+
+  List<String> dynamicTokensToStringToken() {
+    Map<String, dynamic> allUserTokensMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .allUserTokensFromClass);
+
+    List<String> tokensList = [];
+    for (var tokens in allUserTokensMap.values) {
+      tokensList.add(tokens.toString());
+    }
+    return tokensList;
+  }
+
   @override
   Widget build(BuildContext context) {
+    allUserProfile = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .allUserProfilesFromClass);
+    allItemsFromMenuMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .entireMenuFromClass);
+
     Widget commentsSection(BuildContext context, String item) {
       String commentForTheItem = widget.itemsAddedComment[item]!;
       return Padding(
@@ -954,7 +1336,7 @@ class _AddedItemsFromMenuPrintChangeState
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => MenuPageWithSplit(
+                builder: (context) => MenuPageWithRunningOrdersChange(
                   hotelName: widget.hotelName,
                   tableOrParcel: widget.tableOrParcel,
                   tableOrParcelNumber: widget.tableOrParcelNumber,
@@ -963,9 +1345,8 @@ class _AddedItemsFromMenuPrintChangeState
                   menuTitles: widget.menuTitles,
                   itemsAddedMapCalled: widget.itemsAddedMap,
                   itemsAddedCommentCalled: widget.itemsAddedComment,
-                  unavailableItems: widget.unavailableItems,
-                  addedItemsSet: widget.addedItemsSet,
                   parentOrChild: widget.parentOrChild,
+                  alreadyRunningTicketsMap: widget.alreadyRunningTicketsMap,
                 ),
               ),
             );
@@ -1031,7 +1412,7 @@ class _AddedItemsFromMenuPrintChangeState
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => MenuPageWithSplit(
+                      builder: (context) => MenuPageWithRunningOrdersChange(
                         hotelName: widget.hotelName,
                         tableOrParcel: widget.tableOrParcel,
                         tableOrParcelNumber: widget.tableOrParcelNumber,
@@ -1040,9 +1421,9 @@ class _AddedItemsFromMenuPrintChangeState
                         menuTitles: widget.menuTitles,
                         itemsAddedMapCalled: widget.itemsAddedMap,
                         itemsAddedCommentCalled: widget.itemsAddedComment,
-                        unavailableItems: widget.unavailableItems,
-                        addedItemsSet: widget.addedItemsSet,
                         parentOrChild: widget.parentOrChild,
+                        alreadyRunningTicketsMap:
+                            widget.alreadyRunningTicketsMap,
                       ),
                     ),
                   );
@@ -1183,11 +1564,6 @@ class _AddedItemsFromMenuPrintChangeState
                                     builder: (context) =>
                                         SearchingConnectingPrinter(
                                             chefOrCaptain: 'Captain')));
-                            // getAllPairedDevices();
-                            // setState(() {
-                            //   noNeedPrinterConnectionScreen = false;
-                            // });
-                            print('nknsjkdndjsndsjk');
                           } else if (bluetoothOnTrueOrOffFalse == false &&
                               tappedPrintButton == false &&
                               _connected == false) {
@@ -1215,7 +1591,7 @@ class _AddedItemsFromMenuPrintChangeState
                       child: BottomButton(
                         buttonColor: Colors.orangeAccent,
                         buttonWidth: double.infinity,
-                        buttonTitle: 'Update & Print',
+                        buttonTitle: 'Print KOT',
                         onTap: () {
                           disconnectAndConnectAttempted = false;
                           // tappedPrintButton = true;
@@ -1230,226 +1606,99 @@ class _AddedItemsFromMenuPrintChangeState
                               tappedPrintButton = true;
                               DateTime now = DateTime.now();
                               bool allItemsAddedToItemsUpdaterString = false;
-                              String ticketNumberUpdater = '1';
+
 //InitialPortionsOfTheItemUpdaterStringForTheTable/Parcel/Number
 //WeNeedThisOnlyIfNoOrdersHadBeenTakenTillNow
 //Else,theLastOrderWillHaveThe Table/parcel Number
 //HenceTheIfElseLoop
+                              if (widget.alreadyRunningTicketsMap.isNotEmpty) {
+                                num tempTicketUpdater = 1;
+                                widget.alreadyRunningTicketsMap
+                                    .forEach((key, value) {
+                                  tempTicketUpdater += value;
+                                });
+                                ticketNumberUpdater =
+                                    tempTicketUpdater.toString();
+                              }
+
                               itemsUpdaterString = '';
                               localKOTItemNames = [];
                               localKOTNumberOfItems = [];
                               localKOTItemComments = [];
-
-                              if (widget.addedItemsSet == '') {
-                                for (int i = 0; i < 15; i++) {
-                                  if (i == 0) {
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        widget.tableOrParcel +
-                                        '*');
-                                  }
-                                  if (i == 1) {
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        widget.tableOrParcelNumber.toString() +
-                                        '*');
-                                  }
-                                  if (i == 2) {
-//toUpdateWhenTheySatOnTheTableAndGaveTheFirstOrder
-
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        ((now.hour * 60) + now.minute)
-                                            .toString() +
-                                        '*');
-                                  }
-
-                                  if (i == 3) {
-//toUpdateTicketNumberForThatTable
-
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        ticketNumberUpdater +
-                                        '*');
-                                  }
-                                  if (i == 4) {
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        'customername' +
-                                        '*');
-                                  }
-                                  if (i == 5) {
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        'customermobileNumber' +
-                                        '*');
-                                  }
-                                  if (i == 6) {
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        'customeraddressline1' +
-                                        '*');
-                                  }
-                                  if (i == 7) {
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        '${widget.parentOrChild}' +
-                                        '*');
-                                  }
-
-                                  if (i == 8) {
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        'noSerialYet' +
-                                        '*');
-                                  }
-
-                                  if (i > 8) {
-                                    itemsUpdaterString = (itemsUpdaterString +
-                                        'futureUse' +
-                                        '*');
-                                  }
-                                }
-                              } else {
-                                String beforeItemsUpdaterString =
-                                    widget.addedItemsSet;
-                                final itemsUpdaterSplit =
-                                    beforeItemsUpdaterString.split('*');
-                                num numberOfTicketsTillNow =
-                                    num.parse(itemsUpdaterSplit[3]);
-                                ticketNumberUpdater =
-                                    (numberOfTicketsTillNow + 1).toString();
-                                itemsUpdaterSplit[3] = ticketNumberUpdater;
-                                itemsUpdaterString = '';
-                                for (int i = 0;
-                                    i < itemsUpdaterSplit.length - 1;
-                                    i++) {
-                                  itemsUpdaterString +=
-                                      '${itemsUpdaterSplit[i]}*';
-                                }
-                              }
                               localSlotNumber = widget.parentOrChild == 'parent'
                                   ? '${widget.tableOrParcel}:${widget.tableOrParcelNumber}'
                                   : '${widget.tableOrParcel}:${widget.tableOrParcelNumber}${widget.parentOrChild}';
-                              localTicketNumber = ticketNumberUpdater;
+
                               localPartOfTableOrParcel = widget.tableOrParcel;
                               localPartOfTableOrParcelNumber =
                                   widget.tableOrParcelNumber.toString();
-
-                              //IfTheItemHasSomeNumberOfItemsOrdered
-                              //Meaning,TheWaiterHadn'tReducedTheItemToZero
-                              //ThenWeGoToThisLoop
-                              int checkerForItemsAddedMapCompletion = 0;
-                              widget.itemsAddedMap.forEach((key, value) {
-                                ++checkerForItemsAddedMapCompletion;
-                                //WeGoThroughItemsAddedMapOneByOne
-                                //AndUploadToFireStore,HotelNameItemName,Number,TableNumber,,
-                                //PriceOfTheItemAndGiveAddOrder
-                                //AddOrderIsSeparateClassWeHadCreated,,
-                                //WhereMostOfTheFireStoreWorksAreDone
-                                //itWillSendTheOrderToFireStoreDatabase
-                                if (widget.itemsAddedMap[key] != 0) {
-                                  String itemComment = 'nocomments';
-                                  if (widget.itemsAddedComment[key] != '') {
-                                    itemComment =
-                                        widget.itemsAddedComment[key]!;
-                                  }
-                                  localKOTItemNames.add(key);
-                                  localKOTNumberOfItems
-                                      .add(widget.itemsAddedMap[key]!);
-                                  localKOTItemComments.add(itemComment);
-                                  itemsUpdaterString = itemsUpdaterString +
-                                      ((10000 + Random().nextInt(99999 - 10000))
-                                          .toString()) +
-                                      '*' +
-                                      key +
-                                      '*' +
-                                      localMenuPrice[
-                                              localMenuItems.indexOf(key)]
-                                          .toString() +
-                                      '*' +
-                                      widget.itemsAddedMap[key].toString() +
-                                      '*' +
-                                      ((now.hour * 60) + now.minute)
-                                          .toString() +
-                                      '*' +
-                                      '9' +
-                                      '*' +
-                                      itemComment +
-                                      '*' +
-                                      'chefkotnotyet' +
-                                      '*' +
-                                      ticketNumberUpdater +
-                                      '*' +
-                                      'futureUse' +
-                                      '*' +
-                                      'futureUse' +
-                                      '*' +
-                                      'futureUse' +
-                                      '*' +
-                                      'futureUse' +
-                                      '*' +
-                                      'futureUse' +
-                                      '*' +
-                                      'futureUse' +
-                                      '*';
+                              separateKOTForEachUserPrintMap = [];
+                              allUserProfile.forEach((keyOfUser, valueUser) {
+//SinceThereIsAnotherKeyValueInside,AddingUserAlongWithIt
+                                List<String> userWontCook = [];
+                                if (valueUser['wontCook'] != null) {
+                                  List<dynamic> tempUserWontCook =
+                                      valueUser['wontCook'];
+                                  userWontCook = tempUserWontCook
+                                      .map((e) => e.toString())
+                                      .toList();
                                 }
-                                if (checkerForItemsAddedMapCompletion ==
-                                    widget.itemsAddedMap.length) {
-                                  print('came Inside thissss');
-                                  final statusUpdatedStringCheck =
-                                      itemsUpdaterString.split('*');
-
-//keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
-                                  num chefStatus = 7;
-                                  num captainStatus = 7;
-
-                                  for (int j = 1;
-                                      j <
-                                          ((statusUpdatedStringCheck.length -
-                                                  1) /
-                                              15);
-                                      j++) {
-//ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
-                                    if (((statusUpdatedStringCheck[
-                                            (j * 15) + 5]) ==
-                                        '11')) {
-                                      captainStatus = 11;
-                                    } else if (((statusUpdatedStringCheck[
-                                                (j * 15) + 5]) ==
-                                            '10') &&
-                                        captainStatus != 11) {
-                                      captainStatus = 10;
+                                Map<String, dynamic> eachUserPrinterMap =
+                                    HashMap();
+                                List<String> printKOTItemNames = [];
+                                List<num> printKOTNumberOfItems = [];
+                                List<String> printKOTItemComments = [];
+                                if (valueUser['privileges']['8'] == true) {
+                                  widget.itemsAddedMap.forEach((key, value) {
+                                    //toCheckWhetherTheUserNeedsAnIndividualPrint
+                                    eachUserPrinterMap['slot'] =
+                                        localSlotNumber;
+                                    eachUserPrinterMap['ticketNumber'] =
+                                        ticketNumberUpdater;
+                                    String itemComment = 'nocomments';
+                                    if (widget.itemsAddedMap[key] != 0 &&
+                                        !userWontCook.contains(key)) {
+                                      if (widget.itemsAddedComment[key] != '') {
+                                        itemComment =
+                                            widget.itemsAddedComment[key]!;
+                                      }
+                                      printKOTItemNames.add(key);
+                                      printKOTNumberOfItems
+                                          .add(widget.itemsAddedMap[key]!);
+                                      printKOTItemComments.add(itemComment);
                                     }
-                                    if (((statusUpdatedStringCheck[
-                                            (j * 15) + 5]) ==
-                                        '9')) {
-                                      chefStatus = 9;
-                                    }
-                                  }
-                                  localItemsUpdaterString = itemsUpdaterString;
-                                  localSeatingNumber = widget.parentOrChild ==
-                                          'parent'
-                                      ? '${widget.tableOrParcel}:${widget.tableOrParcelNumber}'
-                                      : '${widget.tableOrParcel}:${widget.tableOrParcelNumber}${widget.parentOrChild}';
-                                  localCaptainStatus = captainStatus;
-                                  localChefStatus = chefStatus;
-                                  localPartOfTableOrParcel =
-                                      widget.tableOrParcel;
-                                  localPartOfTableOrParcelNumber =
-                                      widget.tableOrParcelNumber.toString();
-                                  if (_connected == false) {
-                                    printerConnectionToLastSavedPrinterForKOT();
-                                  } else {
-                                    setState(() {
-                                      showSpinner = true;
+                                  });
+//ThisWillEnsureIfTheCookDoesntHaveAnythingToCookBecauseOfChefSpecialities...
+// ...ThenHisListWontBeAdded
+                                  if (printKOTItemNames.isNotEmpty) {
+                                    eachUserPrinterMap.addAll(
+                                        {'printItemNames': printKOTItemNames});
+                                    eachUserPrinterMap.addAll({
+                                      'printItemNumbers': printKOTNumberOfItems
                                     });
-                                    print(
-                                        'came inside printer already connected');
-                                    printKOTThroughBluetooth();
+                                    eachUserPrinterMap.addAll({
+                                      'printItemComments': printKOTItemComments
+                                    });
+                                    separateKOTForEachUserPrintMap
+                                        .addAll({eachUserPrinterMap});
                                   }
-
-                                  // FireStoreAddOrderServiceAsString(
-                                  //     hotelName: widget.hotelName,
-                                  //     itemsUpdaterString: itemsUpdaterString,
-                                  //     captainStatus: captainStatus,
-                                  //     chefStatus: chefStatus,
-                                  //     seatingNumber:
-                                  //     '${widget.tableOrParcel}:${widget.tableOrParcelNumber}')
-                                  //     .addOrder();
                                 }
                               });
+                              if (separateKOTForEachUserPrintMap.isNotEmpty) {
+                                if (_connected == false) {
+                                  printerConnectionToLastSavedPrinterForKOT();
+                                } else {
+                                  setState(() {
+                                    showSpinner = true;
+                                  });
+                                  print(
+                                      'came inside printer already connected');
+                                  printKOTThroughBluetoothForSeparateUser();
+                                }
+                              } else {
+                                errorAlertDialogBox(
+                                    'Please assign Chef Specialities to at least one user');
+                              }
                             }
                           } else if (bluetoothOnTrueOrOffFalse == false &&
                               tappedPrintButton == false &&
@@ -1479,181 +1728,9 @@ class _AddedItemsFromMenuPrintChangeState
                 child: BottomButton(
                   buttonColor: Colors.green,
                   buttonWidth: double.infinity,
-                  buttonTitle: 'Update Order',
+                  buttonTitle: 'Send to Kitchen',
                   onTap: () {
-                    DateTime now = DateTime.now();
-                    bool allItemsAddedToItemsUpdaterString = false;
-                    String ticketNumberUpdater = '1';
-//InitialPortionsOfTheItemUpdaterStringForTheTable/Parcel/Number
-//WeNeedThisOnlyIfNoOrdersHadBeenTakenTillNow
-//Else,theLastOrderWillHaveThe Table/parcel Number
-//HenceTheIfElseLoop
-                    itemsUpdaterString = '';
-
-                    if (widget.addedItemsSet == '') {
-                      for (int i = 0; i < 15; i++) {
-                        if (i == 0) {
-                          itemsUpdaterString =
-                              (itemsUpdaterString + widget.tableOrParcel + '*');
-                        }
-                        if (i == 1) {
-                          itemsUpdaterString = (itemsUpdaterString +
-                              widget.tableOrParcelNumber.toString() +
-                              '*');
-                        }
-                        if (i == 2) {
-//toUpdateWhenTheySatOnTheTableAndGaveTheFirstOrder
-
-                          itemsUpdaterString = (itemsUpdaterString +
-                              ((now.hour * 60) + now.minute).toString() +
-                              '*');
-                        }
-
-                        if (i == 3) {
-//toUpdateTicketNumberForThatTable
-
-                          itemsUpdaterString =
-                              (itemsUpdaterString + ticketNumberUpdater + '*');
-                        }
-                        if (i == 4) {
-                          itemsUpdaterString =
-                              (itemsUpdaterString + 'customername' + '*');
-                        }
-                        if (i == 5) {
-                          itemsUpdaterString = (itemsUpdaterString +
-                              'customermobileNumber' +
-                              '*');
-                        }
-                        if (i == 6) {
-                          itemsUpdaterString = (itemsUpdaterString +
-                              'customeraddressline1' +
-                              '*');
-                        }
-
-                        if (i == 7) {
-                          itemsUpdaterString = (itemsUpdaterString +
-                              '${widget.parentOrChild}' +
-                              '*');
-                        }
-
-                        if (i == 8) {
-                          itemsUpdaterString =
-                              (itemsUpdaterString + 'noSerialYet' + '*');
-                        }
-
-                        if (i > 8) {
-                          itemsUpdaterString =
-                              (itemsUpdaterString + 'futureUse' + '*');
-                        }
-                      }
-                    } else {
-                      String beforeItemsUpdaterString = widget.addedItemsSet;
-                      final itemsUpdaterSplit =
-                          beforeItemsUpdaterString.split('*');
-                      num numberOfTicketsTillNow =
-                          num.parse(itemsUpdaterSplit[3]);
-                      ticketNumberUpdater =
-                          (numberOfTicketsTillNow + 1).toString();
-                      itemsUpdaterSplit[3] = ticketNumberUpdater;
-                      itemsUpdaterString = '';
-                      for (int i = 0; i < itemsUpdaterSplit.length - 1; i++) {
-                        itemsUpdaterString += '${itemsUpdaterSplit[i]}*';
-                      }
-                    }
-
-                    //IfTheItemHasSomeNumberOfItemsOrdered
-                    //Meaning,TheWaiterHadn'tReducedTheItemToZero
-                    //ThenWeGoToThisLoop
-                    int checkerForItemsAddedMapCompletion = 0;
-                    widget.itemsAddedMap.forEach((key, value) {
-                      ++checkerForItemsAddedMapCompletion;
-                      //WeGoThroughItemsAddedMapOneByOne
-                      //AndUploadToFireStore,HotelNameItemName,Number,TableNumber,,
-                      //PriceOfTheItemAndGiveAddOrder
-                      //AddOrderIsSeparateClassWeHadCreated,,
-                      //WhereMostOfTheFireStoreWorksAreDone
-                      //itWillSendTheOrderToFireStoreDatabase
-                      if (widget.itemsAddedMap[key] != 0) {
-                        String itemComment = 'nocomments';
-                        if (widget.itemsAddedComment[key] != '') {
-                          itemComment = widget.itemsAddedComment[key]!;
-                        }
-                        itemsUpdaterString = itemsUpdaterString +
-                            ((10000 + Random().nextInt(99999 - 10000))
-                                .toString()) +
-                            '*' +
-                            key +
-                            '*' +
-                            localMenuPrice[localMenuItems.indexOf(key)]
-                                .toString() +
-                            '*' +
-                            widget.itemsAddedMap[key].toString() +
-                            '*' +
-                            ((now.hour * 60) + now.minute).toString() +
-                            '*' +
-                            '9' +
-                            '*' +
-                            itemComment +
-                            '*' +
-                            'chefkotnotyet' +
-                            '*' +
-                            ticketNumberUpdater +
-                            '*' +
-                            'futureUse' +
-                            '*' +
-                            'futureUse' +
-                            '*' +
-                            'futureUse' +
-                            '*' +
-                            'futureUse' +
-                            '*' +
-                            'futureUse' +
-                            '*' +
-                            'futureUse' +
-                            '*';
-                      }
-                      if (checkerForItemsAddedMapCompletion ==
-                          widget.itemsAddedMap.length) {
-                        print('came Inside this');
-                        final statusUpdatedStringCheck =
-                            itemsUpdaterString.split('*');
-
-//keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
-                        num chefStatus = 7;
-                        num captainStatus = 7;
-
-                        for (int j = 1;
-                            j < ((statusUpdatedStringCheck.length - 1) / 15);
-                            j++) {
-//ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
-                          if (((statusUpdatedStringCheck[(j * 15) + 5]) ==
-                              '11')) {
-                            captainStatus = 11;
-                          } else if (((statusUpdatedStringCheck[
-                                      (j * 15) + 5]) ==
-                                  '10') &&
-                              captainStatus != 11) {
-                            captainStatus = 10;
-                          }
-                          if (((statusUpdatedStringCheck[(j * 15) + 5]) ==
-                              '9')) {
-                            chefStatus = 9;
-                          }
-                        }
-                        FireStoreAddOrderServiceWithSplit(
-                                hotelName: widget.hotelName,
-                                itemsUpdaterString: itemsUpdaterString,
-                                captainStatus: captainStatus,
-                                chefStatus: chefStatus,
-                                seatingNumber: widget.parentOrChild == 'parent'
-                                    ? '${widget.tableOrParcel}:${widget.tableOrParcelNumber}'
-                                    : '${widget.tableOrParcel}:${widget.tableOrParcelNumber}${widget.parentOrChild}',
-                                partOfTableOrParcel: widget.tableOrParcel,
-                                partOfTableOrParcelNumber:
-                                    widget.tableOrParcelNumber.toString())
-                            .addOrder();
-                      }
-                    });
+                    addRunningOrderToServer();
                     Navigator.pop(context);
                   },
                 ),

@@ -1,16 +1,21 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
+import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/added_items_list_from_menu_6.dart';
+import 'package:orders_dev/Screens/added_items_list_from_menu_7.dart';
 import 'package:orders_dev/constants.dart';
+import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 //WeMakeLocalVersionOfPrices/Titles/UnavailableItemsBecause
 //WeNeedAllThisDataInSearchScreenToo
 //ByKeepingTheseVariablesOutside,WeCanGetDataToTheSearchScreen
+List<dynamic> allItemsFromMenuMap = [];
 List<String> localMenuItems = [];
 List<num> localMenuPrice = [];
 List<String> localMenuTitles = [];
@@ -22,60 +27,50 @@ Map<String, String> itemsAddedComment = HashMap();
 //TheInputsWillBeMenuPrices,Titles,Items,UnavailableItems(FromInventory)
 //WeHaveAnItemsAddedMap-HashMapToPutWhateverTheWaiterIsSelecting
 
-class MenuPageWithSplit extends StatefulWidget {
+class MenuPageWithRunningOrdersChange extends StatefulWidget {
   final String hotelName;
   final String tableOrParcel;
   final num tableOrParcelNumber;
   final List<String> menuItems;
   final List<num> menuPrices;
   final List<String> menuTitles;
-  final List<String> unavailableItems;
   Map<String, num> itemsAddedMapCalled = HashMap();
   Map<String, String> itemsAddedCommentCalled = HashMap();
-  final String addedItemsSet;
   final String parentOrChild;
+  final Map<String, dynamic> alreadyRunningTicketsMap;
 
-  MenuPageWithSplit(
+  MenuPageWithRunningOrdersChange(
       {required this.hotelName,
       required this.tableOrParcel,
       required this.tableOrParcelNumber,
       required this.menuItems,
       required this.menuPrices,
       required this.menuTitles,
-      required this.unavailableItems,
       required this.itemsAddedMapCalled,
       required this.itemsAddedCommentCalled,
-      required this.addedItemsSet,
-      required this.parentOrChild});
+      required this.parentOrChild,
+      required this.alreadyRunningTicketsMap});
 
   @override
-  _MenuPageWithSplitState createState() => _MenuPageWithSplitState();
+  _MenuPageWithRunningOrdersChangeState createState() =>
+      _MenuPageWithRunningOrdersChangeState();
 }
 
-class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
+class _MenuPageWithRunningOrdersChangeState
+    extends State<MenuPageWithRunningOrdersChange> {
   final ItemScrollController _itemScrollController = ItemScrollController();
 
   @override
   void initState() {
 //WeNeedLocalVersionOfAllDataForTheSearchScreen
 //WeSaveAllTheDataHere
-    localMenuTitles = [];
-    localMenuPrice = [];
-    localMenuItems = [];
+
+    // TODO: implement initState
     localUnavailableItems = [];
     itemsAddedMap = {};
 
-    // TODO: implement initState
-    for (var item in widget.menuItems) {
-      localMenuItems.add(item);
-    }
+    makeMenu();
 
-    for (var price in widget.menuPrices) {
-      localMenuPrice.add(price);
-    }
-    for (var title in widget.menuTitles) {
-      localMenuTitles.add(title);
-    }
 //InCaseDuringInputWeNoticeThatThereAreItemsTheWaiterHadAlreadySelected,,
 //MaybeInSearchScreen,OrWaiterHasComeBackFromItemsAddedScreen,Then,HeWillHave
 //SomeItemsAdded,WePutThemIntoItemsAddedMapWithKeyAndValue
@@ -88,14 +83,8 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
       });
     }
 //FillingTheLocalVersionOfUnavailableItems
-    if (widget.unavailableItems.isNotEmpty) {
-      for (var unavailableItem in widget.unavailableItems) {
-        localUnavailableItems.add(unavailableItem);
-      }
-    } else {
 //IfUnavailableItemsListIsEmpty,WeJustCheckOnceWithTheBelowMethod
-      unavailableItemsMethod();
-    }
+    unavailableItemsMethod();
 
     FirebaseMessaging.instance.getInitialMessage();
 //foreground
@@ -111,6 +100,47 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
     });
 
     super.initState();
+  }
+
+  void makeMenu() {
+    allItemsFromMenuMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .entireMenuFromClass);
+    print(allItemsFromMenuMap);
+    localMenuTitles = ['Browse Menu'];
+    localMenuPrice = [];
+    localMenuItems = [];
+
+    for (var eachItem in allItemsFromMenuMap) {
+      if (eachItem['category'] == 'title') {
+//MeaningItsCategory
+        localMenuTitles.add(eachItem['itemName']);
+        localMenuPrice.add(eachItem['price']);
+        localMenuItems.add(eachItem['itemName']);
+      } else {
+//MeaningItsNotCategory
+        localMenuPrice.add(eachItem['price']);
+        localMenuItems.add(eachItem['itemName']);
+      }
+    }
+
+    //
+    // for (var item in widget.menuItems) {
+    //   localMenuItems.add(item);
+    // }
+    //
+    // for (var price in widget.menuPrices) {
+    //   localMenuPrice.add(price);
+    // }
+    // for (var title in widget.menuTitles) {
+    //   localMenuTitles.add(title);
+    // }
+
+    setState(() {
+      localMenuItems;
+      localMenuPrice;
+      localMenuTitles;
+    });
   }
 
   void unavailableItemsMethod() async {
@@ -235,7 +265,12 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
           if (_everyMilliSecondBeforeGoingBack >= 4) {
             print('back timer at cancel is $_everyMilliSecondBeforeGoingBack');
             _timerAtBackButton!.cancel();
-            Navigator.pop(context);
+            if (widget.alreadyRunningTicketsMap.isNotEmpty) {
+              Navigator.pop(context);
+            } else {
+              int count = 0;
+              Navigator.of(context).popUntil((_) => count++ >= 2);
+            }
           }
         });
         return false;
@@ -261,7 +296,12 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
                     print(
                         'back timer at cancel is $_everyMilliSecondBeforeGoingBack');
                     _timerAtBackButton!.cancel();
-                    Navigator.pop(context);
+                    if (widget.alreadyRunningTicketsMap.isNotEmpty) {
+                      Navigator.pop(context);
+                    } else {
+                      int count = 0;
+                      Navigator.of(context).popUntil((_) => count++ >= 2);
+                    }
                   }
                 });
               },
@@ -308,7 +348,9 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
 
                     return Container(
 //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                      margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                      margin: index != localMenuItems.length - 1
+                          ? EdgeInsets.fromLTRB(5, 5, 0, 10)
+                          : EdgeInsets.fromLTRB(5, 5, 0, 100),
 //                      decoration: BoxDecoration(
 //                        borderRadius: BorderRadius.circular(5),
 //                        border: Border.all(
@@ -378,12 +420,16 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
 //ValueWillBeEachTitle
                 return DropdownMenuItem(
                   child: Container(
-                      alignment: Alignment.centerLeft,
-                      child: Center(
-                        child: Text(title,
-                            style: const TextStyle(
-                                fontSize: 15, color: Colors.white)),
-                      )),
+                      alignment: Alignment.center,
+                      child: Text(title,
+                          textAlign: TextAlign.center,
+                          style: title != 'Browse Menu'
+                              ? const TextStyle(
+                                  fontSize: 15, color: Colors.white)
+                              : const TextStyle(
+                                  fontSize: 15,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold))),
                   value: title,
                 );
               }).toList(),
@@ -400,7 +446,7 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => AddedItemsFromMenuPrintAlignment(
+                      builder: (context) => AddedItemsWithRunningOrders(
                         hotelName: widget.hotelName,
                         tableOrParcel: widget.tableOrParcel,
                         tableOrParcelNumber: widget.tableOrParcelNumber,
@@ -410,8 +456,9 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
                         itemsAddedMap: itemsAddedMap,
                         itemsAddedComment: itemsAddedComment,
                         unavailableItems: localUnavailableItems,
-                        addedItemsSet: widget.addedItemsSet,
                         parentOrChild: widget.parentOrChild,
+                        alreadyRunningTicketsMap:
+                            widget.alreadyRunningTicketsMap,
                       ),
                     ),
                   );
@@ -429,6 +476,7 @@ class _MenuPageWithSplitState extends State<MenuPageWithSplit> {
 }
 
 //ThisIsForTheSearchButton
+
 class CustomSearchDelegate extends SearchDelegate {
   // Demo list to show querying
 //TheseAreTheSearchTerms,

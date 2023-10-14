@@ -1,13 +1,21 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_background/flutter_background.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
+import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
+import 'package:orders_dev/Screens/chefOrCaptain_3.dart';
+import 'package:orders_dev/Screens/chefOrCaptain_5.dart';
+import 'package:orders_dev/Screens/choose_restaurant_screen_1.dart';
 import 'package:orders_dev/Screens/permissions_screen.dart';
+import 'package:orders_dev/Screens/permissions_screen_2.dart';
+import 'package:orders_dev/services/background_services.dart';
+import 'package:orders_dev/services/firestore_services.dart';
 import 'package:orders_dev/services/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'Screens/chefOrCaptain_3.dart';
 import 'constants.dart';
 import 'dart:async';
 import 'firebase_options.dart';
@@ -15,18 +23,80 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
+import 'package:pinput/pinput.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await Firebase.initializeApp();
+  FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true, badge: true, sound: true);
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print('message in foreground in main screen');
+    print(message.data);
+  });
+
   NotificationService().initNotification();
 
   runApp(Phoenix(
     child: MultiProvider(providers: [
-      ChangeNotifierProvider(create: (_) => PrinterAndOtherDetailsProvider())
+      ChangeNotifierProvider(create: (_) => PrinterAndOtherDetailsProvider()),
+      ChangeNotifierProvider(create: (_) => NotificationProvider()),
     ], child: MyApp()),
   ));
+}
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // If you're going to use other Firebase services in the background, such as Firestore,
+  // make sure you call `initializeApp` before using other Firebase services.
+  print('Handling a background message ${message.messageId}');
+
+  if (message.data['body'].toString().split('*')[1] == 'newUserToken') {
+    BackgroundCheck().saveTokenNumberUpdateInBackground(
+        hotelNameOfMessage: message.data['title'].toString(),
+        tokenUpdatedTrueNotedFalse: true);
+  }
+
+  if (message.data['body'].toString().split('*')[1] == 'userDeleted') {
+    BackgroundCheck().saveUserDeletedInBackground(
+        hotelNameOfMessage: message.data['title'].toString(),
+        userDeletedTrueNotedFalse: true);
+  }
+
+  if (message.data['body'].toString().split('*')[1] == 'menuUpdated') {
+    BackgroundCheck().saveMenuUpdateInBackground(
+        hotelNameOfMessage: message.data['title'].toString(),
+        menuUpdatedTrueNotedFalse: true);
+  }
+
+  if (message.data['body'].toString().split('*')[1] ==
+      'restaurantInfoUpdated') {
+    BackgroundCheck().saveRestaurantInfoUpdateInBackground(
+        hotelNameOfMessage: message.data['title'].toString(),
+        restaurantInfoUpdatedTrueNotedFalse: true);
+  }
+
+  if (message.data['body'].toString().split('*')[1] == 'userProfileEdited') {
+    BackgroundCheck().saveProfileUpdateInBackground(
+        hotelNameOfMessage: message.data['title'].toString(),
+        profileUpdatedTrueNotedFalse: true);
+  }
+
+  if (message.data['body'].toString().split('*')[1] ==
+      'itemReadyRejectedCaptainAlert') {
+    BackgroundCheck().captainAlertsCheckInBackground(
+        hotelNameOfMessage: message.data['title'].toString());
+  }
+  if (message.data['body'].toString().split('*')[1] == 'newOrderForCook') {
+    BackgroundCheck().chefAlertsCheckInBackground(
+        hotelNameOfMessage: message.data['title'].toString());
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -45,26 +115,228 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   @override
   void initState() {
     // TODO: implement initState
+    WidgetsBinding.instance.addObserver(this);
     getCurrentUser();
     backgroundPermissionsCheck();
     requestLocationPermissionForBluetooth();
     notificationPermissionChecker();
     _obscureText = true;
     showSpinner = false;
-    // final androidConfig = FlutterBackgroundAndroidConfig(
-    //   notificationTitle: "Orders",
-    //   notificationText: "We are looking for updates",
-    //   notificationImportance: AndroidNotificationImportance.Default,
-    //   // notificationIcon: AndroidResource(name: 'background_icon', defType: 'drawable'), // Default is ic_launcher from folder mipmap
-    // );
-    // FlutterBackground.initialize();
-    // // FlutterBackground.disableBackgroundExecution();
 
+    //foreground
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('message in foreground login screen');
+      print(message.data);
+
+      if (message.data['title'].toString() ==
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chosenRestaurantDatabaseFromClass &&
+          message.data['body'].toString().split('*')[1] ==
+              'userProfileEdited') {
+        someUserProfileChanged();
+      }
+
+      if (message.data['title'].toString() ==
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chosenRestaurantDatabaseFromClass &&
+          message.data['body'].toString().split('*')[1] == 'newUserToken') {
+        someUserTokenUpdated();
+      }
+      if (message.data['title'].toString() ==
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chosenRestaurantDatabaseFromClass &&
+          message.data['body'].toString().split('*')[1] == 'userDeleted') {
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .restaurantChosenByUser('');
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .chefVideoInstructionLookedOrNot(false);
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .captainInsideTableVideoInstructionLookedOrNot(false);
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .restaurantChosenByUser('');
+        BackgroundCheck().saveUserDeletedInBackground(
+            hotelNameOfMessage: message.data['title'].toString(),
+            userDeletedTrueNotedFalse: false);
+        FirebaseAuth.instance.signOut();
+        Phoenix.rebirth(context);
+      }
+      if (message.data['title'].toString() ==
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chosenRestaurantDatabaseFromClass &&
+          message.data['body'].toString().split('*')[1] == 'menuUpdated') {
+        menuUpdated();
+      }
+      if (message.data['title'].toString() ==
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chosenRestaurantDatabaseFromClass &&
+          message.data['body'].toString().split('*')[1] ==
+              'restaurantInfoUpdated') {
+        restaurantInfoUpdated();
+      }
+    });
     super.initState();
+  }
+
+  @override
+  Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    // TODO: implement didChangeAppLifecycleState
+
+    // if (state == AppLifecycleState.inactive ||
+    //     state == AppLifecycleState.detached) return;
+
+    final isBackground = state == AppLifecycleState.paused;
+    final isBackground2 = state == AppLifecycleState.inactive;
+    final isBackground3 = state == AppLifecycleState.detached;
+    final isForeground = state == AppLifecycleState.resumed;
+
+//WhenWeAreClosingTheApp
+    if (isBackground3) {
+//EnsuringThatWeAreRegisteringThatTheAppIsNotInChef/CaptainScreen
+      BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
+          insideCaptainScreenTrueElseFalse: false);
+      BackgroundCheck().saveInsideChefScreenChangingInBackground(
+          insideChefScreenTrueElseFalse: false);
+    }
+
+    if (isForeground) {
+      if (await BackgroundCheck()
+          .returnTokenNumberChangedFromBackgroundClass()) {
+        someUserTokenUpdated();
+      }
+      if (await BackgroundCheck().returnProfileChangedFromBackgroundClass()) {
+        someUserProfileChanged();
+      }
+      if (await BackgroundCheck().returnMenuChangedFromBackgroundClass()) {
+        menuUpdated();
+      }
+      if (await BackgroundCheck()
+          .returnRestaurantInfoChangedFromBackgroundClass()) {
+        restaurantInfoUpdated();
+      }
+    }
+
+    super.didChangeAppLifecycleState(state);
+  }
+
+  void someUserProfileChanged() async {
+    final allUserProfileDetailsOfTheRestaurant = await FirebaseFirestore
+        .instance
+        .collection(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass)
+        .doc('allUserProfiles')
+        .get();
+    if (allUserProfileDetailsOfTheRestaurant.data() != null) {
+      var allUserProfiles = allUserProfileDetailsOfTheRestaurant.data()!;
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .saveAllUserProfiles(json.encode(allUserProfiles));
+    }
+    BackgroundCheck().saveProfileUpdateInBackground(
+        hotelNameOfMessage:
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass,
+        profileUpdatedTrueNotedFalse: false);
+  }
+
+  void someUserTokenUpdated() async {
+    final userTokensOfTheRestaurant = await FirebaseFirestore.instance
+        .collection(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass)
+        .doc('userMessagingTokens')
+        .get();
+    if (userTokensOfTheRestaurant.data() != null) {
+      var allUserTokensTemp = userTokensOfTheRestaurant.data()!;
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .saveAllUserTokens(json.encode(allUserTokensTemp));
+    }
+    BackgroundCheck().saveTokenNumberUpdateInBackground(
+        hotelNameOfMessage:
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass,
+        tokenUpdatedTrueNotedFalse: false);
+  }
+
+  void menuUpdated() async {
+    items = [];
+    List<String> temporaryOrderingString = [];
+    List<num> temporaryOrderingNum = [];
+    final menuBase = await _fireStore.collection(hotelName).doc('menu').get();
+//tryingToPutInOrder
+    for (num i = 1; i <= menuBase.data()!.length; i++) {
+      temporaryOrderingString.add('${i.toString()}');
+      temporaryOrderingNum.add(i);
+    }
+    //toGetMenuItems
+    final menuItems = await _fireStore
+        .collection(hotelName)
+        .doc('menu')
+        .collection('menu')
+        .get();
+    num totalNumberInItemsList =
+        menuItems.docs.length + menuBase.data()!.length;
+    num totalNumberOfItemsCounter = 0;
+
+    for (num key in temporaryOrderingNum) {
+//ThisIsToHaveTheMenuTitlesAlongWithTheMenu
+      String currentCategory = menuBase[key.toString()];
+      items.add({
+        'itemName': menuBase[key.toString()],
+        'price': -1,
+        'variety': key,
+        'category': 'title',
+      });
+      totalNumberOfItemsCounter++;
+
+      for (var menuItem in menuItems.docs) {
+//HereIsTheSpotWhereInsteadOfMenuBase[key],,IfWeJustUseKeyWithVarietyNumber,
+//WeCanStraightAwayUseVarietyNumberAlone
+        if (menuItem['variety'] == key) {
+          items.add({
+            'itemName': menuItem.id,
+            'price': menuItem['price'],
+            'variety': menuItem['variety'],
+            'category': currentCategory,
+          });
+          totalNumberOfItemsCounter++;
+        }
+      }
+      //checkingWhetherWeHaveGotItAll
+      if (totalNumberOfItemsCounter == totalNumberInItemsList) {
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .savingEntireMenuFromMap(json.encode(items));
+      }
+    }
+
+    BackgroundCheck().saveMenuUpdateInBackground(
+        hotelNameOfMessage:
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass,
+        menuUpdatedTrueNotedFalse: false);
+  }
+
+  void restaurantInfoUpdated() async {
+    final tableQuery =
+        await _fireStore.collection(hotelName).doc('basicinfo').get();
+
+    Map<String, dynamic> restaurantInfoData = tableQuery.data()!;
+
+    Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+        .saveRestaurantInfo(json.encode(restaurantInfoData));
+    BackgroundCheck().saveRestaurantInfoUpdateInBackground(
+        hotelNameOfMessage:
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass,
+        restaurantInfoUpdatedTrueNotedFalse: false);
   }
 
   final _fireStore = FirebaseFirestore.instance;
@@ -88,6 +360,7 @@ class _LoginPageState extends State<LoginPage> {
   bool hasBackgroundPermissions = true;
   bool locationPermissionAccepted = true;
   bool isNotificationPermissionGranted = true;
+  String appVersion = '3.6';
 
   //WhatComesNextIsForAnotherPage
   List<String> menuTitles = ['Browse Menu'];
@@ -97,6 +370,54 @@ class _LoginPageState extends State<LoginPage> {
   List<num> entireMenuPrice = [];
   bool showSpinner = false;
   List<Map<String, dynamic>> items = []; //allItemsAsMap
+  var receivedID = '';
+  bool otpSent = false;
+  String userPhoneNumber = '';
+  String otp = '';
+  String token = '';
+  Map<String, dynamic> currentUserCompleteProfile = {};
+  Map<String, dynamic> allUserTokens = {};
+  Map<String, dynamic> allUserProfiles = {};
+
+  Future<void> getToken(
+      bool switchToChooseRestaurantScreenTrueElseFalse) async {
+    final FirebaseMessaging firebaseMessaging = FirebaseMessaging.instance;
+    await firebaseMessaging.getToken().then((value) {
+      token = value.toString();
+      if (switchToChooseRestaurantScreenTrueElseFalse) {
+        setState(() {
+          showSpinner = false;
+          otpSent = false;
+        });
+        Navigator.push(context, MaterialPageRoute(builder: (context) {
+          return ChooseRestaurant(
+            userPhoneNumber: userPhoneNumber,
+            token: token,
+          );
+        }));
+        FlutterNativeSplash.remove();
+      }
+    });
+  }
+
+  Future show(
+    String message, {
+    Duration duration: const Duration(seconds: 3),
+  }) async {
+    await new Future.delayed(new Duration(milliseconds: 100));
+    ScaffoldMessenger.of(context).showSnackBar(
+      //   behavior: SnackBarBehavior.floating,
+      //   margin: EdgeInsets.only(bottom: 400.0, right: 20, left: 20),
+      SnackBar(
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: kSnackbarMessageSize),
+        ),
+        duration: duration,
+      ),
+    );
+  }
 
   void backgroundPermissionsCheck() async {
     hasBackgroundPermissions = await FlutterBackground.hasPermissions;
@@ -154,20 +475,31 @@ class _LoginPageState extends State<LoginPage> {
     });
   }
 
-  void getCurrentUser() {
+  void getCurrentUser() async {
     try {
       final user = _auth.currentUser;
       if (user != null) {
         loggedInUser = user;
-        String emailOfUser = loggedInUser.email.toString();
-        final hotelNameSplit = emailOfUser.split('_');
-        // final hotelNameLocationSplit = hotelNameSplit[0].toString().split('-');
-        hotelName = hotelNameSplit[0];
-        final userNumberSplit = hotelNameSplit[1].split('@');
-        userNumber = userNumberSplit[0];
-        if (hotelName != '') {
-          getHotelBasics();
+        if (user.email != null && user.email.toString() != '') {
+          print(user.email);
+          print(user.email.toString());
+//loopWasMadeForMigrationFromEmailToPhoneNumber
+          print('came inside signing out');
+          await _auth.signOut();
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (Buildcontext) => LoginPage()));
+          Phoenix.rebirth(context);
+        } else {
+          userPhoneNumber = user.phoneNumber.toString();
+          print(userPhoneNumber);
+          if (userPhoneNumber != '') {
+            getUserInfoBasics();
+          }
         }
+
+        // if (hotelName != '') {
+        //   getHotelBasics();
+        // }
       } else {
         FlutterNativeSplash.remove();
       }
@@ -176,20 +508,181 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void verifyUserPhoneNumber(String phoneNumberForOtp) {
+    // _auth.setSettings(appVerificationDisabledForTesting: true);
+    _auth.verifyPhoneNumber(
+      phoneNumber: phoneNumberForOtp,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await _auth.signInWithCredential(credential).then(
+              (value) => print('Logged In Successfully'),
+            );
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        setState(() {
+          otpSent = false;
+        });
+        show('${e.code.toString()}');
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        receivedID = verificationId;
+        // otpFieldVisibility = true;
+        // setState(() {});
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {},
+    );
+  }
+
+  Future<void> verifyOTPCode(String otp) async {
+    setState(() {
+      showSpinner = true;
+    });
+    try {
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: receivedID,
+        smsCode: otp,
+      );
+      await _auth.signInWithCredential(credential).then((value) {
+        getUserInfoBasics();
+      });
+    } on FirebaseAuthException catch (error) {
+      setState(() {
+        showSpinner = false;
+      });
+      show(error.code.toString());
+    }
+  }
+
+  void getUserInfoBasics() async {
+    if (showSpinner == false) {
+      setState(() {
+        showSpinner = true;
+      });
+    }
+
+    userNumber = '1';
+//JustRegisteringThatWeAreNotInsideCaptainScreenInitially
+    BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
+        insideCaptainScreenTrueElseFalse: false);
+    BackgroundCheck().saveInsideChefScreenChangingInBackground(
+        insideChefScreenTrueElseFalse: false);
+
+    String tempHotelName =
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .chosenRestaurantDatabaseFromClass;
+
+    final userInfoQuery =
+        await _fireStore.collection('loginDetails').doc(userPhoneNumber).get();
+
+    if (userInfoQuery.data() == null) {
+//ThisIsIfWeHaveNoRecordOfTheUserAndHeIsSigningInFirstTime
+//WeGetHisTokenAndThenGoIntoRestaurantsSelectionPage
+      getToken(true);
+      print('can I get into null');
+    } else {
+//EntireProfileOfTheCurrentUser.
+//WillBeUsefulInCaseWeHaveToSwitchRestaurantsToo
+      currentUserCompleteProfile = userInfoQuery.data()!;
+      currentUserCompleteProfile
+          .addAll({'currentUserPhoneNumber': userPhoneNumber});
+
+      List<dynamic> restaurantsUserHasAccess = userInfoQuery['restaurants'];
+      if (restaurantsUserHasAccess.length == 1) {
+        hotelName = restaurantsUserHasAccess[0].toString();
+        BackgroundCheck().saveHotelNameInBackground(hotelName);
+        //ThisIsWhenSomeOneIsSigningInWithOTP(NotAutoSigningInAsCurrentUser)
+//RememberThatWhenUserIsSigningInFirstTime,HisOwnTokenWontBeThereAlreadyInThe
+//InTheUserInfoQuery.IfTheCurrentUser'sTokenIsAlsoNeededForTheSameCurrentUser
+//EnsureToAddItToTheMapInUserInfoQuery
+
+        if (token != '') {
+          FireStoreUpdateUserToken(
+                  userPhoneNumber: userPhoneNumber,
+                  token: token,
+                  hotelName: hotelName)
+              .updateUserToken();
+//ThisTokenAddingWillBeApplicableIfUserIsSigningInBecauseAtThatTime
+//WeHaveAlreadyTakenUserDataFromFireStore(WhichShopOwnerWouldHaveMade)
+//AndThatWouldntHaveToken
+//SoWeSaveTheTokenHere
+          currentUserCompleteProfile.addAll({'token': token});
+        }
+        getHotelBasics();
+      } else if (restaurantsUserHasAccess.contains(
+          Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+              .chosenRestaurantDatabaseFromClass)) {
+        hotelName =
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass;
+        BackgroundCheck().saveHotelNameInBackground(hotelName);
+
+        if (token != '') {
+          FireStoreUpdateUserToken(
+                  userPhoneNumber: userPhoneNumber,
+                  token: token,
+                  hotelName: hotelName)
+              .updateUserToken();
+//ThisTokenAddingWillBeApplicableIfUserIsSigningInBecauseAtThatTime
+//WeHaveAlreadyTakenUserDataFromFireStore(WhichShopOwnerWouldHaveMade)
+//AndThatWouldntHaveToken
+//SoWeSaveTheTokenHere
+          currentUserCompleteProfile.addAll({'token': token});
+        }
+        getHotelBasics();
+      } else {
+        setState(() {
+          showSpinner = false;
+          otpSent = false;
+        });
+        Navigator.push(context, MaterialPageRoute(builder: (context) {
+          return ChooseRestaurant(
+              userPhoneNumber: userPhoneNumber, token: token);
+        }));
+        FlutterNativeSplash.remove();
+      }
+    }
+  }
+
+  //ToConvertDynamicListToStringList
+  List<String> dynamicTokensToStringToken() {
+    List<String> tokensList = [];
+    Map<String, dynamic> tempAllUserTokens = allUserTokens;
+    tempAllUserTokens.remove(userPhoneNumber);
+    for (var tokens in tempAllUserTokens.values) {
+      tokensList.add(tokens.toString());
+    }
+    return tokensList;
+  }
+
   void getHotelBasics() async {
+    List<Map<String, dynamic>> items = [];
     //ForAddButtonSkipping
     num priceForTitles = -1;
     List<String> temporaryOrderingString = [];
     List<num> temporaryOrderingNum = [];
 
+    final userTokensOfTheRestaurant =
+        await _fireStore.collection(hotelName).doc('userMessagingTokens').get();
+    if (userTokensOfTheRestaurant.data() != null) {
+      allUserTokens = userTokensOfTheRestaurant.data()!;
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .saveAllUserTokens(json.encode(allUserTokens));
+    }
+//savingCurrentUserPhoneNumberInProvider
+    Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+        .saveCurrentUserPhoneNumber(userPhoneNumber);
+
+    final allUserProfileDetailsOfTheRestaurant =
+        await _fireStore.collection(hotelName).doc('allUserProfiles').get();
+    if (allUserProfileDetailsOfTheRestaurant.data() != null) {
+      allUserProfiles = allUserProfileDetailsOfTheRestaurant.data()!;
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .saveAllUserProfiles(json.encode(allUserProfiles));
+    }
+
     final tableQuery =
         await _fireStore.collection(hotelName).doc('basicinfo').get();
 
-//gettingAllDetailsFromDatabase
-
-    cgstPercentage = tableQuery.data()!['cgst'];
-    sgstPercentage = tableQuery.data()!['sgst'];
-    hotelNameForPrint = tableQuery.data()!['hotelname'];
+    Map<String, dynamic> restaurantInfoData = tableQuery.data()!;
     numberOfTables = tableQuery.data()!['tables'];
     cgstPercentage = tableQuery.data()!['cgst'];
     sgstPercentage = tableQuery.data()!['sgst'];
@@ -199,6 +692,9 @@ class _LoginPageState extends State<LoginPage> {
     addressLine3ForPrint = tableQuery.data()!['addressline3'];
     phoneNumberForPrint = tableQuery.data()!['phonenumber'];
     gstCodeForPrint = tableQuery.data()!['gstcode'];
+
+    Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+        .saveRestaurantInfo(json.encode(restaurantInfoData));
 
     //toGetMenuTitles
     final menuBase = await _fireStore.collection(hotelName).doc('menu').get();
@@ -214,11 +710,23 @@ class _LoginPageState extends State<LoginPage> {
         .collection('menu')
         .get();
 
+    num totalNumberInItemsList =
+        menuItems.docs.length + menuBase.data()!.length;
+    num totalNumberOfItemsCounter = 0;
+
     for (num key in temporaryOrderingNum) {
 //ThisIsToHaveTheMenuTitlesAlongWithTheMenu
       menuTitles.add(menuBase[key.toString()]);
       entireMenuItems.add(menuBase[key.toString()]);
       entireMenuPrice.add(priceForTitles);
+      String currentCategory = menuBase[key.toString()];
+      items.add({
+        'itemName': menuBase[key.toString()],
+        'price': -1,
+        'variety': key,
+        'category': 'title',
+      });
+      totalNumberOfItemsCounter++;
 
       for (var menuItem in menuItems.docs) {
 //HereIsTheSpotWhereInsteadOfMenuBase[key],,IfWeJustUseKeyWithVarietyNumber,
@@ -226,55 +734,97 @@ class _LoginPageState extends State<LoginPage> {
         if (menuItem['variety'] == key) {
           entireMenuItems.add(menuItem.id);
           entireMenuPrice.add(menuItem['price']);
+          items.add({
+            'itemName': menuItem.id,
+            'price': menuItem['price'],
+            'variety': menuItem['variety'],
+            'category': currentCategory,
+          });
+          totalNumberOfItemsCounter++;
         }
       }
+//checkingWhetherWeHaveGotItAll
+      if (totalNumberOfItemsCounter == totalNumberInItemsList) {
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .savingEntireMenuFromMap(json.encode(items));
+      }
     }
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) {
-      return ChefOrCaptainDeleteTillEnd(
-        hotelName: hotelName,
-        userNumber: userNumber,
-        menuTitles: menuTitles,
-        entireMenuItems: entireMenuItems,
-        entireMenuPrice: entireMenuPrice,
-        numberOfTables: numberOfTables,
-        cgstPercentage: cgstPercentage,
-        sgstPercentage: sgstPercentage,
-        addressLine1ForPrint: addressLine1ForPrint,
-        addressLine2ForPrint: addressLine2ForPrint,
-        addressLine3ForPrint: addressLine3ForPrint,
-        hotelNameForPrint: hotelNameForPrint,
-        phoneNumberForPrint: phoneNumberForPrint,
-        gstCodeForPrint: gstCodeForPrint,
-      );
-    }));
+    if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .versionOfAppFromClass !=
+        appVersion) {
+      FireStoreUpdateAppVersion(
+              userPhoneNumber: userPhoneNumber, version: appVersion)
+          .updateAppVersion();
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .saveVersionOfApp(appVersion);
+    }
+    if (currentUserCompleteProfile[hotelName]['privileges']['30'] == true) {
+      setState(() {
+        showSpinner = false;
+        otpSent = false;
+      });
+      Navigator.push(context, MaterialPageRoute(builder: (context) {
+        return ChefOrCaptainWithSeparateRestaurantInfo(
+          hotelName: hotelName,
+          userNumber: userNumber,
+          menuTitles: menuTitles,
+          entireMenuItems: entireMenuItems,
+          entireMenuPrice: entireMenuPrice,
+          allMenuItems: items,
+          currentUserProfileMap: currentUserCompleteProfile,
+        );
+      }));
+    } else {
+      setState(() {
+        showSpinner = false;
+        otpSent = false;
+      });
+      Navigator.push(context, MaterialPageRoute(builder: (context) {
+        return ChefOrCaptainDeleteTillEnd(
+          hotelName: hotelName,
+          userNumber: userNumber,
+          menuTitles: menuTitles,
+          entireMenuItems: entireMenuItems,
+          entireMenuPrice: entireMenuPrice,
+          numberOfTables: numberOfTables,
+          cgstPercentage: cgstPercentage,
+          sgstPercentage: sgstPercentage,
+          addressLine1ForPrint: addressLine1ForPrint,
+          addressLine2ForPrint: addressLine2ForPrint,
+          addressLine3ForPrint: addressLine3ForPrint,
+          hotelNameForPrint: hotelNameForPrint,
+          phoneNumberForPrint: phoneNumberForPrint,
+          gstCodeForPrint: gstCodeForPrint,
+        );
+      }));
+    }
+
+    if (token != '') {
+      final fcmProvider =
+          Provider.of<NotificationProvider>(context, listen: false);
+      fcmProvider.sendNotification(
+          token: dynamicTokensToStringToken(),
+          title: hotelName,
+          restaurantNameForNotification: json.decode(
+                  Provider.of<PrinterAndOtherDetailsProvider>(context,
+                          listen: false)
+                      .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .currentUserPhoneNumberFromClass]['restaurantName'],
+          body: '*newUserToken*');
+    }
+
     if (locationPermissionAccepted == false ||
         hasBackgroundPermissions == false ||
         isNotificationPermissionGranted == false) {
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) {
-      //   return ChefOrCaptain(
-      //     hotelName: hotelName,
-      //     userNumber: userNumber,
-      //     menuTitles: menuTitles,
-      //     entireMenuItems: entireMenuItems,
-      //     entireMenuPrice: entireMenuPrice,
-      //     numberOfTables: numberOfTables,
-      //     cgstPercentage: cgstPercentage,
-      //     sgstPercentage: sgstPercentage,
-      //     addressLine1ForPrint: addressLine1ForPrint,
-      //     addressLine2ForPrint: addressLine2ForPrint,
-      //     addressLine3ForPrint: addressLine3ForPrint,
-      //     hotelNameForPrint: hotelNameForPrint,
-      //     phoneNumberForPrint: phoneNumberForPrint,
-      //   );
-      // }));
       Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (BuildContext) => PermissionsApproval(
+              builder: (BuildContext) => PermissionsWithAutoStart(
                     fromFirstScreenTrueElseFalse: true,
                   )));
     }
-
     FlutterNativeSplash.remove();
   }
 
@@ -307,90 +857,142 @@ class _LoginPageState extends State<LoginPage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(height: 120.0),
-                Container(
-                    padding: EdgeInsets.all(20.0),
-                    child: TextField(
-                      controller: TextEditingController(text: username),
-                      onChanged: (value) {
-                        username = value;
-                      },
-                      style: TextStyle(color: Colors.white),
-                      decoration: kTextFieldInputDecoration.copyWith(
-                          hintText: 'Enter Username'),
-                    )),
-                Container(
-                    padding: EdgeInsets.all(20.0),
-                    child: TextField(
-                      controller: TextEditingController(text: password),
-                      obscureText: _obscureText,
-                      onChanged: (value) {
-                        password = value;
-                      },
-                      style: TextStyle(color: Colors.white),
-                      decoration: kTextFieldInputDecoration.copyWith(
-                          hintText: 'Enter Password'),
-                    )),
-                TextButton(
-                    onPressed: _toggle,
-                    child: Text(
-                      _obscureText ? "Show Password" : "Hide Password",
-                      style: TextStyle(fontSize: 15.0, color: Colors.black87),
-                    )),
+                Text(
+                  !otpSent ? 'Phone Verification' : 'Please Enter OTP',
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 10),
+                !otpSent
+                    ? Container(
+                        padding: EdgeInsets.all(20),
+                        // height: 55,
+                        // decoration: BoxDecoration(
+                        //   borderRadius: BorderRadius.circular(50.0),
+                        //   border: Border.all(width: 1, color: Colors.green),
+                        // ),
+                        child: IntlPhoneField(
+                          decoration: InputDecoration(
+                            labelText: 'Phone Number',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(50.0),
+                              borderSide:
+                                  BorderSide(width: 1, color: Colors.green),
+                            ),
+                          ),
+                          initialCountryCode: 'IN',
+                          onChanged: (phone) {
+                            userPhoneNumber = phone.completeNumber;
+                            // print(phone.completeNumber);
+                          },
+                        )
+                        // Row(
+                        //   children: [
+                        //     SizedBox(width: 10),
+                        //     SizedBox(width: 40, child: Text('+91')),
+                        //     Text('|',
+                        //         style: TextStyle(
+                        //             fontSize: 33, color: Colors.green)),
+                        //     SizedBox(width: 10),
+                        //     Expanded(
+                        //       child: TextField(
+                        //         controller: _phoneNumberController,
+                        //         keyboardType: TextInputType.number,
+                        //         inputFormatters: [
+                        //           FilteringTextInputFormatter.digitsOnly
+                        //         ],
+                        //         onChanged: (value) {
+                        //           phoneNumber = value;
+                        //         },
+                        //         style: TextStyle(color: Colors.black),
+                        //         decoration: InputDecoration(
+                        //             border: InputBorder.none,
+                        //             hintText: 'Enter Phone Number'),
+                        //       ),
+                        //     ),
+                        //   ],
+                        // ),
+                        )
+                    : Container(
+                        margin: EdgeInsets.all(20),
+                        child: Pinput(
+                          defaultPinTheme: kDefaultPinTheme,
+                          length: 6,
+                          showCursor: true,
+                          onChanged: (value) {
+                            otp = value;
+                          },
+                        ),
+                      ),
                 SizedBox(
                   height: 10,
                 ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade500,
-                    borderRadius: BorderRadius.circular(50.0),
-                  ),
-                  height: 70.0,
-                  width: 140.0,
-                  child: TextButton(
-                    onPressed: () async {
-                      setState(() {
-                        showSpinner = true;
-                      });
-                      //toCloseKeyboardAutomaticallyOnceLoginButtonClicked
-                      FocusManager.instance.primaryFocus?.unfocus();
-
-                      String mailId = username + '@email.com';
-                      try {
-                        final user = await _auth.signInWithEmailAndPassword(
-                            email: username + '@email.com', password: password);
-                        if (user != null) {
-                          String emailOfUser = user.user!.email.toString();
-                          final hotelNameSplit = emailOfUser.split('_');
-                          hotelName = hotelNameSplit[0];
-                          final userNumberSplit = hotelNameSplit[1].split('@');
-                          userNumber = userNumberSplit[0];
-                          if (hotelName != '') {
-                            getHotelBasics();
-                          }
-                        }
-                      } on FirebaseAuthException catch (e) {
+                Visibility(
+                  visible: !otpSent,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade500,
+                      borderRadius: BorderRadius.circular(50.0),
+                    ),
+                    height: 50.0,
+                    width: 200.0,
+                    child: TextButton(
+                      onPressed: () async {
+                        print(userPhoneNumber);
                         setState(() {
-                          showSpinner = false;
+                          otpSent = true;
                         });
-                        final snackBar = SnackBar(
-                          behavior: SnackBarBehavior.floating,
-                          margin: EdgeInsets.only(
-                              bottom: 400.0, right: 20, left: 20),
-                          content: Text(e.code.toString()),
-                        );
-
-                        // Find the ScaffoldMessenger in the widget tree
-                        // and use it to show a SnackBar.
-                        ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                      }
-                    },
-                    child: const Text(
-                      'Login',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 25.0, color: Colors.white),
+                        verifyUserPhoneNumber(userPhoneNumber);
+                      },
+                      child: const Text(
+                        'Send OTP',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 25.0, color: Colors.white),
+                      ),
                     ),
                   ),
-                )
+                ),
+                SizedBox(height: 50),
+                Visibility(
+                  visible: otpSent,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade500,
+                      borderRadius: BorderRadius.circular(50.0),
+                    ),
+                    height: 50.0,
+                    width: 200.0,
+                    child: TextButton(
+                      onPressed: () async {
+                        verifyOTPCode(otp);
+                      },
+                      child: const Text(
+                        'Verify',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 25.0, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+                otpSent
+                    ? TextButton(
+                        onPressed: () {
+                          setState(() {
+                            otpSent = false;
+                          });
+                        },
+                        child: Text('Edit Phone Number ?',
+                            style: TextStyle(color: Colors.black)),
+                      )
+                    : SizedBox.shrink(),
+                otpSent
+                    ? TextButton(
+                        onPressed: () {
+                          verifyUserPhoneNumber(userPhoneNumber);
+                        },
+                        child: Text('Resend OTP ?',
+                            style: TextStyle(color: Colors.black)),
+                      )
+                    : SizedBox.shrink()
               ],
             ),
           ),

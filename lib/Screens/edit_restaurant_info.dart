@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
+import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/services/firestore_services.dart';
 import 'package:provider/provider.dart';
@@ -905,392 +910,458 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
     );
   }
 
+  List<String> dynamicTokensToStringToken() {
+    List<String> tokensList = [];
+    Map<String, dynamic> allUsersTokenMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .allUserTokensFromClass);
+    for (var tokens in allUsersTokenMap.values) {
+      tokensList.add(tokens.toString());
+    }
+    return tokensList;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          backgroundColor: kAppBarBackgroundColor,
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
-            onPressed: () {
-              Navigator.pop(context);
-            },
+    final fcmProvider = Provider.of<NotificationProvider>(context);
+    return WillPopScope(
+      onWillPop: () async {
+        if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .menuOrRestaurantInfoUpdatedFromClass) {
+          fcmProvider.sendNotification(
+              token: dynamicTokensToStringToken(),
+              title: widget.hotelName,
+              restaurantNameForNotification: json.decode(
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .allUserProfilesFromClass)[
+                  Provider.of<PrinterAndOtherDetailsProvider>(context,
+                          listen: false)
+                      .currentUserPhoneNumberFromClass]['restaurantName'],
+              body: '*restaurantInfoUpdated*');
+        }
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .menuOrRestaurantInfoUpdated(false);
+        Navigator.pop(context);
+        return false;
+      },
+      child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: kAppBarBackgroundColor,
+            centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
+              onPressed: () {
+                if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .menuOrRestaurantInfoUpdatedFromClass) {
+                  fcmProvider.sendNotification(
+                      token: dynamicTokensToStringToken(),
+                      title: widget.hotelName,
+                      restaurantNameForNotification: json.decode(
+                                  Provider.of<PrinterAndOtherDetailsProvider>(
+                                          context,
+                                          listen: false)
+                                      .allUserProfilesFromClass)[
+                              Provider.of<PrinterAndOtherDetailsProvider>(
+                                      context,
+                                      listen: false)
+                                  .currentUserPhoneNumberFromClass]
+                          ['restaurantName'],
+                      body: '*restaurantInfoUpdated*');
+                }
+                Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .menuOrRestaurantInfoUpdated(false);
+                Navigator.pop(context);
+                Navigator.pop(context);
+              },
+            ),
+            title: Text(
+              'Restaurant Info',
+              style: kAppBarTextStyle,
+            ),
           ),
-          title: Text(
-            'Restaurant Info',
-            style: kAppBarTextStyle,
-          ),
-        ),
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              SizedBox(height: 10),
-              Container(
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    tileColor: Colors.white54,
-                    leading: Text('Hotel Name        '),
-                    title: Text(hotelname),
-                    trailing: hotelname == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempHotelname = hotelname;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: hotelname);
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                SizedBox(height: 10),
+                Container(
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      tileColor: Colors.white54,
+                      leading: Text('Hotel Name        '),
+                      title: Text(hotelname),
+                      trailing: hotelname == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempHotelname = hotelname;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: hotelname);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return hotelNameEditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              _stringEditingcontroller =
-                                  TextEditingController(text: hotelname);
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return hotelNameEditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )),
-              ),
-              Container(
-                //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    tileColor: Colors.white54,
-                    leading: Text('Address Line 1  '),
-                    title: Text(addressline1),
-                    trailing: addressline1 == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempAddressline1 = addressline1;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempAddressline1);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return hotelNameEditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                _stringEditingcontroller =
+                                    TextEditingController(text: hotelname);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return hotelNameEditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )),
+                ),
+                Container(
+                  //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      tileColor: Colors.white54,
+                      leading: Text('Address Line 1  '),
+                      title: Text(addressline1),
+                      trailing: addressline1 == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempAddressline1 = addressline1;
+                                _stringEditingcontroller =
+                                    TextEditingController(
+                                        text: tempAddressline1);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return addressLine1EditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempAddressline1 = addressline1;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempAddressline1);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return addressLine1EditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempAddressline1 = addressline1;
+                                _stringEditingcontroller =
+                                    TextEditingController(
+                                        text: tempAddressline1);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return addressLine1EditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )),
-              ),
-              Container(
-                //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    leading: Text('Address Line 2  '),
-                    title: Text(addressline2),
-                    trailing: addressline2 == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempAddressline2 = addressline2;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempAddressline2);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return addressLine1EditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )),
+                ),
+                Container(
+                  //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      leading: Text('Address Line 2  '),
+                      title: Text(addressline2),
+                      trailing: addressline2 == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempAddressline2 = addressline2;
+                                _stringEditingcontroller =
+                                    TextEditingController(
+                                        text: tempAddressline2);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return addressLine2EditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempAddressline2 = addressline2;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempAddressline2);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return addressLine2EditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempAddressline2 = addressline2;
+                                _stringEditingcontroller =
+                                    TextEditingController(
+                                        text: tempAddressline2);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return addressLine2EditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )),
-              ),
-              Container(
-                //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    leading: Text('Address Line 3  '),
-                    title: Text(addressline3),
-                    trailing: addressline3 == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempAddressline3 = addressline3;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempAddressline3);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return addressLine2EditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )),
+                ),
+                Container(
+                  //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      leading: Text('Address Line 3  '),
+                      title: Text(addressline3),
+                      trailing: addressline3 == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempAddressline3 = addressline3;
+                                _stringEditingcontroller =
+                                    TextEditingController(
+                                        text: tempAddressline3);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return addressLine3EditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempAddressline3 = addressline3;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempAddressline3);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return addressLine3EditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempAddressline3 = addressline3;
+                                _stringEditingcontroller =
+                                    TextEditingController(
+                                        text: tempAddressline3);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return addressLine3EditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )),
-              ),
-              Container(
-                //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    tileColor: Colors.white54,
-                    leading: Text('Phone Number    '),
-                    title: Text(phonenumber),
-                    trailing: phonenumber == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempPhonenumber = phonenumber;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempPhonenumber);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return addressLine3EditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )),
+                ),
+                Container(
+                  //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      tileColor: Colors.white54,
+                      leading: Text('Phone Number    '),
+                      title: Text(phonenumber),
+                      trailing: phonenumber == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempPhonenumber = phonenumber;
+                                _stringEditingcontroller =
+                                    TextEditingController(
+                                        text: tempPhonenumber);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return phoneNumberEditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempPhonenumber = phonenumber;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempPhonenumber);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return phoneNumberEditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempPhonenumber = phonenumber;
+                                _stringEditingcontroller =
+                                    TextEditingController(
+                                        text: tempPhonenumber);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return phoneNumberEditDeleteBottomBar(
-                                        context);
-                                  });
-                            },
-                          )),
-              ),
-              Container(
-                //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    tileColor: Colors.white54,
-                    leading: Text('GST Code             '),
-                    title: Text(gstcode),
-                    trailing: gstcode == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempGstcode = gstcode;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempGstcode);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return phoneNumberEditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )),
+                ),
+                Container(
+                  //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      tileColor: Colors.white54,
+                      leading: Text('GST Code             '),
+                      title: Text(gstcode),
+                      trailing: gstcode == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempGstcode = gstcode;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: tempGstcode);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return gstCodeEditDeleteBottomBar(context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempGstcode = gstcode;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempGstcode);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return gstCodeEditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempGstcode = gstcode;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: tempGstcode);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return gstCodeEditDeleteBottomBar(context);
-                                  });
-                            },
-                          )),
-              ),
-              Container(
-                //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    tileColor: Colors.white54,
-                    leading: Text('CGST %                 '),
-                    title: Text(cgst),
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return gstCodeEditDeleteBottomBar(
+                                          context);
+                                    });
+                              },
+                            )),
+                ),
+                Container(
+                  //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      tileColor: Colors.white54,
+                      leading: Text('CGST %                 '),
+                      title: Text(cgst),
 //RightSide-WeCheckWhetherItIsHeading,IfYesWeShowNothing,
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
-                    trailing: cgst == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempCgst = cgst;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempCgst);
+                      trailing: cgst == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempCgst = cgst;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: tempCgst);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return cgstEditDeleteBottomBar(context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempCgst = cgst;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempCgst);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return cgstEditDeleteBottomBar(context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempCgst = cgst;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: tempCgst);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return cgstEditDeleteBottomBar(context);
-                                  });
-                            },
-                          )),
-              ),
-              Container(
-                //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    tileColor: Colors.white54,
-                    leading: Text('SGST %                 '),
-                    title: Text(sgst),
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return cgstEditDeleteBottomBar(context);
+                                    });
+                              },
+                            )),
+                ),
+                Container(
+                  //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      tileColor: Colors.white54,
+                      leading: Text('SGST %                 '),
+                      title: Text(sgst),
 //RightSide-WeCheckWhetherItIsHeading,IfYesWeShowNothing,
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
-                    trailing: sgst == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempSgst = sgst;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempSgst);
+                      trailing: sgst == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempSgst = sgst;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: tempSgst);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return sgstEditDeleteBottomBar(context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempSgst = sgst;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempSgst);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return sgstEditDeleteBottomBar(context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempSgst = sgst;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: tempSgst);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return sgstEditDeleteBottomBar(context);
-                                  });
-                            },
-                          )),
-              ),
-              Container(
-                //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                child: ListTile(
-                    tileColor: Colors.white54,
-                    leading: Text('Tables                  '),
-                    title: Text(tables),
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return sgstEditDeleteBottomBar(context);
+                                    });
+                              },
+                            )),
+                ),
+                Container(
+                  //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                  margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                  child: ListTile(
+                      tileColor: Colors.white54,
+                      leading: Text('Tables                  '),
+                      title: Text(tables),
 
 //RightSide-WeCheckWhetherItIsHeading,IfYesWeShowNothing,
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
-                    trailing: tables == ''
-                        ? IconButton(
-                            icon:
-                                Icon(Icons.add, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempTables = tables;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempTables);
+                      trailing: tables == ''
+                          ? IconButton(
+                              icon: Icon(Icons.add,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempTables = tables;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: tempTables);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return tablesEditDeleteBottomBar(context);
-                                  });
-                            },
-                          )
-                        : IconButton(
-                            icon:
-                                Icon(Icons.edit, size: 20, color: Colors.green),
-                            onPressed: () {
-                              tempTables = tables;
-                              _stringEditingcontroller =
-                                  TextEditingController(text: tempTables);
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return tablesEditDeleteBottomBar(context);
+                                    });
+                              },
+                            )
+                          : IconButton(
+                              icon: Icon(Icons.edit,
+                                  size: 20, color: Colors.green),
+                              onPressed: () {
+                                tempTables = tables;
+                                _stringEditingcontroller =
+                                    TextEditingController(text: tempTables);
 
-                              showModalBottomSheet(
-                                  context: context,
-                                  builder: (context) {
-                                    return tablesEditDeleteBottomBar(context);
-                                  });
-                            },
-                          )),
-              ),
-            ],
-          ),
-        ));
+                                showModalBottomSheet(
+                                    context: context,
+                                    builder: (context) {
+                                      return tablesEditDeleteBottomBar(context);
+                                    });
+                              },
+                            )),
+                ),
+              ],
+            ),
+          )),
+    );
   }
 }

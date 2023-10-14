@@ -1,17 +1,21 @@
 //ThisIsThePresentBluetoothScreenWithBlueThermalPrinterPackage_5Feb2023
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background/flutter_background.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/printer_settings_screen.dart';
 import 'package:orders_dev/Screens/searching_Connecting_Printer_Screen.dart';
 import 'package:orders_dev/constants.dart';
+import 'package:orders_dev/services/background_services.dart';
 import 'package:orders_dev/services/firestore_services.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/services/notification_service.dart';
@@ -30,7 +34,7 @@ import 'package:video_player/video_player.dart';
 // String chefPrinterSizeFromClassForBackground = '';
 
 //ThisIsTheScreenWhereTheCookGetsTheItemsToCook
-class ChefToCookFullForm extends StatefulWidget {
+class ChefToCookWithRunningOrders extends StatefulWidget {
   //TheInputsAreHotelNameAndChefSpecialities
   //ChefSpecialitiesAreTheItemsChefWon'tCook
   //Example:thereAreCooksWhoMakeJuicesAlone.So,
@@ -38,22 +42,23 @@ class ChefToCookFullForm extends StatefulWidget {
   //ChefSpecialitiesIsInputtedWhenThisScreenIsCalledItself
 
   final String hotelName;
-  final List<String> chefSpecialities;
+  final Map<String, dynamic> currentUserProfileMap;
 
-  ChefToCookFullForm(
-      {Key? key, required this.hotelName, required this.chefSpecialities})
+  ChefToCookWithRunningOrders(
+      {Key? key, required this.hotelName, required this.currentUserProfileMap})
       : super(key: key);
 
   @override
-  State<ChefToCookFullForm> createState() => _ChefToCookFullFormState();
+  State<ChefToCookWithRunningOrders> createState() =>
+      _ChefToCookWithRunningOrdersState();
 }
 
 //InThisScreen,WeNeedToKnowWhenTheScreenIsOnAndWhenItIsOff
 //OnlyThenWeCanAlertTheChefWhenNewItemComesEvenWhenTheScreenIsOff
 //ToUnderstandThisScreenState,WeUseWidgetsBindingObserver
 
-class _ChefToCookFullFormState extends State<ChefToCookFullForm>
-    with WidgetsBindingObserver {
+class _ChefToCookWithRunningOrdersState
+    extends State<ChefToCookWithRunningOrders> with WidgetsBindingObserver {
 //0-InitialStateOfPrinterWhenEnteringScreen
 //1-PrinterIsDisconnectedByTheUser
 //2-SomePrinterConnected
@@ -130,8 +135,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
   List<num> localKOTNumberOfItems = [];
   List<String> localKOTItemComments = [];
   List<String> localKotItemsBelongsToDoc = [];
-  List<String> localKotItemsEntireItemListBeforeSplitting = [];
-  List<String> localKotItemsEachItemFromEntireItemsString = [];
   List<String> localKotItemsTableOrParcel = [];
   List<String> localKotItemsTableOrParcelNumber = [];
   List<String> localKotItemsParentOrChild = [];
@@ -140,6 +143,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
   List<String> localKotCancelledItemTrueElseFalse = [];
   List<String> tempLocalKOTItemsID = [];
   num backgroundTimerCounter = 0;
+  List<String> chefWontCookItems = [];
 
   Future show(
     String message, {
@@ -156,6 +160,53 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
         duration: duration,
       ),
     );
+  }
+
+  // void methodForChefWontCook() async {
+  //   print('wontCookList');
+  //   print((json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+  //                   listen: false)
+  //               .allUserProfilesFromClass)[
+  //           Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+  //               .currentUserPhoneNumberFromClass]['wontCook'])
+  //       .map((e) => e.toString())
+  //       .toList());
+  //   chefWontCookItems = [];
+  //   chefWontCookItems = (json.decode(
+  //               Provider.of<PrinterAndOtherDetailsProvider>(context,
+  //                       listen: false)
+  //                   .allUserProfilesFromClass)[
+  //           Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+  //               .currentUserPhoneNumberFromClass]['wontCook'])
+  //       .map((e) => e.toString())
+  //       .toList();
+  //
+  //   // print('came inside this methid');
+  //   // String currentUserPhoneNumber =
+  //   //     widget.currentUserProfileMap['currentUserPhoneNumber'].toString();
+  //   // final chefWontCookItemsCheck = await FirebaseFirestore.instance
+  //   //     .collection('loginDetails')
+  //   //     .doc(currentUserPhoneNumber)
+  //   //     .get();
+  //   //
+  //   // List<dynamic> tempChefWontCookItems =
+  //   //     chefWontCookItemsCheck[widget.hotelName]['wontCook'];
+  //   // for (var tempWontCook in tempChefWontCookItems) {
+  //   //   chefWontCookItems.add(tempWontCook.toString());
+  //   // }
+  //   //
+  //   setState(() {});
+  // }
+
+  List<String> dynamicTokensToStringToken() {
+    List<String> tokensList = [];
+    Map<String, dynamic> allUsersTokenMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .allUserTokensFromClass);
+    for (var tokens in allUsersTokenMap.values) {
+      tokensList.add(tokens.toString());
+    }
+    return tokensList;
   }
 
   void getAllPairedDevices() async {
@@ -517,7 +568,10 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
         print('came inside bluetooth isConnected');
         if (isConnected == true) {
           print('inside printThroughBluetooth-is connected is true here');
-          // bluetooth.printNewLine();
+          bluetooth.printNewLine();
+          bluetooth.printNewLine();
+          bluetooth.printNewLine();
+          bluetooth.printNewLine();
           if (localParcelReadyItemNames[0] != 'Printer Check') {
             bluetooth.printCustom("Slot:$localParcelNumber",
                 printerenum.Size.extraLarge.val, printerenum.Align.center.val);
@@ -526,29 +580,32 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                 "Packed:${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year} at ${DateTime.now().hour}:${DateTime.now().minute}",
                 printerenum.Size.medium.val,
                 printerenum.Align.center.val);
-            bluetooth.printNewLine();
-            // bluetooth.printNewLine();
+            if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .chefPrinterSizeFromClass ==
+                '80') {
+              bluetooth.printCustom(
+                  "-----------------------------------------------",
+                  printerenum.Size.bold.val,
+                  printerenum.Align.center.val);
+            } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .chefPrinterSizeFromClass ==
+                '58') {
+              bluetooth.printCustom("-------------------------------",
+                  printerenum.Size.medium.val, printerenum.Align.center.val);
+            }
           }
           if (localParcelReadyItemNames.length > 1) {
             for (int i = 0; i < localParcelReadyItemNames.length; i++) {
-              // print('i value is $i');
-              // bluetooth.printLeftRight(
-              //     "${localParcelReadyItemNames[i]} x ${localParcelReadyNumberOfItems[i]}",
-              //     "",
-              //     printerenum.Size.medium.val);
-              // bluetooth.printCustom(
-              //     "${localParcelReadyItemNames[i]} x ${localParcelReadyNumberOfItems[i].toString()}",
-              //     printerenum.Size.medium.val,
-              //     printerenum.Align.left.val);
               if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                           listen: false)
                       .chefPrinterSizeFromClass ==
                   '80') {
                 if ((' '.allMatches(localParcelReadyItemNames[i]).length >=
-                    3)) {
+                    2)) {
                   String firstName = '';
                   String secondName = '';
-                  String thirdName = '';
                   final longItemNameSplit =
                       localParcelReadyItemNames[i].split(' ');
                   for (int i = 0; i < longItemNameSplit.length; i++) {
@@ -561,11 +618,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     if (i == 2) {
                       secondName += '${longItemNameSplit[i]} ';
                     }
-                    if (i == 3) {
+                    if (i > 2) {
                       secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 3) {
-                      thirdName += '${longItemNameSplit[i]} ';
                     }
                   }
                   bluetooth.printLeftRight(
@@ -576,81 +630,69 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   bluetooth.printLeftRight(
                       "$secondName", "", printerenum.Size.bold.val,
                       format: "%-30s %10s %n");
-                  bluetooth.printLeftRight(
-                      "$thirdName", "", printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
                 } else {
                   bluetooth.printLeftRight(
                       "${localParcelReadyItemNames[i]}",
                       "${localParcelReadyNumberOfItems[i].toString()}",
                       printerenum.Size.bold.val,
-                      format: "%-30s %30s %n");
+                      format: "%-30s %10s %n");
                 }
 
-                if (localParcelReadyItemComments[i] != 'nocomments') {
+                if (localParcelReadyItemComments[i] != 'noComment') {
                   bluetooth.printCustom(
                       "     (Comment : ${localParcelReadyItemComments[i]})",
                       printerenum.Size.medium.val,
                       printerenum.Align.left.val);
                 }
+                bluetooth.printCustom(
+                    "-----------------------------------------------",
+                    printerenum.Size.bold.val,
+                    printerenum.Align.center.val);
               } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                           listen: false)
                       .chefPrinterSizeFromClass ==
                   '58') {
                 if ((' '.allMatches(localParcelReadyItemNames[i]).length >=
-                    3)) {
+                        2) ||
+                    localParcelReadyItemNames[i].length > 14) {
                   String firstName = '';
                   String secondName = '';
-                  String thirdName = '';
                   final longItemNameSplit =
                       localParcelReadyItemNames[i].split(' ');
                   for (int i = 0; i < longItemNameSplit.length; i++) {
                     if (i == 0) {
                       firstName = longItemNameSplit[i];
                     }
-                    if (i == 1) {
-                      firstName += ' ${longItemNameSplit[i]}';
-                    }
-                    if (i == 2) {
+
+                    if (i >= 1) {
                       secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i == 3) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 3) {
-                      thirdName += '${longItemNameSplit[i]} ';
                     }
                   }
-                  bluetooth.printCustom(
-                    "$firstName x ${localParcelReadyNumberOfItems[i].toString()}",
-                    printerenum.Size.medium.val,
-                    printerenum.Align.left.val,
-                  );
+                  bluetooth.printLeftRight(
+                      "$firstName",
+                      "${localParcelReadyNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val);
 
                   bluetooth.printCustom(
                     "$secondName",
-                    printerenum.Size.medium.val,
-                    printerenum.Align.left.val,
-                  );
-                  bluetooth.printCustom(
-                    "$thirdName",
-                    printerenum.Size.medium.val,
+                    printerenum.Size.bold.val,
                     printerenum.Align.left.val,
                   );
                 } else {
-                  bluetooth.printCustom(
-                    "${localParcelReadyItemNames[i]} x ${localParcelReadyNumberOfItems[i].toString()}",
-                    printerenum.Size.medium.val,
-                    printerenum.Align.left.val,
-                  );
+                  bluetooth.printLeftRight(
+                      "${localParcelReadyItemNames[i]}",
+                      "${localParcelReadyNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val);
                 }
 
-                if (localParcelReadyItemComments[i] != 'nocomments') {
+                if (localParcelReadyItemComments[i] != 'noComment') {
                   bluetooth.printCustom(
                       "     (Comment : ${localParcelReadyItemComments[i]})",
                       printerenum.Size.medium.val,
                       printerenum.Align.left.val);
                 }
+                bluetooth.printCustom("-------------------------------",
+                    printerenum.Size.medium.val, printerenum.Align.center.val);
               }
 
 //ToAccessDisconnectWhenWeArePrintingParcel
@@ -670,7 +712,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                 printerenum.Size.bold.val,
                 printerenum.Align.center.val,
               );
-              bluetooth.printNewLine();
+              // bluetooth.printNewLine();
             } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                             listen: false)
                         .chefPrinterSizeFromClass ==
@@ -681,18 +723,18 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                 printerenum.Size.bold.val,
                 printerenum.Align.left.val,
               );
-              bluetooth.printNewLine();
-              bluetooth.printNewLine();
+              // bluetooth.printNewLine();
+              // bluetooth.printNewLine();
             }
           } else {
             if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                         listen: false)
                     .chefPrinterSizeFromClass ==
                 '80') {
-              if ((' '.allMatches(localParcelReadyItemNames[0]).length >= 3)) {
+              if ((' '.allMatches(localParcelReadyItemNames[0]).length >= 2)) {
                 String firstName = '';
                 String secondName = '';
-                String thirdName = '';
+
                 final longItemNameSplit =
                     localParcelReadyItemNames[0].split(' ');
                 for (int i = 0; i < longItemNameSplit.length; i++) {
@@ -705,11 +747,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   if (i == 2) {
                     secondName += '${longItemNameSplit[i]} ';
                   }
-                  if (i == 3) {
+                  if (i > 2) {
                     secondName += '${longItemNameSplit[i]} ';
-                  }
-                  if (i > 3) {
-                    thirdName += '${longItemNameSplit[i]} ';
                   }
                 }
                 bluetooth.printLeftRight(
@@ -720,105 +759,92 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                 bluetooth.printLeftRight(
                     "$secondName", "", printerenum.Size.bold.val,
                     format: "%-30s %10s %n");
-                bluetooth.printLeftRight(
-                    "$thirdName", "", printerenum.Size.bold.val,
-                    format: "%-30s %10s %n");
               } else {
                 bluetooth.printLeftRight(
                     "${localParcelReadyItemNames[0]}",
                     "${localParcelReadyNumberOfItems[0].toString()}",
                     printerenum.Size.bold.val,
-                    format: "%-30s %30s %n");
+                    format: "%-30s %10s %n");
               }
 
-              if (localParcelReadyItemComments[0] != 'nocomments') {
+              if (localParcelReadyItemComments[0] != 'noComment') {
                 bluetooth.printCustom(
                     "     (Comment : ${localParcelReadyItemComments[0]})",
                     printerenum.Size.medium.val,
                     printerenum.Align.left.val);
               }
+              bluetooth.printCustom(
+                  "-----------------------------------------------",
+                  printerenum.Size.bold.val,
+                  printerenum.Align.center.val);
             } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                         listen: false)
                     .chefPrinterSizeFromClass ==
                 '58') {
-              if ((' '.allMatches(localParcelReadyItemNames[0]).length >= 3)) {
+              if ((' '.allMatches(localParcelReadyItemNames[0]).length >= 2) ||
+                  localParcelReadyItemNames[0].length > 14) {
                 String firstName = '';
                 String secondName = '';
-                String thirdName = '';
                 final longItemNameSplit =
                     localParcelReadyItemNames[0].split(' ');
                 for (int i = 0; i < longItemNameSplit.length; i++) {
                   if (i == 0) {
                     firstName = longItemNameSplit[i];
                   }
-                  if (i == 1) {
-                    firstName += ' ${longItemNameSplit[i]}';
-                  }
-                  if (i == 2) {
+                  if (i >= 1) {
                     secondName += '${longItemNameSplit[i]} ';
-                  }
-                  if (i == 3) {
-                    secondName += '${longItemNameSplit[i]} ';
-                  }
-                  if (i > 3) {
-                    thirdName += '${longItemNameSplit[i]} ';
                   }
                 }
-                bluetooth.printCustom(
-                  "$firstName x ${localParcelReadyNumberOfItems[0].toString()}",
-                  printerenum.Size.medium.val,
-                  printerenum.Align.left.val,
-                );
+                bluetooth.printLeftRight(
+                    "$firstName",
+                    "${localParcelReadyNumberOfItems[0].toString()}",
+                    printerenum.Size.bold.val);
 
                 bluetooth.printCustom(
                   "$secondName",
-                  printerenum.Size.medium.val,
-                  printerenum.Align.left.val,
-                );
-                bluetooth.printCustom(
-                  "$thirdName",
-                  printerenum.Size.medium.val,
+                  printerenum.Size.bold.val,
                   printerenum.Align.left.val,
                 );
               } else {
-                bluetooth.printCustom(
-                  "${localParcelReadyItemNames[0]} x ${localParcelReadyNumberOfItems[0].toString()}",
-                  printerenum.Size.medium.val,
-                  printerenum.Align.left.val,
-                );
+                bluetooth.printLeftRight(
+                    "${localParcelReadyItemNames[0]}",
+                    "${localParcelReadyNumberOfItems[0].toString()}",
+                    printerenum.Size.bold.val);
               }
-              if (localParcelReadyItemComments[0] != 'nocomments') {
+              if (localParcelReadyItemComments[0] != 'noComment') {
                 bluetooth.printCustom(
                     "     (Comment : ${localParcelReadyItemComments[0]})",
                     printerenum.Size.medium.val,
                     printerenum.Align.left.val);
               }
+              bluetooth.printCustom("-------------------------------",
+                  printerenum.Size.medium.val, printerenum.Align.center.val);
             }
 
-            bluetooth.printNewLine();
             if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                             listen: false)
                         .chefPrinterSizeFromClass ==
                     '80' &&
                 localParcelReadyItemNames[0] != 'Printer Check') {
+              bluetooth.printNewLine();
+              bluetooth.printNewLine();
               bluetooth.printCustom(
                 "Note:Consume Within Two Hours",
                 printerenum.Size.bold.val,
                 printerenum.Align.center.val,
               );
-              bluetooth.printNewLine();
             } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                             listen: false)
                         .chefPrinterSizeFromClass ==
                     '58' &&
                 localParcelReadyItemNames[0] != 'Printer Check') {
+              bluetooth.printNewLine();
+              bluetooth.printNewLine();
               bluetooth.printCustom(
                 "Note:Consume Within Two Hours",
                 printerenum.Size.bold.val,
                 printerenum.Align.left.val,
               );
-              bluetooth.printNewLine();
-              bluetooth.printNewLine();
             }
             _fastDisconnectForAfterOrderPrint();
           }
@@ -976,11 +1002,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
       // playPrinterKOT();
       getAllPairedDevices();
       printingOver = false;
-      // if (showSpinner == false) {
-      //   setState(() {
-      //     showSpinner = true;
-      //   });
-      // }
 
       bool? isConnected = await bluetooth.isConnected;
       print(
@@ -1000,7 +1021,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
         }
         if (devicesCount == _devices.length &&
             printerPairedTrueYetToPairFalse == false) {
-          // _everySecondForKotTimer = -3;
           setState(() {
             showSpinner = false;
           });
@@ -1360,6 +1380,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   bluetooth.paperCut();
                   bluetooth.printNewLine();
                   bluetooth.printNewLine();
+                  bluetooth.printNewLine();
+                  bluetooth.printNewLine();
                   if (localKotItemsParentOrChild[i] == 'parent') {
                     bluetooth.printCustom(
                       "xxxxx CANCELLED xxxxx",
@@ -1367,7 +1389,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       printerenum.Align.center.val,
                     );
                     bluetooth.printCustom(
-                      "Slot : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
+                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
                       printerenum.Size.boldMedium.val,
                       printerenum.Align.center.val,
                     );
@@ -1378,7 +1400,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       printerenum.Align.center.val,
                     );
                     bluetooth.printCustom(
-                      "Slot : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
+                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
                       printerenum.Size.boldMedium.val,
                       printerenum.Align.center.val,
                     );
@@ -1389,7 +1411,10 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     printerenum.Size.bold.val,
                     printerenum.Align.center.val,
                   );
-                  bluetooth.printNewLine();
+                  bluetooth.printCustom(
+                      "-----------------------------------------------",
+                      printerenum.Size.bold.val,
+                      printerenum.Align.center.val);
                   tempTableOrParcel = localKotItemsTableOrParcel[i];
                   tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
                   tempTicketNumber = localKotItemsTicketNumber[i];
@@ -1397,10 +1422,9 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   tempCancelledItemTrueElseFalse =
                       localKotCancelledItemTrueElseFalse[i];
                 }
-                if ((' '.allMatches(localKOTItemNames[i]).length >= 3)) {
+                if ((' '.allMatches(localKOTItemNames[i]).length >= 2)) {
                   String firstName = '';
                   String secondName = '';
-                  String thirdName = '';
                   final longItemNameSplit = localKOTItemNames[i].split(' ');
                   for (int i = 0; i < longItemNameSplit.length; i++) {
                     if (i == 0) {
@@ -1412,11 +1436,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     if (i == 2) {
                       secondName += '${longItemNameSplit[i]} ';
                     }
-                    if (i == 3) {
+                    if (i > 2) {
                       secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 3) {
-                      thirdName += '${longItemNameSplit[i]} ';
                     }
                   }
                   bluetooth.printLeftRight(
@@ -1427,10 +1448,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   bluetooth.printLeftRight(
                       "$secondName", "", printerenum.Size.bold.val,
                       format: "%-30s %10s %n");
-                  bluetooth.printLeftRight(
-                      "$thirdName", "", printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                  bluetooth.printNewLine();
                 } else {
                   bluetooth.printLeftRight(
                       "${localKOTItemNames[i]}",
@@ -1439,23 +1456,16 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       format: "%-30s %10s %n");
                 }
 
-                if (localKOTItemComments[i] != 'nocomments') {
+                if (localKOTItemComments[i] != 'noComment') {
                   bluetooth.printCustom(
                       "     (Comment : ${localKOTItemComments[i]})",
                       printerenum.Size.bold.val,
                       printerenum.Align.left.val);
-                  // if (localKotCancelledItemTrueElseFalse[i + 1] == 'false') {
-                  //   print('came inside false for last line cancel');
-                  //   bluetooth.printCustom(
-                  //     "xxxxx CANCELLED xxxxx",
-                  //     printerenum.Size.extraLarge.val,
-                  //     printerenum.Align.center.val,
-                  //   );
-                  //   bluetooth.printNewLine();
-                  //   bluetooth.printNewLine();
-                  //   bluetooth.paperCut();
-                  // }
                 }
+                bluetooth.printCustom(
+                    "-----------------------------------------------",
+                    printerenum.Size.bold.val,
+                    printerenum.Align.center.val);
               } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                           listen: false)
                       .chefPrinterSizeFromClass ==
@@ -1469,6 +1479,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                         localKotCancelledItemTrueElseFalse[i]) {
                   bluetooth.printNewLine();
                   bluetooth.printNewLine();
+                  bluetooth.printNewLine();
+                  bluetooth.printNewLine();
                   if (localKotItemsParentOrChild[i] == 'parent') {
                     bluetooth.printCustom(
                       "xx CANCELLED xx",
@@ -1476,7 +1488,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       printerenum.Align.center.val,
                     );
                     bluetooth.printCustom(
-                      "Slot : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
+                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
                       printerenum.Size.boldMedium.val,
                       printerenum.Align.center.val,
                     );
@@ -1487,7 +1499,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       printerenum.Align.center.val,
                     );
                     bluetooth.printCustom(
-                      "Slot : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
+                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
                       printerenum.Size.boldMedium.val,
                       printerenum.Align.center.val,
                     );
@@ -1498,8 +1510,10 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     printerenum.Size.bold.val,
                     printerenum.Align.center.val,
                   );
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
+                  bluetooth.printCustom(
+                      "-------------------------------",
+                      printerenum.Size.medium.val,
+                      printerenum.Align.center.val);
                   tempTableOrParcel = localKotItemsTableOrParcel[i];
                   tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
                   tempTicketNumber = localKotItemsTicketNumber[i];
@@ -1508,57 +1522,42 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   tempCancelledItemTrueElseFalse =
                       localKotCancelledItemTrueElseFalse[i];
                 }
-                if ((' '.allMatches(localKOTItemNames[i]).length >= 3)) {
+                if ((' '.allMatches(localKOTItemNames[i]).length >= 2) ||
+                    localKOTItemNames[i].length > 14) {
                   String firstName = '';
                   String secondName = '';
-                  String thirdName = '';
                   final longItemNameSplit = localKOTItemNames[i].split(' ');
                   for (int i = 0; i < longItemNameSplit.length; i++) {
                     if (i == 0) {
                       firstName = longItemNameSplit[i];
                     }
-                    if (i == 1) {
-                      firstName += ' ${longItemNameSplit[i]}';
-                    }
-                    if (i == 2) {
+                    if (i >= 1) {
                       secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i == 3) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 3) {
-                      thirdName += '${longItemNameSplit[i]} ';
                     }
                   }
-                  bluetooth.printCustom(
-                    "$firstName x ${localKOTNumberOfItems[i].toString()}",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
+                  bluetooth.printLeftRight(
+                      "$firstName",
+                      "${localKOTNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val);
                   bluetooth.printCustom(
                     "$secondName",
                     printerenum.Size.bold.val,
                     printerenum.Align.left.val,
                   );
-                  bluetooth.printCustom(
-                    "$thirdName",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
-                  bluetooth.printNewLine();
                 } else {
-                  bluetooth.printCustom(
-                    "${localKOTItemNames[i]} x ${localKOTNumberOfItems[i].toString()}",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
+                  bluetooth.printLeftRight(
+                      "${localKOTItemNames[i]}",
+                      "${localKOTNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val);
                 }
-                if (localKOTItemComments[i] != 'nocomments') {
+                if (localKOTItemComments[i] != 'noComment') {
                   bluetooth.printCustom(
                       "     (Comment : ${localKOTItemComments[i]})",
                       printerenum.Size.bold.val,
                       printerenum.Align.left.val);
                 }
+                bluetooth.printCustom("-------------------------------",
+                    printerenum.Size.medium.val, printerenum.Align.center.val);
               }
 
 //ToAccessDisconnectWhenWeArePrintingParcel
@@ -1582,15 +1581,17 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   bluetooth.paperCut();
                   bluetooth.printNewLine();
                   bluetooth.printNewLine();
+                  bluetooth.printNewLine();
+                  bluetooth.printNewLine();
                   if (localKotItemsParentOrChild[i] == 'parent') {
                     bluetooth.printCustom(
-                      "Slot : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
+                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
                       printerenum.Size.boldMedium.val,
                       printerenum.Align.center.val,
                     );
                   } else {
                     bluetooth.printCustom(
-                      "Slot : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
+                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
                       printerenum.Size.boldMedium.val,
                       printerenum.Align.center.val,
                     );
@@ -1601,7 +1602,10 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     printerenum.Size.bold.val,
                     printerenum.Align.center.val,
                   );
-                  bluetooth.printNewLine();
+                  bluetooth.printCustom(
+                      "-----------------------------------------------",
+                      printerenum.Size.bold.val,
+                      printerenum.Align.center.val);
                   tempTableOrParcel = localKotItemsTableOrParcel[i];
                   tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
                   tempTicketNumber = localKotItemsTicketNumber[i];
@@ -1612,7 +1616,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                 if ((' '.allMatches(localKOTItemNames[i]).length >= 3)) {
                   String firstName = '';
                   String secondName = '';
-                  String thirdName = '';
                   final longItemNameSplit = localKOTItemNames[i].split(' ');
                   for (int i = 0; i < longItemNameSplit.length; i++) {
                     if (i == 0) {
@@ -1624,11 +1627,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     if (i == 2) {
                       secondName += '${longItemNameSplit[i]} ';
                     }
-                    if (i == 3) {
+                    if (i > 2) {
                       secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 3) {
-                      thirdName += '${longItemNameSplit[i]} ';
                     }
                   }
                   bluetooth.printLeftRight(
@@ -1639,10 +1639,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   bluetooth.printLeftRight(
                       "$secondName", "", printerenum.Size.bold.val,
                       format: "%-30s %10s %n");
-                  bluetooth.printLeftRight(
-                      "$thirdName", "", printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                  bluetooth.printNewLine();
                 } else {
                   bluetooth.printLeftRight(
                       "${localKOTItemNames[i]}",
@@ -1651,12 +1647,16 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       format: "%-30s %10s %n");
                 }
 
-                if (localKOTItemComments[i] != 'nocomments') {
+                if (localKOTItemComments[i] != 'noComment') {
                   bluetooth.printCustom(
                       "     (Comment : ${localKOTItemComments[i]})",
                       printerenum.Size.bold.val,
                       printerenum.Align.left.val);
                 }
+                bluetooth.printCustom(
+                    "-----------------------------------------------",
+                    printerenum.Size.bold.val,
+                    printerenum.Align.center.val);
               } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
                           listen: false)
                       .chefPrinterSizeFromClass ==
@@ -1670,15 +1670,17 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                         localKotCancelledItemTrueElseFalse[i]) {
                   bluetooth.printNewLine();
                   bluetooth.printNewLine();
+                  bluetooth.printNewLine();
+                  bluetooth.printNewLine();
                   if (localKotItemsParentOrChild[i] == 'parent') {
                     bluetooth.printCustom(
-                      "Slot : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
+                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
                       printerenum.Size.boldMedium.val,
                       printerenum.Align.center.val,
                     );
                   } else {
                     bluetooth.printCustom(
-                      "Slot : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
+                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
                       printerenum.Size.boldMedium.val,
                       printerenum.Align.center.val,
                     );
@@ -1689,8 +1691,10 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     printerenum.Size.bold.val,
                     printerenum.Align.center.val,
                   );
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
+                  bluetooth.printCustom(
+                      "-------------------------------",
+                      printerenum.Size.medium.val,
+                      printerenum.Align.center.val);
                   tempTableOrParcel = localKotItemsTableOrParcel[i];
                   tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
                   tempTicketNumber = localKotItemsTicketNumber[i];
@@ -1698,57 +1702,42 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                   tempCancelledItemTrueElseFalse =
                       localKotCancelledItemTrueElseFalse[i];
                 }
-                if ((' '.allMatches(localKOTItemNames[i]).length >= 3)) {
+                if ((' '.allMatches(localKOTItemNames[i]).length >= 2) ||
+                    localKOTItemNames[i].length > 14) {
                   String firstName = '';
                   String secondName = '';
-                  String thirdName = '';
                   final longItemNameSplit = localKOTItemNames[i].split(' ');
                   for (int i = 0; i < longItemNameSplit.length; i++) {
                     if (i == 0) {
                       firstName = longItemNameSplit[i];
                     }
-                    if (i == 1) {
-                      firstName += ' ${longItemNameSplit[i]}';
-                    }
-                    if (i == 2) {
+                    if (i >= 1) {
                       secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i == 3) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 3) {
-                      thirdName += '${longItemNameSplit[i]} ';
                     }
                   }
-                  bluetooth.printCustom(
-                    "$firstName x ${localKOTNumberOfItems[i].toString()}",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
+                  bluetooth.printLeftRight(
+                      "$firstName",
+                      "${localKOTNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val);
                   bluetooth.printCustom(
                     "$secondName",
                     printerenum.Size.bold.val,
                     printerenum.Align.left.val,
                   );
-                  bluetooth.printCustom(
-                    "$thirdName",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
-                  bluetooth.printNewLine();
                 } else {
-                  bluetooth.printCustom(
-                    "${localKOTItemNames[i]} x ${localKOTNumberOfItems[i].toString()}",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
+                  bluetooth.printLeftRight(
+                      "${localKOTItemNames[i]}",
+                      "${localKOTNumberOfItems[i].toString()}",
+                      printerenum.Size.bold.val);
                 }
-                if (localKOTItemComments[i] != 'nocomments') {
+                if (localKOTItemComments[i] != 'noComment') {
                   bluetooth.printCustom(
                       "     (Comment : ${localKOTItemComments[i]})",
                       printerenum.Size.bold.val,
                       printerenum.Align.left.val);
                 }
+                bluetooth.printCustom("-------------------------------",
+                    printerenum.Size.medium.val, printerenum.Align.center.val);
               }
 
 //ToAccessDisconnectWhenWeArePrintingParcel
@@ -1760,7 +1749,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
           }
           bluetooth.printNewLine();
           bluetooth.printNewLine();
-
+          bluetooth.printNewLine();
           bluetooth
               .paperCut(); //some printer not supported (sometime making image not centered)
           //bluetooth.drawerPin2(); // or you can use bluetooth.drawerPin5();
@@ -1789,193 +1778,227 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
         print('timer disconnect is $_everySecondForDisconnecting');
         _everySecondForDisconnecting++;
       } else {
-        localKOTItemNames = [];
-        localKotItemsParentOrChild = [];
         bluetooth.disconnect();
 
         kotCounter = 0;
-        localKOTNumberOfItems = [];
-        localKOTItemComments = [];
+
 //ItMeansThereIsOnlyOneItemForKOT
-        if (localKotItemsEachItemFromEntireItemsString.length <= 1) {
+        if (localKOTItemNames.length <= 1) {
           if (localKotCancelledItemTrueElseFalse[0] != 'false') {
-            print('got inside this loop 466546');
 //CancelledItemAndThereIsOnlyOneCancelledItem
-            FireStoreDeleteFinishedOrderInPresentOrders(
+
+            Map<String, dynamic> tempItemUpdater = HashMap();
+            tempItemUpdater.addAll({localKOTItemsID[0]: FieldValue.delete()});
+            Map<String, dynamic> masterUpdaterMap = HashMap();
+            masterUpdaterMap.addAll({'itemsInOrderMap': tempItemUpdater});
+            masterUpdaterMap.addAll({
+              'statusMap': {'chefStatus': 7}
+            });
+
+            FireStoreAddOrderInRunningOrderFolder(
                     hotelName: widget.hotelName,
-                    eachItemId: localKotItemsBelongsToDoc[0])
-                .deleteFinishedOrder();
+                    ordersMap: masterUpdaterMap,
+                    seatingNumber: localKotItemsBelongsToDoc[0])
+                .addOrder();
           } else {
 //NewlyOrderedItem
-            final eachItemFromEntireItemsStringSplit =
-                localKotItemsEachItemFromEntireItemsString[0].split('*');
-            eachItemFromEntireItemsStringSplit[5] = '7';
-            eachItemFromEntireItemsStringSplit[7] = 'chefkotprinted';
-            String tempKOTUpdaterString = '';
-            for (int i = 0;
-                i < eachItemFromEntireItemsStringSplit.length - 1;
-                i++) {
-              tempKOTUpdaterString +=
-                  '${eachItemFromEntireItemsStringSplit[i]}*';
-            }
-            String stringUsedForUpdatingKOT =
-                localKotItemsEntireItemListBeforeSplitting[0].replaceAll(
-                    localKotItemsEachItemFromEntireItemsString[0],
-                    tempKOTUpdaterString);
-            final statusUpdatedStringCheck =
-                stringUsedForUpdatingKOT.split('*');
-            // //keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
-            String partOfTableOrParcel = statusUpdatedStringCheck[0];
-            String partOfTableOrParcelNumber = statusUpdatedStringCheck[1];
-            num chefStatus = 7;
-            num captainStatus = 7;
-
-            for (int j = 1;
-                j < ((statusUpdatedStringCheck.length - 1) / 15);
-                j++) {
-//ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
-              if (((statusUpdatedStringCheck[(j * 15) + 5]) == '11')) {
-                captainStatus = 11;
-              } else if (((statusUpdatedStringCheck[(j * 15) + 5]) == '10') &&
-                  captainStatus != 11) {
-                captainStatus = 10;
-              }
-              if (((statusUpdatedStringCheck[(j * 15) + 5]) == '9')) {
-                chefStatus = 9;
-              }
-            }
-            FireStoreAddOrderServiceWithSplit(
-                    hotelName: widget.hotelName,
-                    itemsUpdaterString: stringUsedForUpdatingKOT,
-                    seatingNumber: localKotItemsBelongsToDoc[0],
-                    captainStatus: captainStatus,
-                    chefStatus: chefStatus,
-                    partOfTableOrParcel: partOfTableOrParcel,
-                    partOfTableOrParcelNumber: partOfTableOrParcelNumber)
-                .addOrder();
+            statusUpdaterInFireStoreForRunningOrders(localKOTItemsID[0],
+                localKotItemsBelongsToDoc[0], 7, 'chefkotprinted');
           }
         } else {
-          Map<String, String> kotStatusUpdaterMap = HashMap();
-          List<String> deletingListCancelledItemsAfterKot = [];
-          List<String> deletingListCancelledItemsDocAfterKot = [];
-          for (int k = 0;
-              k < localKotItemsEachItemFromEntireItemsString.length;
-              k++) {
+          List<String> tempItemsAcceptedIdList = [];
+          List<String> tempItemsAcceptedDocList = [];
+          List<String> tempItemsCancelledIdList = [];
+          List<String> tempItemsCancelledDocList = [];
+          for (int k = 0; k < localKOTItemNames.length; k++) {
             if (localKotCancelledItemTrueElseFalse[k] == 'false') {
-//ForNewlyOrderedItems
-              final eachItemFromEntireItemsStringSplit =
-                  localKotItemsEachItemFromEntireItemsString[k].split('*');
-              eachItemFromEntireItemsStringSplit[5] = '7';
-              eachItemFromEntireItemsStringSplit[7] = 'chefkotprinted';
-              String tempKOTUpdaterString = '';
-              for (int i = 0;
-                  i < eachItemFromEntireItemsStringSplit.length - 1;
-                  i++) {
-                tempKOTUpdaterString +=
-                    '${eachItemFromEntireItemsStringSplit[i]}*';
-              }
-              String entireStringBeforeSplittingForUpdating = '';
-              if (kotStatusUpdaterMap
-                  .containsKey(localKotItemsBelongsToDoc[k])) {
-                entireStringBeforeSplittingForUpdating =
-                    kotStatusUpdaterMap[localKotItemsBelongsToDoc[k]]!;
-              } else {
-                entireStringBeforeSplittingForUpdating =
-                    localKotItemsEntireItemListBeforeSplitting[k];
-              }
-              String stringUsedForUpdatingKOT =
-                  entireStringBeforeSplittingForUpdating.replaceAll(
-                      localKotItemsEachItemFromEntireItemsString[k],
-                      tempKOTUpdaterString);
-              kotStatusUpdaterMap[localKotItemsBelongsToDoc[k]] =
-                  stringUsedForUpdatingKOT;
-              // kotStatusUpdaterMap.update(localKotItemsBelongsToDoc[k],
-              //     (value) => stringUsedForUpdatingKOT);
-
+//forAcceptedItems
+              tempItemsAcceptedIdList.add(localKOTItemsID[k]);
+              tempItemsAcceptedDocList.add(localKotItemsBelongsToDoc[k]);
             } else {
-//ForCancelledItems
-              deletingListCancelledItemsAfterKot.add(localKOTItemsID[k]);
-              deletingListCancelledItemsDocAfterKot
-                  .add(localKotItemsBelongsToDoc[k]);
-            }
-
-            if ((k + 1) == localKotItemsEachItemFromEntireItemsString.length) {
-              if (deletingListCancelledItemsAfterKot.isNotEmpty) {
-                if (deletingListCancelledItemsAfterKot.length == 1) {
-                  FireStoreDeleteFinishedOrderInPresentOrders(
-                          hotelName: widget.hotelName,
-                          eachItemId: deletingListCancelledItemsDocAfterKot[0])
-                      .deleteFinishedOrder();
-                } else {
-                  for (int i = 0;
-                      i < deletingListCancelledItemsAfterKot.length;
-                      i++) {
-                    if (i + 1 != deletingListCancelledItemsAfterKot.length) {
-//WeHaven'tReachedTheLastItemInTheList
-                      FireStoreClearCancelledItemFromPresentOrders(
-                        hotelName: widget.hotelName,
-                        cancelledItemId: deletingListCancelledItemsAfterKot[i],
-                        cancelledItemsDoc:
-                            deletingListCancelledItemsDocAfterKot[i],
-                      ).deleteCancelledItem();
-                    } else {
-//ClearingTheDocBecauseCancelledItemsAreAllCleared
-                      FireStoreDeleteFinishedOrderInPresentOrders(
-                              hotelName: widget.hotelName,
-                              eachItemId:
-                                  deletingListCancelledItemsDocAfterKot[i])
-                          .deleteFinishedOrder();
-                    }
-
-                    cancelledItemsKey
-                        .remove(deletingListCancelledItemsAfterKot[i]);
-                  }
-                }
-              }
-
-              if (kotStatusUpdaterMap.isNotEmpty) {
-//ThisWillEnsureAllTheNewlyOrderedItemsStatusIsUpdatedInServer
-                kotStatusUpdaterMap.forEach((key, value) {
-                  final statusUpdatedStringCheck = value.split('*');
-
-                  String partOfTableOrParcel = statusUpdatedStringCheck[0];
-                  String partOfTableOrParcelNumber =
-                      statusUpdatedStringCheck[1];
-
-//keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
-                  num chefStatus = 7;
-                  num captainStatus = 7;
-
-                  for (int j = 1;
-                      j < ((statusUpdatedStringCheck.length - 1) / 15);
-                      j++) {
-//ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
-                    if (((statusUpdatedStringCheck[(j * 15) + 5]) == '11')) {
-                      captainStatus = 11;
-                    } else if (((statusUpdatedStringCheck[(j * 15) + 5]) ==
-                            '10') &&
-                        captainStatus != 11) {
-                      captainStatus = 10;
-                    }
-                    if (((statusUpdatedStringCheck[(j * 15) + 5]) == '9')) {
-                      chefStatus = 9;
-                    }
-                  }
-
-                  FireStoreAddOrderServiceWithSplit(
-                          hotelName: widget.hotelName,
-                          itemsUpdaterString: value,
-                          seatingNumber: key,
-                          captainStatus: captainStatus,
-                          chefStatus: chefStatus,
-                          partOfTableOrParcel: partOfTableOrParcel,
-                          partOfTableOrParcelNumber: partOfTableOrParcelNumber)
-                      .addOrder();
-                });
-              }
+//forCancelledItems
+              tempItemsCancelledIdList.add(localKOTItemsID[k]);
+              tempItemsCancelledDocList.add(localKotItemsBelongsToDoc[k]);
             }
           }
+          List<String> tempDistinctItemsAcceptedList =
+              tempItemsAcceptedDocList.toSet().toList();
+          for (var eachDistinctAcceptedDoc in tempDistinctItemsAcceptedList) {
+            Map<String, dynamic> masterUpdaterMapForAcceptedKOT = HashMap();
+            Map<String, dynamic> itemsUpdaterMapForAcceptedKOT = HashMap();
+            int counter = 0;
+            for (String acceptedItemDoc in tempItemsAcceptedDocList) {
+              if (eachDistinctAcceptedDoc == acceptedItemDoc) {
+                Map<String, dynamic> tempTempItemsUpdater = HashMap();
+                tempTempItemsUpdater.addAll({'itemStatus': 7});
+                tempTempItemsUpdater.addAll({'chefKOT': 'chefkotprinted'});
+                itemsUpdaterMapForAcceptedKOT.addAll(
+                    {tempItemsAcceptedIdList[counter]: tempTempItemsUpdater});
+              }
+              counter++;
+            }
+            masterUpdaterMapForAcceptedKOT
+                .addAll({'itemsInOrderMap': itemsUpdaterMapForAcceptedKOT});
+            masterUpdaterMapForAcceptedKOT.addAll({
+              'statusMap': {'chefStatus': 7}
+            });
+            FireStoreAddOrderInRunningOrderFolder(
+                    hotelName: widget.hotelName,
+                    ordersMap: masterUpdaterMapForAcceptedKOT,
+                    seatingNumber: eachDistinctAcceptedDoc)
+                .addOrder();
+          }
+          List<String> tempDistinctItemsCancelledList =
+              tempItemsCancelledDocList.toSet().toList();
+          for (var eachDistinctCancelledDoc in tempDistinctItemsCancelledList) {
+            Map<String, dynamic> masterUpdaterMapForCancelledKOT = HashMap();
+            Map<String, dynamic> itemsUpdaterMapForCancelledKOT = HashMap();
+            int counter = 0;
+            for (String cancelledItemDoc in tempItemsCancelledDocList) {
+              if (eachDistinctCancelledDoc == cancelledItemDoc) {
+                itemsUpdaterMapForCancelledKOT.addAll(
+                    {tempItemsCancelledIdList[counter]: FieldValue.delete()});
+                cancelledItemsKey.remove(tempItemsCancelledIdList[counter]);
+              }
+              counter++;
+            }
+            masterUpdaterMapForCancelledKOT
+                .addAll({'itemsInOrderMap': itemsUpdaterMapForCancelledKOT});
+            masterUpdaterMapForCancelledKOT.addAll({
+              'statusMap': {'chefStatus': 7}
+            });
+            FireStoreAddOrderInRunningOrderFolder(
+                    hotelName: widget.hotelName,
+                    ordersMap: masterUpdaterMapForCancelledKOT,
+                    seatingNumber: eachDistinctCancelledDoc)
+                .addOrder();
+          }
+
+//           Map<String, String> kotStatusUpdaterMap = HashMap();
+//           List<String> deletingListCancelledItemsAfterKot = [];
+//           List<String> deletingListCancelledItemsDocAfterKot = [];
+//           for (int k = 0; k < localKOTItemNames.length; k++) {
+//             if (localKotCancelledItemTrueElseFalse[k] == 'false') {
+// //ForNewlyOrderedItems
+//
+//               final eachItemFromEntireItemsStringSplit =
+//                   localKotItemsEachItemFromEntireItemsString[k].split('*');
+//               eachItemFromEntireItemsStringSplit[5] = '7';
+//               eachItemFromEntireItemsStringSplit[7] = 'chefkotprinted';
+//               String tempKOTUpdaterString = '';
+//               for (int i = 0;
+//                   i < eachItemFromEntireItemsStringSplit.length - 1;
+//                   i++) {
+//                 tempKOTUpdaterString +=
+//                     '${eachItemFromEntireItemsStringSplit[i]}*';
+//               }
+//               String entireStringBeforeSplittingForUpdating = '';
+//               if (kotStatusUpdaterMap
+//                   .containsKey(localKotItemsBelongsToDoc[k])) {
+// //ThisIsForThe
+//                 entireStringBeforeSplittingForUpdating =
+//                     kotStatusUpdaterMap[localKotItemsBelongsToDoc[k]]!;
+//               } else {
+//                 entireStringBeforeSplittingForUpdating =
+//                     localKotItemsEntireItemListBeforeSplitting[k];
+//               }
+//               String stringUsedForUpdatingKOT =
+//                   entireStringBeforeSplittingForUpdating.replaceAll(
+//                       localKotItemsEachItemFromEntireItemsString[k],
+//                       tempKOTUpdaterString);
+//               kotStatusUpdaterMap[localKotItemsBelongsToDoc[k]] =
+//                   stringUsedForUpdatingKOT;
+//               // kotStatusUpdaterMap.update(localKotItemsBelongsToDoc[k],
+//               //     (value) => stringUsedForUpdatingKOT);
+//
+//             } else {
+// //ForCancelledItems
+//               deletingListCancelledItemsAfterKot.add(localKOTItemsID[k]);
+//               deletingListCancelledItemsDocAfterKot
+//                   .add(localKotItemsBelongsToDoc[k]);
+//             }
+//
+//             if ((k + 1) == localKotItemsEachItemFromEntireItemsString.length) {
+//               if (deletingListCancelledItemsAfterKot.isNotEmpty) {
+//                 if (deletingListCancelledItemsAfterKot.length == 1) {
+//                   FireStoreDeleteFinishedOrderInPresentOrders(
+//                           hotelName: widget.hotelName,
+//                           eachItemId: deletingListCancelledItemsDocAfterKot[0])
+//                       .deleteFinishedOrder();
+//                 } else {
+//                   for (int i = 0;
+//                       i < deletingListCancelledItemsAfterKot.length;
+//                       i++) {
+//                     if (i + 1 != deletingListCancelledItemsAfterKot.length) {
+// //WeHaven'tReachedTheLastItemInTheList
+//                       FireStoreClearCancelledItemFromPresentOrders(
+//                         hotelName: widget.hotelName,
+//                         cancelledItemId: deletingListCancelledItemsAfterKot[i],
+//                         cancelledItemsDoc:
+//                             deletingListCancelledItemsDocAfterKot[i],
+//                       ).deleteCancelledItem();
+//                     } else {
+// //ClearingTheDocBecauseCancelledItemsAreAllCleared
+//                       FireStoreDeleteFinishedOrderInPresentOrders(
+//                               hotelName: widget.hotelName,
+//                               eachItemId:
+//                                   deletingListCancelledItemsDocAfterKot[i])
+//                           .deleteFinishedOrder();
+//                     }
+//
+//                     cancelledItemsKey
+//                         .remove(deletingListCancelledItemsAfterKot[i]);
+//                   }
+//                 }
+//               }
+//
+//               if (kotStatusUpdaterMap.isNotEmpty) {
+// //ThisWillEnsureAllTheNewlyOrderedItemsStatusIsUpdatedInServer
+//                 kotStatusUpdaterMap.forEach((key, value) {
+//                   final statusUpdatedStringCheck = value.split('*');
+//
+//                   String partOfTableOrParcel = statusUpdatedStringCheck[0];
+//                   String partOfTableOrParcelNumber =
+//                       statusUpdatedStringCheck[1];
+//
+// //keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
+//                   num chefStatus = 7;
+//                   num captainStatus = 7;
+//
+//                   for (int j = 1;
+//                       j < ((statusUpdatedStringCheck.length - 1) / 15);
+//                       j++) {
+// //ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
+//                     if (((statusUpdatedStringCheck[(j * 15) + 5]) == '11')) {
+//                       captainStatus = 11;
+//                     } else if (((statusUpdatedStringCheck[(j * 15) + 5]) ==
+//                             '10') &&
+//                         captainStatus != 11) {
+//                       captainStatus = 10;
+//                     }
+//                     if (((statusUpdatedStringCheck[(j * 15) + 5]) == '9')) {
+//                       chefStatus = 9;
+//                     }
+//                   }
+//
+//                   FireStoreAddOrderServiceWithSplit(
+//                           hotelName: widget.hotelName,
+//                           itemsUpdaterString: value,
+//                           seatingNumber: key,
+//                           captainStatus: captainStatus,
+//                           chefStatus: chefStatus,
+//                           partOfTableOrParcel: partOfTableOrParcel,
+//                           partOfTableOrParcelNumber: partOfTableOrParcelNumber)
+//                       .addOrder();
+//                 });
+//               }
+//             }
+//           }
         }
+        localKOTNumberOfItems = [];
+        localKOTItemComments = [];
+        localKOTItemNames = [];
+        localKotItemsParentOrChild = [];
 
         _timer!.cancel();
         _everySecondForDisconnecting = 0;
@@ -2009,6 +2032,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
 
   @override
   void initState() {
+    bluetooth.disconnect();
+    print('inside initState');
     //WeAreMakingThisVariableSimplyToGetTheProviderValueOnce.FirstTimeItWillBeInitialValue
 //IfWeDontHaveThisFirstTimeTaking,TheVideoWillPlayAgainAndAgain
 //EverytimeSomeoneGets
@@ -2035,17 +2060,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
 //ThisIsTheStreamWhichWillKeepCheckingOnTheStatusOfInternet
     //ItWillKeepLookingForStatusChangeAndWillUpdateThe hasInternet Variable
     internetAvailabilityChecker();
-    // final androidConfig = FlutterBackgroundAndroidConfig(
-    //   notificationTitle: "Orders",
-    //   notificationText: "We are looking for updates",
-    //   notificationImportance: AndroidNotificationImportance.Default,
-    //   notificationIcon: AndroidResource(
-    //       name: 'background_icon',
-    //       defType: 'drawable'), // Default is ic_launcher from folder mipmap
-    // );
-    // FlutterBackground.initialize();
-
-    // getAllPairedDevices();
+    // methodForChefWontCook();
     requestLocationPermission();
     bluetoothConnected = false;
     bluetoothAlreadyConnected = false;
@@ -2072,8 +2087,15 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
     // chefSpecialitiesForBackground = widget.chefSpecialities;
     FlutterBackground.initialize();
     Wakelock.enable();
+//SavingThatWeAreInsideChefScreen
+    BackgroundCheck().saveInsideChefScreenChangingInBackground(
+        insideChefScreenTrueElseFalse: true);
 
     super.initState();
+  }
+
+  void rebirth() {
+    Phoenix.rebirth(context);
   }
 
   void internetAvailabilityChecker() {
@@ -2308,7 +2330,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
 //         }
 //       });
     } else if (isForeground) {
-      // thisIsChefCallingForBackground = true;
       setState(() {
         appInBackground = false;
       });
@@ -2373,10 +2394,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
           print(
               '_everySecondBeforeCallingTimer $_everySecondBeforeCallingTimer');
         } else if (_everySecondBeforeCallingTimer == 10) {
-          // if (backgroundTimerCounter % 2 == 0) {
-          // NotificationService().showNotification(
-          //     title: 'Orders', body: 'We are looking for Updates');
-          // }
           timerRunningForCheckingNewOrdersInBackground = false;
           // bluetoothTurnOnMessageShown = false;
           // print('came inside bluetooth On Point');
@@ -2394,53 +2411,26 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
     }
   }
 
-  // void timerForBackgroundNotifications() {
-  //   Timer? _timerForBackgroundNotifications;
-  //   int _everySecondBeforeCallingNotifications = 0;
-  //   _timerForBackgroundNotifications =
-  //       Timer.periodic(Duration(seconds: 10), (_) async {
-  //     if (_everySecondBeforeCallingNotifications < 2) {
-  //       // timerRunningForCheckingNewOrdersInBackground = true;
-  //       _everySecondBeforeCallingNotifications++;
-  //       print(
-  //           '_everySecondBeforeCallingNotifications $_everySecondBeforeCallingNotifications');
-  //     } else if (_everySecondBeforeCallingNotifications == 2) {
-  //       // if (backgroundTimerCounter % 2 == 0) {
-  //       NotificationService().showNotification(
-  //           title: 'Orders', body: 'We are looking for Updates');
-  //       // }
-  //
-  //       _everySecondBeforeCallingNotifications++;
-  //
-  //       _timerForBackgroundNotifications!.cancel();
-  //     } else {
-  //       _timerForBackgroundNotifications!.cancel();
-  //     }
-  //   });
-  // }
-
   void currentNewOrdersCheckInBackground() async {
     // bool enabled = FlutterBackground.isBackgroundExecutionEnabled;
     // print('enabled $enabled');
-    NotificationService()
-        .showNotification(title: 'Orders', body: 'We are looking for Updates');
+    // NotificationService()
+    //     .showNotification(title: 'Orders', body: 'We are looking for Updates');
 
     backgroundTimerCounter++;
     print('background called $backgroundTimerCounter');
     if (backgroundTimerCounter < 361) {
       final presentOrdersCheck = await FirebaseFirestore.instance
           .collection(widget.hotelName)
-          .doc('presentorders')
-          .collection('presentorders')
-          .where('chefStatus', isEqualTo: 9)
+          .doc('runningorders')
+          .collection('runningorders')
+          .where('statusMap.${'chefStatus'}', isEqualTo: 9)
           .get();
 //WeFirstMake "SomeNewItemsOrdered" AsFalse
       someNewItemsOrdered = false;
       List<String> kotItemNames = [];
       List<num> kotNumberOfOrderedItems = [];
       List<String> kotItemsBelongsToDoc = [];
-      List<String> kotItemsEntireItemListBeforeSplitting = [];
-      List<String> kotItemsEachItemFromEntireItemsString = [];
       List<String> kotItemsComments = [];
       List<String> kotItemsTableOrParcel = [];
       List<String> kotItemsTableOrParcelNumber = [];
@@ -2452,193 +2442,76 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
       List<Map<String, dynamic>> backgroundItems = [];
       cancelledItemsKey = [];
       Map<String, dynamic> mapToAddIntoBackgroundItems = {};
-      String eachItemFromEntireItemsString = '';
       DateTime now = DateTime.now();
 
 //WeGoThrough "EachNewOrder" ByGoingThroughTheDocs
       num presentOrderSizeCounter = 0;
-      for (var eachOrder in presentOrdersCheck.docs) {
+      for (var eachDoc in presentOrdersCheck.docs) {
         presentOrderSizeCounter++;
         if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
             .chefPrinterKOTFromClass) {
-          if (eachOrder.id != 'ZCancelledList') {
-            String splitCheck = eachOrder['addedItemsSet'];
+          Map<String, dynamic> eachDocBaseInfoMap = eachDoc['baseInfoMap'];
+          String tableorparcel = eachDocBaseInfoMap['tableOrParcel'];
+          num tableorparcelnumber =
+              num.parse(eachDocBaseInfoMap['tableOrParcelNumber']);
+          String parentOrChild = eachDocBaseInfoMap['parentOrChild'];
+          num timecustomercametoseat =
+              num.parse(eachDocBaseInfoMap['startTime']);
 
-            final setSplit = splitCheck.split('*');
-
-            setSplit.removeLast();
-            String tableorparcel = setSplit[0];
-            num tableorparcelnumber = num.parse(setSplit[1]);
-            String parentOrChild = setSplit[7];
-            num timecustomercametoseat = num.parse(setSplit[2]);
-
-            num currentTimeHourMinuteMultiplied =
-                ((now.hour * 60) + now.minute);
-
-            for (int i = 0; i < setSplit.length; i++) {
-              if ((i) > 14) {
-                if ((i + 1) % 15 == 1) {
-                  mapToAddIntoBackgroundItems = {};
-                  eachItemFromEntireItemsString = '';
-
-                  mapToAddIntoBackgroundItems['tableorparcel'] = tableorparcel;
-                  mapToAddIntoBackgroundItems['parentOrChild'] = parentOrChild;
-                  mapToAddIntoBackgroundItems['tableorparcelnumber'] =
-                      tableorparcelnumber;
-                  mapToAddIntoBackgroundItems['timecustomercametoseat'] =
-                      timecustomercametoseat;
-                  mapToAddIntoBackgroundItems[
-                          'nowMinusTimeCustomerCameToSeat'] =
-                      currentTimeHourMinuteMultiplied - timecustomercametoseat;
-
-                  mapToAddIntoBackgroundItems['eachiteminorderid'] =
-                      setSplit[i];
-                  eachItemFromEntireItemsString += '${setSplit[i]}*';
-                }
-                if ((i + 1) % 15 == 2) {
-                  mapToAddIntoBackgroundItems['item'] = setSplit[i];
-                  eachItemFromEntireItemsString += '${setSplit[i]}*';
-                }
-                if ((i + 1) % 15 == 3) {
-                  mapToAddIntoBackgroundItems['priceofeach'] =
-                      num.parse(setSplit[i]);
-                  eachItemFromEntireItemsString += '${setSplit[i]}*';
-                }
-                if ((i + 1) % 15 == 4) {
-                  mapToAddIntoBackgroundItems['number'] =
-                      num.parse(setSplit[i]);
-                  eachItemFromEntireItemsString += '${setSplit[i]}*';
-                }
-
-                if ((i + 1) % 15 == 5) {
-                  mapToAddIntoBackgroundItems['timeoforder'] =
-                      num.parse(setSplit[i]);
-                  mapToAddIntoBackgroundItems[
-                          'nowTimeMinusThisItemOrderedTime'] =
-                      (currentTimeHourMinuteMultiplied -
-                          num.parse(setSplit[i]));
-
-                  eachItemFromEntireItemsString += '${setSplit[i]}*';
-                }
-                if ((i + 1) % 15 == 6) {
-                  mapToAddIntoBackgroundItems['statusoforder'] =
-                      num.parse(setSplit[i]);
-                  eachItemFromEntireItemsString += '${setSplit[i]}*';
-                }
-                if ((i + 1) % 15 == 7) {
-                  mapToAddIntoBackgroundItems['commentsForTheItem'] =
-                      setSplit[i];
-                  eachItemFromEntireItemsString += '${setSplit[i]}*';
-                }
-                if ((i + 1) % 15 == 8) {
-                  mapToAddIntoBackgroundItems['chefKotStatus'] = setSplit[i];
-                  eachItemFromEntireItemsString += '${setSplit[i]}*';
-                }
-                if ((i + 1) % 15 == 9) {
-                  mapToAddIntoBackgroundItems['ticketNumber'] = setSplit[i];
-                  mapToAddIntoBackgroundItems['itemBelongsToDoc'] =
-                      eachOrder.id;
-                  mapToAddIntoBackgroundItems['entireItemListBeforeSplitting'] =
-                      splitCheck;
-                  eachItemFromEntireItemsString = eachItemFromEntireItemsString +
-                      setSplit[i] +
-                      "*" +
-                      "futureUse*futureUse*futureUse*futureUse*futureUse*futureUse*";
-                  mapToAddIntoBackgroundItems['eachItemFromEntireItemsString'] =
-                      eachItemFromEntireItemsString;
-                  backgroundItems.add(mapToAddIntoBackgroundItems);
-                }
-              }
+          num currentTimeHourMinuteMultiplied = ((now.hour * 60) + now.minute);
+          Map<String, dynamic> eachDocItemsInOrderMap =
+              eachDoc['itemsInOrderMap'];
+          eachDocItemsInOrderMap.forEach((key, value) {
+            mapToAddIntoBackgroundItems = {};
+            if (value['itemCancelled'] != 'false') {
+//ThisIsCancelledItem
+              cancelledItemsKey.add(key);
             }
-          } else {
-            //TheListThatKeepsTrackOfAllTheItemsThatAreCancelled
-            cancelledItemsKey = [];
-            final cancelledData = eachOrder.data() as Map<String, dynamic>;
-            cancelledData.forEach((key, value) {
-              if (key != 'chefStatus') {
-                cancelledItemsKey.add(key);
-                mapToAddIntoBackgroundItems = {};
-                eachItemFromEntireItemsString = value.toString();
-                String cancelledItemsSplitCheck = value.toString();
-                final cancelledItemSplit = cancelledItemsSplitCheck.split('*');
-                cancelledItemSplit.removeLast();
-                num currentTimeHourMinuteMultiplied =
-                    ((now.hour * 60) + now.minute);
-
-                mapToAddIntoBackgroundItems['tableorparcel'] =
-                    cancelledItemSplit[9];
-
-                mapToAddIntoBackgroundItems['tableorparcelnumber'] =
-                    num.parse(cancelledItemSplit[10]);
-
-                mapToAddIntoBackgroundItems['parentOrChild'] =
-                    cancelledItemSplit[11];
-
-                mapToAddIntoBackgroundItems['cancelledItemTrueElseFalse'] =
-                    cancelledItemSplit[12];
-
-                mapToAddIntoBackgroundItems['timecustomercametoseat'] =
-                    num.parse(cancelledItemSplit[4]);
-
-                mapToAddIntoBackgroundItems['nowMinusTimeCustomerCameToSeat'] =
-                    (currentTimeHourMinuteMultiplied -
-                        num.parse(cancelledItemSplit[4]));
-                mapToAddIntoBackgroundItems['eachiteminorderid'] = key;
-
-                mapToAddIntoBackgroundItems['item'] = cancelledItemSplit[1];
-
-                mapToAddIntoBackgroundItems['priceofeach'] =
-                    num.parse(cancelledItemSplit[2]);
-
-                mapToAddIntoBackgroundItems['number'] =
-                    num.parse(cancelledItemSplit[3]);
-
-                mapToAddIntoBackgroundItems['timeoforder'] =
-                    num.parse(cancelledItemSplit[4]);
-                mapToAddIntoBackgroundItems['nowTimeMinusThisItemOrderedTime'] =
-                    (currentTimeHourMinuteMultiplied -
-                        num.parse(cancelledItemSplit[4]));
-                mapToAddIntoBackgroundItems['statusoforder'] = 9;
-
-                mapToAddIntoBackgroundItems['commentsForTheItem'] =
-                    cancelledItemSplit[6];
-
-                mapToAddIntoBackgroundItems['chefKotStatus'] =
-                    cancelledItemSplit[7];
-
-                mapToAddIntoBackgroundItems['ticketNumber'] =
-                    cancelledItemSplit[8];
-
-                mapToAddIntoBackgroundItems['itemBelongsToDoc'] = eachOrder.id;
-
-                mapToAddIntoBackgroundItems['entireItemListBeforeSplitting'] =
-                    value;
-                mapToAddIntoBackgroundItems['eachItemFromEntireItemsString'] =
-                    value;
-                print(mapToAddIntoBackgroundItems);
-                backgroundItems.add(mapToAddIntoBackgroundItems);
-              }
-            });
-            // print(cancelledData);
-            print(backgroundItems);
-          }
+            mapToAddIntoBackgroundItems['cancelledItemTrueElseFalse'] =
+                value['itemCancelled'];
+            mapToAddIntoBackgroundItems['tableorparcel'] = tableorparcel;
+            mapToAddIntoBackgroundItems['tableorparcelnumber'] =
+                tableorparcelnumber;
+            mapToAddIntoBackgroundItems['parentOrChild'] = parentOrChild;
+            mapToAddIntoBackgroundItems['timecustomercametoseat'] =
+                timecustomercametoseat;
+            mapToAddIntoBackgroundItems['nowMinusTimeCustomerCameToSeat'] =
+                currentTimeHourMinuteMultiplied - timecustomercametoseat;
+            mapToAddIntoBackgroundItems['eachiteminorderid'] = key;
+            mapToAddIntoBackgroundItems['item'] = value['itemName'];
+            mapToAddIntoBackgroundItems['priceofeach'] = value['itemPrice'];
+            mapToAddIntoBackgroundItems['number'] = value['numberOfItem'];
+            mapToAddIntoBackgroundItems['timeoforder'] =
+                value['orderTakingTime'];
+            mapToAddIntoBackgroundItems['nowTimeMinusThisItemOrderedTime'] =
+                (currentTimeHourMinuteMultiplied -
+                    num.parse(value['orderTakingTime']));
+            mapToAddIntoBackgroundItems['commentsForTheItem'] =
+                value['itemComment'];
+            mapToAddIntoBackgroundItems['statusoforder'] = value['itemStatus'];
+            mapToAddIntoBackgroundItems['chefKotStatus'] = value['chefKOT'];
+            mapToAddIntoBackgroundItems['ticketNumber'] =
+                value['ticketNumberOfItem'];
+            mapToAddIntoBackgroundItems['itemBelongsToDoc'] = eachDoc.id;
+            backgroundItems.add(mapToAddIntoBackgroundItems);
+          });
           if (presentOrderSizeCounter == presentOrdersCheck.size) {
             counterForKOT = 0;
-            for (var backgroundItem in backgroundItems!) {
+            for (var backgroundItem in backgroundItems) {
               counterForKOT++;
-
-              print('inside backgroundKOT collection area1');
               if (backgroundItem['chefKotStatus'] == 'chefkotnotyet' &&
-                  !widget.chefSpecialities.contains(backgroundItem['item'])) {
-                print('inside backgroundKOT collection area2');
+                  !(json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                                  context,
+                                  listen: false)
+                              .allUserProfilesFromClass)[
+                          Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                  listen: false)
+                              .currentUserPhoneNumberFromClass]['wontCook'])
+                      .contains(backgroundItem['item'])) {
                 kotItemNames.add(backgroundItem['item']);
                 kotNumberOfOrderedItems.add(backgroundItem['number']);
                 kotItemsComments.add(backgroundItem['commentsForTheItem']);
                 kotItemsBelongsToDoc.add(backgroundItem['itemBelongsToDoc']);
-                kotItemsEntireItemListBeforeSplitting
-                    .add(backgroundItem['entireItemListBeforeSplitting']);
-                kotItemsEachItemFromEntireItemsString
-                    .add(backgroundItem['eachItemFromEntireItemsString']);
                 kotItemsTableOrParcel.add(backgroundItem['tableorparcel']);
                 kotItemsTableOrParcelNumber
                     .add(backgroundItem['tableorparcelnumber'].toString());
@@ -2649,19 +2522,13 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     .add(backgroundItem['cancelledItemTrueElseFalse']);
               }
               if (counterForKOT == backgroundItems.length &&
-                  kotItemNames.isNotEmpty &&
-                  // printingOver &&
-                  locationPermissionAccepted) {
-                print('entered dfgdfgdf');
+                  kotItemNames.isNotEmpty) {
+                print('got into this 3');
                 printingOver = false;
                 localKOTItemNames = kotItemNames;
                 localKOTNumberOfItems = kotNumberOfOrderedItems;
                 localKOTItemComments = kotItemsComments;
                 localKotItemsBelongsToDoc = kotItemsBelongsToDoc;
-                localKotItemsEntireItemListBeforeSplitting =
-                    kotItemsEntireItemListBeforeSplitting;
-                localKotItemsEachItemFromEntireItemsString =
-                    kotItemsEachItemFromEntireItemsString;
                 localKotItemsTableOrParcel = kotItemsTableOrParcel;
                 localKotItemsTableOrParcelNumber = kotItemsTableOrParcelNumber;
                 localKotItemsParentOrChild = kotItemsParentOrChild;
@@ -2669,85 +2536,30 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                 localKotCancelledItemTrueElseFalse =
                     kotCancelledItemTrueElseFalse;
                 localKOTItemsID = kotItemsID;
-                print('234');
-//ThisWillEnsurePrintingIsCalledOnlyWhenNewItemsAreComingOrSomethingIsCancelled
-                if ((!listEquals(tempLocalKOTItemsID, localKOTItemsID) ||
+
+                if (bluetoothOnTrueOrOffFalse == false) {
+                  playPrinterError();
+                } else if ((!listEquals(tempLocalKOTItemsID, localKOTItemsID) ||
                         cancelledItemsKey.isNotEmpty) &&
                     bluetoothJustTurningOn == false) {
                   if (bluetoothOnTrueOrOffFalse &&
                       timerForPrintingKOTRunning == false &&
                       timerForPrintingTenSecKOTRunning == false &&
-                      intermediatePrintingCallKOTRunning == false &&
-                      intermediatePrintingAfterOrderReadyRunning == false) {
+                      intermediatePrintingCallKOTRunning == false) {
                     timerForPrintingKOT();
-                  } else if (bluetoothTurnOnMessageShown == false &&
-                      bluetoothOnTrueOrOffFalse == false) {
-                    bluetoothForKotNotTurnedOn();
                   }
                 } else {
                   print('nothing needed');
                 }
-                // int _everySecondForKOT = 0;
-                // Timer? _timerForKOT;
-                // _timerForKOT = Timer.periodic(Duration(seconds: 2), (_) async {
-                //   if (_everySecondForKOT <= 2) {
-                //     print('fgdfgdgdgfdgdn45465gh');
-                //     _everySecondForKOT++;
-                //   } else {
-                //     print('fgdfgdgdgfdgdngh');
-                //     if (bluetoothOnTrueOrOffFalse) {
-                //       timerForPrintingKOT();
-                //       printerConnectionToLastSavedPrinterForKOT();
-                //     } else if (bluetoothTurnOnMessageShown == false) {
-                //       bluetoothForKotNotTurnedOn();
-                //     }
-                //     // playPrinterKOT();
-                //
-                //     bluetoothStateChangeFunction();
-                //
-                //     print('calling KOT');
-                //     _timerForKOT!.cancel();
-                //     _everySecondForKOT = 0;
-                //   }
-                // });
               }
-
-              // else {
-              //   if (bluetoothTurnOnMessageShown == false) {
-              //     bluetoothForKotNotTurnedOn();
-              //     // show('Please Turn On Bluetooth 45657');
-              //     // playPrinterError();
-              //     // bluetoothTurnOnMessageShown = true;
-              //   }
-              // }
             }
           }
         } else {
-          // i++;
           print('counter $presentOrderSizeCounter');
-          if (eachOrder['chefStatus'] == 9) {
+          if (eachDoc['statusMap']['chefStatus'] == 9) {
             someNewItemsOrdered = true;
           }
 
-//IfAnOrderStatusIs9 & AlsoWeCheckIfChefSpecialitiesDoesn'tHaveTheItem,
-          //WeChangeThe SomeNewItemsOrdered As True
-//           String addedItemsSet = eachOrder['addedItemsSet'];
-//           final screenOffCheckSplit = addedItemsSet.split('*');
-//
-//           for (int j = 1; j < ((screenOffCheckSplit.length - 1) / 15); j++) {
-// //ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
-//             if (((screenOffCheckSplit[(j * 15) + 5]) == '9') &&
-//                 !widget.chefSpecialities
-//                     .contains((screenOffCheckSplit[(j * 15) + 1]))) {
-//               someNewItemsOrdered = true;
-//             }
-//             // if ((j == ((screenOffCheckSplit.length - 1) / 15) - 1)) {
-//             //   print('cook alarm $j');
-//             //   if (someNewItemsOrdered) {
-//             //     playCook();
-//             //   }
-//             // }
-//           }
           if (presentOrderSizeCounter == presentOrdersCheck.size) {
             print('counter end $presentOrderSizeCounter');
             if (someNewItemsOrdered) {
@@ -2755,12 +2567,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
             }
           }
         }
-
-        //
-        // if (eachNewOrder['statusoforder'] == 9 &&
-        //     !widget.chefSpecialities.contains(eachNewOrder['item'])) {
-        //   someNewItemsOrdered = true;
-        // }
       }
     }
 
@@ -2783,11 +2589,11 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
 //     }
   }
 
-//PlayCookIsTheMethodToPlayMusic
-//WeFirstCheckWhetherPlayerIsPlaying
-//ifItIsFalse,Then WeGivePlayerPlay and WeGive AssetSourceWhichIsTheSource,,
-//ofTheFile and WeAlsoChangePlayerStateToPlaying
-//WeChangePlayerPlayingToTrue
+// PlayCookIsTheMethodToPlayMusic
+// WeFirstCheckWhetherPlayerIsPlaying
+// ifItIsFalse,Then WeGivePlayerPlay and WeGive AssetSourceWhichIsTheSource,,
+// ofTheFile and WeAlsoChangePlayerStateToPlaying
+// WeChangePlayerPlayingToTrue
 
   void playCook() async {
     if (!playerPlaying) {
@@ -2920,7 +2726,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
         _timerToGoForBluetoothMessage!.cancel();
       } else {
         _timerToGoForBluetoothMessage!.cancel();
-        print('ingabl $_everySecondForBluetoothMessage');
       }
     });
   }
@@ -2949,7 +2754,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
       } else {
         timerForPrintingKOTRunning = false;
         _timerToGoForKOt!.cancel();
-        print('inga $_everySecondForKotTimer');
       }
     });
   }
@@ -2979,60 +2783,95 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
       } else {
         timerForPrintingTenSecKOTRunning = false;
         _timerToGoForKOt!.cancel();
-        print('inga $_everySecondForKotTimer');
       }
     });
   }
 
-  void statusUpdaterInFireStore(
-      String eachItemFromEntireItemsString,
-      String entireItemListBeforeSplitting,
-      String itemBelongsToDoc,
-      String newStatusToUpdate) {
-    print('eachItemFromEntireItemsString');
-    print(eachItemFromEntireItemsString);
-    final eachItemFromEntireItemsStringSplit =
-        eachItemFromEntireItemsString.split('*');
-    eachItemFromEntireItemsStringSplit[5] = newStatusToUpdate;
+//   void statusUpdaterInFireStore(
+//       String eachItemFromEntireItemsString,
+//       String entireItemListBeforeSplitting,
+//       String itemBelongsToDoc,
+//       String newStatusToUpdate) {
+//     final eachItemFromEntireItemsStringSplit =
+//         eachItemFromEntireItemsString.split('*');
+//     eachItemFromEntireItemsStringSplit[5] = newStatusToUpdate;
+//
+//     String tempStatusUpdaterString = '';
+//     for (int i = 0; i < eachItemFromEntireItemsStringSplit.length - 1; i++) {
+//       tempStatusUpdaterString += '${eachItemFromEntireItemsStringSplit[i]}*';
+//     }
+//
+//     String stringUsedForUpdatingStatus = entireItemListBeforeSplitting
+//         .replaceAll(eachItemFromEntireItemsString, tempStatusUpdaterString);
+//
+//     final statusUpdatedStringCheck = stringUsedForUpdatingStatus.split('*');
+//
+//     String partOfTableOrParcel = statusUpdatedStringCheck[0];
+//     String partOfTableOrParcelNumber = statusUpdatedStringCheck[1];
+//
+// //keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
+//     num chefStatus = 7;
+//     num captainStatus = 7;
+//
+//     for (int j = 1; j < ((statusUpdatedStringCheck.length - 1) / 15); j++) {
+// //ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
+//       if (((statusUpdatedStringCheck[(j * 15) + 5]) == '11')) {
+//         captainStatus = 11;
+//       } else if (((statusUpdatedStringCheck[(j * 15) + 5]) == '10') &&
+//           captainStatus != 11) {
+//         captainStatus = 10;
+//       }
+//       if (((statusUpdatedStringCheck[(j * 15) + 5]) == '9')) {
+//         chefStatus = 9;
+//       }
+//     }
+//
+//     FireStoreAddOrderServiceWithSplit(
+//             hotelName: widget.hotelName,
+//             itemsUpdaterString: stringUsedForUpdatingStatus,
+//             seatingNumber: itemBelongsToDoc,
+//             captainStatus: captainStatus,
+//             chefStatus: chefStatus,
+//             partOfTableOrParcel: partOfTableOrParcel,
+//             partOfTableOrParcelNumber: partOfTableOrParcelNumber)
+//         .addOrder();
+//   }
 
-    String tempStatusUpdaterString = '';
-    for (int i = 0; i < eachItemFromEntireItemsStringSplit.length - 1; i++) {
-      tempStatusUpdaterString += '${eachItemFromEntireItemsStringSplit[i]}*';
+  void statusUpdaterInFireStoreForRunningOrders(String itemID,
+      String itemBelongsToDoc, num newStatusToUpdate, String chefKOTPrinted) {
+    Map<String, dynamic> statusMap = HashMap();
+    if (newStatusToUpdate == 11) {
+      //ToShowThatTheItemHasBeenRejected
+      statusMap.addAll({'captainStatus': 11});
+//ToShowThatChefHasLookedAtTheOrder
+      statusMap.addAll({'chefStatus': 7});
+    } else if (newStatusToUpdate == 10) {
+//ToShowThatHeHasReadiedTheOrderForTheCaptain
+      statusMap.addAll({'captainStatus': 10});
+//ToShowThatHeHasAcceptedTheOrder
+      statusMap.addAll({'chefStatus': 7});
+    } else {
+      //ToShowThatHeHasAcceptedTheOrder
+      statusMap.addAll({'chefStatus': 7});
+    }
+    Map<String, dynamic> tempMapToUpdateStatus = HashMap();
+    tempMapToUpdateStatus.addAll({'itemStatus': newStatusToUpdate});
+
+    if (chefKOTPrinted != 'dontTouch') {
+      tempMapToUpdateStatus.addAll({'chefKOT': chefKOTPrinted});
     }
 
-    String stringUsedForUpdatingStatus = entireItemListBeforeSplitting
-        .replaceAll(eachItemFromEntireItemsString, tempStatusUpdaterString);
+    Map<String, dynamic> masterOrderMapToServer = HashMap();
+    masterOrderMapToServer.addAll({
+      'itemsInOrderMap': {itemID: tempMapToUpdateStatus}
+    });
 
-    final statusUpdatedStringCheck = stringUsedForUpdatingStatus.split('*');
+    masterOrderMapToServer.addAll({'statusMap': statusMap});
 
-    String partOfTableOrParcel = statusUpdatedStringCheck[0];
-    String partOfTableOrParcelNumber = statusUpdatedStringCheck[1];
-
-//keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
-    num chefStatus = 7;
-    num captainStatus = 7;
-
-    for (int j = 1; j < ((statusUpdatedStringCheck.length - 1) / 15); j++) {
-//ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
-      if (((statusUpdatedStringCheck[(j * 15) + 5]) == '11')) {
-        captainStatus = 11;
-      } else if (((statusUpdatedStringCheck[(j * 15) + 5]) == '10') &&
-          captainStatus != 11) {
-        captainStatus = 10;
-      }
-      if (((statusUpdatedStringCheck[(j * 15) + 5]) == '9')) {
-        chefStatus = 9;
-      }
-    }
-
-    FireStoreAddOrderServiceWithSplit(
+    FireStoreAddOrderInRunningOrderFolder(
             hotelName: widget.hotelName,
-            itemsUpdaterString: stringUsedForUpdatingStatus,
             seatingNumber: itemBelongsToDoc,
-            captainStatus: captainStatus,
-            chefStatus: chefStatus,
-            partOfTableOrParcel: partOfTableOrParcel,
-            partOfTableOrParcelNumber: partOfTableOrParcelNumber)
+            ordersMap: masterOrderMapToServer)
         .addOrder();
   }
 
@@ -3070,9 +2909,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                           shape: MaterialStateProperty.all(
                               RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(30))),
-                          // RoundedRectangleBorder(
-                          //   borderRadius: BorderRadius.circular(10),
-                          // ),
                         ),
                         onPressed: () {
                           _videoController.play();
@@ -3116,9 +2952,12 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
 
   @override
   Widget build(BuildContext context) {
+    final fcmProvider = Provider.of<NotificationProvider>(context);
     return WillPopScope(
       //thisOnWillPopIsForTheBackButtonInPhone&ifItIsClicked,ItWillPopTheScreen
       onWillPop: () async {
+        BackgroundCheck().saveInsideChefScreenChangingInBackground(
+            insideChefScreenTrueElseFalse: false);
         Wakelock.disable();
         showSpinner = false;
 
@@ -3156,6 +2995,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
           leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
               onPressed: () async {
+                BackgroundCheck().saveInsideChefScreenChangingInBackground(
+                    insideChefScreenTrueElseFalse: false);
                 Wakelock.disable();
                 showSpinner = false;
                 // thisIsChefCallingForBackground = true;
@@ -3262,8 +3103,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
               StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection(widget.hotelName)
-                      .doc('presentorders')
-                      .collection('presentorders')
+                      .doc('runningorders')
+                      .collection('runningorders')
                       .snapshots(),
                   builder: (context, snapshot) {
                     //ThisOrderedItemsAndNumberOfItemsBelongToTheSameSet
@@ -3272,8 +3113,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     List<String> allItemsID = [];
                     List<num> allItemsStatus = [];
                     List<String> allItemsBelongsToDoc = [];
-                    List<String> allItemsEntireItemListBeforeSplitting = [];
-                    List<String> allItemsEachItemFromEntireItemsString = [];
                     List<String> allItemsComments = [];
                     List<String> allItemsCancelledTrueElseFalse = [];
                     //addingNewSetForCancelledItems
@@ -3282,8 +3121,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     List<String> cancelledItemsID = [];
                     List<num> cancelledItemsStatus = [];
                     List<String> cancelledItemsBelongsToDoc = [];
-                    List<String> cancelledEntireItemListBeforeSplitting = [];
-                    List<String> cancelledEachItemFromEntireItemsString = [];
+
                     List<String> cancelledItemsComments = [];
                     List<String> cancelledItemsCancelledTrueElseFalse = [];
                     //addingNewSetForCancelledItems
@@ -3292,8 +3130,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     List<String> acceptedItemsID = [];
                     List<num> acceptedItemsStatus = [];
                     List<String> acceptedItemsBelongsToDoc = [];
-                    List<String> acceptedEntireItemListBeforeSplitting = [];
-                    List<String> acceptedEachItemFromEntireItemsString = [];
                     List<String> acceptedItemsComments = [];
                     List<String> acceptedItemsCancelledTrueElseFalse = [];
                     List<String> readyItems = [];
@@ -3301,8 +3137,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     List<String> readyItemsID = [];
                     List<num> readyItemsStatus = [];
                     List<String> readyItemsBelongsToDoc = [];
-                    List<String> readyEntireItemListBeforeSplitting = [];
-                    List<String> readyEachItemFromEntireItemsString = [];
                     List<String> readyItemsComments = [];
                     List<String> readyItemsCancelledTrueElseFalse = [];
                     List<String> rejectedItems = [];
@@ -3310,8 +3144,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                     List<String> rejectedItemsID = [];
                     List<num> rejectedItemsStatus = [];
                     List<String> rejectedItemsBelongsToDoc = [];
-                    List<String> rejectedEntireItemListBeforeSplitting = [];
-                    List<String> rejectedEachItemFromEntireItemsString = [];
                     List<String> rejectedItemsComments = [];
                     List<String> rejectedItemsCancelledTrueElseFalse = [];
                     bool chefPrinterAfterOrderReadyPrintFromClass =
@@ -3361,220 +3193,65 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       final itemstream = snapshot.data?.docs;
 
                       for (var eachDoc in itemstream!) {
-                        if (eachDoc.id != 'ZCancelledList') {
-//EnsuringThisIsNotFromCancelledList
-                          String splitCheck = eachDoc['addedItemsSet'];
-                          final setSplit = splitCheck.split('*');
+                        // if (eachDoc.id != 'ZCancelledList') {
+                        Map<String, dynamic> eachDocBaseInfoMap =
+                            eachDoc['baseInfoMap'];
+                        String tableorparcel =
+                            eachDocBaseInfoMap['tableOrParcel'];
+                        num tableorparcelnumber = num.parse(
+                            eachDocBaseInfoMap['tableOrParcelNumber']);
+                        String parentOrChild =
+                            eachDocBaseInfoMap['parentOrChild'];
+                        num timecustomercametoseat =
+                            num.parse(eachDocBaseInfoMap['startTime']);
 
-                          setSplit.removeLast();
-                          String tableorparcel = setSplit[0];
-                          num tableorparcelnumber = num.parse(setSplit[1]);
-                          String parentOrChild = setSplit[7];
-                          num timecustomercametoseat = num.parse(setSplit[2]);
-                          num currentTimeHourMinuteMultiplied =
-                              ((now.hour * 60) + now.minute);
+                        num currentTimeHourMinuteMultiplied =
+                            ((now.hour * 60) + now.minute);
+                        Map<String, dynamic> eachDocItemsInOrderMap =
+                            eachDoc['itemsInOrderMap'];
 
-                          for (int i = 0; i < setSplit.length; i++) {
-//thisWillEnsureWeSwitchedFromTableInfoToOrderInfo
-                            if ((i) > 14) {
-                              if ((i + 1) % 15 == 1) {
-                                mapToAddIntoItems = {};
-                                eachItemFromEntireItemsString = '';
-                                mapToAddIntoItems[
-                                    'cancelledItemTrueElseFalse'] = 'false';
-
-                                mapToAddIntoItems['tableorparcel'] =
-                                    tableorparcel;
-                                mapToAddIntoItems['tableorparcelnumber'] =
-                                    tableorparcelnumber;
-                                mapToAddIntoItems['parentOrChild'] =
-                                    parentOrChild;
-                                mapToAddIntoItems['timecustomercametoseat'] =
-                                    timecustomercametoseat;
-                                mapToAddIntoItems[
-                                        'nowMinusTimeCustomerCameToSeat'] =
-                                    currentTimeHourMinuteMultiplied -
-                                        timecustomercametoseat;
-                                // if ((currentTimeHourMinuteMultiplied -
-                                //         timecustomercametoseat) >=
-                                //     kCustomerWaitingTime) {
-                                //   mapToAddIntoItems[
-                                //           'nowMinusTimeCustomerCameToSeat'] =
-                                //       currentTimeHourMinuteMultiplied -
-                                //           timecustomercametoseat;
-                                // } else {
-                                //   mapToAddIntoItems[
-                                //       'nowMinusTimeCustomerCameToSeat'] = 0;
-                                // }
-                                mapToAddIntoItems['eachiteminorderid'] =
-                                    setSplit[i];
-                                eachItemFromEntireItemsString +=
-                                    '${setSplit[i]}*';
-                              }
-                              if ((i + 1) % 15 == 2) {
-                                mapToAddIntoItems['item'] = setSplit[i];
-                                eachItemFromEntireItemsString +=
-                                    '${setSplit[i]}*';
-                              }
-                              if ((i + 1) % 15 == 3) {
-                                mapToAddIntoItems['priceofeach'] =
-                                    num.parse(setSplit[i]);
-                                eachItemFromEntireItemsString +=
-                                    '${setSplit[i]}*';
-                              }
-                              if ((i + 1) % 15 == 4) {
-                                mapToAddIntoItems['number'] =
-                                    num.parse(setSplit[i]);
-                                eachItemFromEntireItemsString +=
-                                    '${setSplit[i]}*';
-                              }
-
-                              if ((i + 1) % 15 == 5) {
-                                mapToAddIntoItems['timeoforder'] =
-                                    num.parse(setSplit[i]);
-                                mapToAddIntoItems[
-                                        'nowTimeMinusThisItemOrderedTime'] =
-                                    (currentTimeHourMinuteMultiplied -
-                                        num.parse(setSplit[i]));
-                                // if ((num.parse(setSplit[i]) -
-                                //         timecustomercametoseat) >=
-                                //     kCustomerWaitingTime) {
-                                //   mapToAddIntoItems[
-                                //           'ThisItemOrderedTimeMinusCustomerCameToSeatTime'] =
-                                //       (num.parse(setSplit[i]) -
-                                //           timecustomercametoseat);
-                                // } else {
-                                //   mapToAddIntoItems[
-                                //       'ThisItemOrderedTimeMinusCustomerCameToSeatTime'] = 0;
-                                // }
-
-                                eachItemFromEntireItemsString +=
-                                    '${setSplit[i]}*';
-                              }
-                              if ((i + 1) % 15 == 6) {
-                                mapToAddIntoItems['statusoforder'] =
-                                    num.parse(setSplit[i]);
-                                eachItemFromEntireItemsString +=
-                                    '${setSplit[i]}*';
-                              }
-                              if ((i + 1) % 15 == 7) {
-                                mapToAddIntoItems['commentsForTheItem'] =
-                                    setSplit[i];
-                                eachItemFromEntireItemsString +=
-                                    '${setSplit[i]}*';
-                              }
-                              if ((i + 1) % 15 == 8) {
-                                mapToAddIntoItems['chefKotStatus'] =
-                                    setSplit[i];
-                                eachItemFromEntireItemsString +=
-                                    '${setSplit[i]}*';
-                              }
-                              if ((i + 1) % 15 == 9) {
-                                mapToAddIntoItems['ticketNumber'] = setSplit[i];
-                                mapToAddIntoItems['itemBelongsToDoc'] =
-                                    eachDoc.id;
-                                mapToAddIntoItems[
-                                        'entireItemListBeforeSplitting'] =
-                                    splitCheck;
-                                eachItemFromEntireItemsString =
-                                    eachItemFromEntireItemsString +
-                                        setSplit[i] +
-                                        "*" +
-                                        "futureUse*futureUse*futureUse*futureUse*futureUse*futureUse*";
-                                mapToAddIntoItems[
-                                        'eachItemFromEntireItemsString'] =
-                                    eachItemFromEntireItemsString;
-                                items.add(mapToAddIntoItems);
-                              }
-                            }
+                        eachDocItemsInOrderMap.forEach((key, value) {
+                          mapToAddIntoItems = {};
+                          if (value['itemCancelled'] != 'false') {
+//ThisIsCancelledItem
+                            cancelledItemsKey.add(key);
                           }
-                        } else {
-//TheListThatKeepsTrackOfAllTheItemsThatAreCancelled
-                          cancelledItemsKey = [];
-                          final cancelledData =
-                              eachDoc.data() as Map<String, dynamic>;
-                          cancelledData.forEach((key, value) {
-                            if (key != 'chefStatus') {
-                              cancelledItemsKey.add(key);
-                              mapToAddIntoItems = {};
-                              eachItemFromEntireItemsString = value.toString();
-                              String cancelledItemsSplitCheck =
-                                  value.toString();
-                              final cancelledItemSplit =
-                                  cancelledItemsSplitCheck.split('*');
-                              cancelledItemSplit.removeLast();
-                              num currentTimeHourMinuteMultiplied =
-                                  ((now.hour * 60) + now.minute);
-
-                              mapToAddIntoItems['tableorparcel'] =
-                                  cancelledItemSplit[9];
-
-                              mapToAddIntoItems['tableorparcelnumber'] =
-                                  num.parse(cancelledItemSplit[10]);
-
-                              mapToAddIntoItems['parentOrChild'] =
-                                  cancelledItemSplit[11];
-
-                              mapToAddIntoItems['cancelledItemTrueElseFalse'] =
-                                  cancelledItemSplit[12];
-
-                              mapToAddIntoItems['timecustomercametoseat'] =
-                                  num.parse(cancelledItemSplit[4]);
-
-                              mapToAddIntoItems[
-                                      'nowMinusTimeCustomerCameToSeat'] =
-                                  (currentTimeHourMinuteMultiplied -
-                                      num.parse(cancelledItemSplit[4]));
-                              mapToAddIntoItems['eachiteminorderid'] = key;
-
-                              mapToAddIntoItems['item'] = cancelledItemSplit[1];
-
-                              mapToAddIntoItems['priceofeach'] =
-                                  num.parse(cancelledItemSplit[2]);
-
-                              mapToAddIntoItems['number'] =
-                                  num.parse(cancelledItemSplit[3]);
-
-                              mapToAddIntoItems['timeoforder'] =
-                                  num.parse(cancelledItemSplit[4]);
-                              mapToAddIntoItems[
-                                      'nowTimeMinusThisItemOrderedTime'] =
-                                  (currentTimeHourMinuteMultiplied -
-                                      num.parse(cancelledItemSplit[4]));
-                              mapToAddIntoItems['statusoforder'] = 9;
-
-                              mapToAddIntoItems['commentsForTheItem'] =
-                                  cancelledItemSplit[6];
-
-                              mapToAddIntoItems['chefKotStatus'] =
-                                  cancelledItemSplit[7];
-
-                              mapToAddIntoItems['ticketNumber'] =
-                                  cancelledItemSplit[8];
-
-                              mapToAddIntoItems['itemBelongsToDoc'] =
-                                  eachDoc.id;
-
-                              mapToAddIntoItems[
-                                  'entireItemListBeforeSplitting'] = value;
-                              mapToAddIntoItems[
-                                  'eachItemFromEntireItemsString'] = value;
-                              // print(mapToAddIntoItems);
-                              items.add(mapToAddIntoItems);
-                            }
-                          });
-                          // print(cancelledData);
-                          print('items to check');
-                          print(items);
-                        }
+                          mapToAddIntoItems['cancelledItemTrueElseFalse'] =
+                              value['itemCancelled'];
+                          mapToAddIntoItems['tableorparcel'] = tableorparcel;
+                          mapToAddIntoItems['tableorparcelnumber'] =
+                              tableorparcelnumber;
+                          mapToAddIntoItems['parentOrChild'] = parentOrChild;
+                          mapToAddIntoItems['timecustomercametoseat'] =
+                              timecustomercametoseat;
+                          mapToAddIntoItems['nowMinusTimeCustomerCameToSeat'] =
+                              currentTimeHourMinuteMultiplied -
+                                  timecustomercametoseat;
+                          mapToAddIntoItems['eachiteminorderid'] = key;
+                          mapToAddIntoItems['item'] = value['itemName'];
+                          mapToAddIntoItems['priceofeach'] = value['itemPrice'];
+                          mapToAddIntoItems['number'] = value['numberOfItem'];
+                          mapToAddIntoItems['timeoforder'] =
+                              value['orderTakingTime'];
+                          mapToAddIntoItems['nowTimeMinusThisItemOrderedTime'] =
+                              (currentTimeHourMinuteMultiplied -
+                                  num.parse(value['orderTakingTime']));
+                          mapToAddIntoItems['commentsForTheItem'] =
+                              value['itemComment'];
+                          mapToAddIntoItems['statusoforder'] =
+                              value['itemStatus'];
+                          mapToAddIntoItems['chefKotStatus'] = value['chefKOT'];
+                          mapToAddIntoItems['ticketNumber'] =
+                              value['ticketNumberOfItem'];
+                          mapToAddIntoItems['itemBelongsToDoc'] = eachDoc.id;
+                          items.add(mapToAddIntoItems);
+                        });
                       }
 
 //creatingNewListToPrintKOTandAlsoUpdateKOTInServer
                       List<String> kotItemNames = [];
                       List<num> kotNumberOfOrderedItems = [];
                       List<String> kotItemsBelongsToDoc = [];
-                      List<String> kotItemsEntireItemListBeforeSplitting = [];
-                      List<String> kotItemsEachItemFromEntireItemsString = [];
                       List<String> kotItemsComments = [];
                       List<String> kotItemsTableOrParcel = [];
                       List<String> kotItemsTableOrParcelNumber = [];
@@ -3597,18 +3274,21 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                               .chefPrinterKOTFromClass) {
                             print('inside KOT collection area1');
                             if (item['chefKotStatus'] == 'chefkotnotyet' &&
-                                !widget.chefSpecialities
+                                !(json.decode(Provider.of<
+                                                PrinterAndOtherDetailsProvider>(
+                                            context,
+                                            listen: false)
+                                        .allUserProfilesFromClass)[Provider.of<
+                                                PrinterAndOtherDetailsProvider>(
+                                            context,
+                                            listen: false)
+                                        .currentUserPhoneNumberFromClass]['wontCook'])
                                     .contains(item['item'])) {
-                              print('inside KOT collection area21');
                               kotItemNames.add(item['item']);
                               kotNumberOfOrderedItems.add(item['number']);
                               kotItemsComments.add(item['commentsForTheItem']);
                               kotItemsBelongsToDoc
                                   .add(item['itemBelongsToDoc']);
-                              kotItemsEntireItemListBeforeSplitting
-                                  .add(item['entireItemListBeforeSplitting']);
-                              kotItemsEachItemFromEntireItemsString
-                                  .add(item['eachItemFromEntireItemsString']);
                               kotItemsTableOrParcel.add(item['tableorparcel']);
                               kotItemsTableOrParcelNumber
                                   .add(item['tableorparcelnumber'].toString());
@@ -3622,7 +3302,15 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                             tempNewItemAddedList.add(item['eachiteminorderid']);
                             if (!itemsArrivedInLastCheck
                                     .contains(item['eachiteminorderid']) &&
-                                !widget.chefSpecialities
+                                !(json.decode(Provider.of<
+                                                PrinterAndOtherDetailsProvider>(
+                                            context,
+                                            listen: false)
+                                        .allUserProfilesFromClass)[Provider.of<
+                                                PrinterAndOtherDetailsProvider>(
+                                            context,
+                                            listen: false)
+                                        .currentUserPhoneNumberFromClass]['wontCook'])
                                     .contains(item['item'])) {
                               someNewItemsOrdered = true;
                             }
@@ -3640,10 +3328,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                           localKOTNumberOfItems = kotNumberOfOrderedItems;
                           localKOTItemComments = kotItemsComments;
                           localKotItemsBelongsToDoc = kotItemsBelongsToDoc;
-                          localKotItemsEntireItemListBeforeSplitting =
-                              kotItemsEntireItemListBeforeSplitting;
-                          localKotItemsEachItemFromEntireItemsString =
-                              kotItemsEachItemFromEntireItemsString;
                           localKotItemsTableOrParcel = kotItemsTableOrParcel;
                           localKotItemsTableOrParcelNumber =
                               kotItemsTableOrParcelNumber;
@@ -3699,15 +3383,10 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                   a['nowMinusTimeCustomerCameToSeat'])
                               .compareTo(b['nowTimeMinusThisItemOrderedTime'] +
                                   b['nowMinusTimeCustomerCameToSeat']));
-                      // items.sort((a, b) =>
-                      //     a['nowTimeMinusThisItemOrderedTime'].compareTo(
-                      //         b['nowTimeMinusThisItemOrderedTime']));
-                      // items.sort((a, b) => a[
-                      //         'ThisItemOrderedTimeMinusCustomerCameToSeatTime']
-                      //     .compareTo(b[
-                      //         'ThisItemOrderedTimeMinusCustomerCameToSeatTime']));
+                      // List<Map<String, dynamic>> reverseList =
+                      //     items.reversed.toList();
+                      // items = reverseList;
 
-//WeIterateThroughAllItems
                       for (var item in items) {
 //WeSeparateItemsFromTheDocument-itemName,TableOrParcelNumber
                         String itemNameAsString = item['item'];
@@ -3717,7 +3396,15 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
 
                         //IfLoopHereToEnsureOnlyCook'sSpecialitiesAreEnteredHere
 //IfLoopToEliminateTheListOfItemsTheChefWon'tCook
-                        if (!widget.chefSpecialities.contains(item['item'])) {
+                        if (!(json.decode(
+                                Provider.of<PrinterAndOtherDetailsProvider>(
+                                        context,
+                                        listen: false)
+                                    .allUserProfilesFromClass)[Provider.of<
+                                        PrinterAndOtherDetailsProvider>(context,
+                                    listen: false)
+                                .currentUserPhoneNumberFromClass]['wontCook'])
+                            .contains(item['item'])) {
                           if (item['cancelledItemTrueElseFalse'] != 'false') {
                             //IfItemsAreAccepted,WeAddItToAcceptedItemsListWith T/P basedOn Table/Parcel
                             if (item['tableorparcel'] == "Table") {
@@ -3743,10 +3430,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                             cancelledItemsStatus.add(item['statusoforder']);
                             cancelledItemsBelongsToDoc
                                 .add(item['itemBelongsToDoc']);
-                            cancelledEntireItemListBeforeSplitting
-                                .add(item['entireItemListBeforeSplitting']);
-                            cancelledEachItemFromEntireItemsString
-                                .add(item['eachItemFromEntireItemsString']);
                             cancelledItemsComments
                                 .add(item['commentsForTheItem']);
                             cancelledItemsCancelledTrueElseFalse
@@ -3777,10 +3460,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                             rejectedItemsStatus.add(item['statusoforder']);
                             rejectedItemsBelongsToDoc
                                 .add(item['itemBelongsToDoc']);
-                            rejectedEntireItemListBeforeSplitting
-                                .add(item['entireItemListBeforeSplitting']);
-                            rejectedEachItemFromEntireItemsString
-                                .add(item['eachItemFromEntireItemsString']);
                             rejectedItemsComments
                                 .add(item['commentsForTheItem']);
                             rejectedItemsCancelledTrueElseFalse
@@ -3813,10 +3492,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                             readyItemsStatus.add(item['statusoforder']);
                             readyItemsBelongsToDoc
                                 .add(item['itemBelongsToDoc']);
-                            readyEntireItemListBeforeSplitting
-                                .add(item['entireItemListBeforeSplitting']);
-                            readyEachItemFromEntireItemsString
-                                .add(item['eachItemFromEntireItemsString']);
                             readyItemsComments.add(item['commentsForTheItem']);
                             readyItemsCancelledTrueElseFalse
                                 .add(item['cancelledItemTrueElseFalse']);
@@ -3845,10 +3520,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                             acceptedItemsStatus.add(item['statusoforder']);
                             acceptedItemsBelongsToDoc
                                 .add(item['itemBelongsToDoc']);
-                            acceptedEntireItemListBeforeSplitting
-                                .add(item['entireItemListBeforeSplitting']);
-                            acceptedEachItemFromEntireItemsString
-                                .add(item['eachItemFromEntireItemsString']);
                             acceptedItemsComments
                                 .add(item['commentsForTheItem']);
                             acceptedItemsCancelledTrueElseFalse
@@ -3877,10 +3548,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                             allItemsID.add(item['eachiteminorderid']);
                             allItemsStatus.add(item['statusoforder']);
                             allItemsBelongsToDoc.add(item['itemBelongsToDoc']);
-                            allItemsEntireItemListBeforeSplitting
-                                .add(item['entireItemListBeforeSplitting']);
-                            allItemsEachItemFromEntireItemsString
-                                .add(item['eachItemFromEntireItemsString']);
                             allItemsComments.add(item['commentsForTheItem']);
                             allItemsCancelledTrueElseFalse
                                 .add(item['cancelledItemTrueElseFalse']);
@@ -3901,10 +3568,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       allItemsID.addAll(cancelledItemsID);
                       allItemsStatus.addAll(cancelledItemsStatus);
                       allItemsBelongsToDoc.addAll(cancelledItemsBelongsToDoc);
-                      allItemsEachItemFromEntireItemsString
-                          .addAll(cancelledEachItemFromEntireItemsString);
-                      allItemsEntireItemListBeforeSplitting
-                          .addAll(cancelledEntireItemListBeforeSplitting);
                       allItemsComments.addAll(cancelledItemsComments);
                       allItemsCancelledTrueElseFalse
                           .addAll(cancelledItemsCancelledTrueElseFalse);
@@ -3916,10 +3579,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       allItemsStatus.insertAll(0, acceptedItemsStatus);
                       allItemsBelongsToDoc.insertAll(
                           0, acceptedItemsBelongsToDoc);
-                      allItemsEachItemFromEntireItemsString.insertAll(
-                          0, acceptedEachItemFromEntireItemsString);
-                      allItemsEntireItemListBeforeSplitting.insertAll(
-                          0, acceptedEntireItemListBeforeSplitting);
                       allItemsComments.insertAll(0, acceptedItemsComments);
                       allItemsCancelledTrueElseFalse.insertAll(
                           0, acceptedItemsCancelledTrueElseFalse);
@@ -3929,10 +3588,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       allItemsID.insertAll(0, readyItemsID);
                       allItemsStatus.insertAll(0, readyItemsStatus);
                       allItemsBelongsToDoc.insertAll(0, readyItemsBelongsToDoc);
-                      allItemsEachItemFromEntireItemsString.insertAll(
-                          0, readyEachItemFromEntireItemsString);
-                      allItemsEntireItemListBeforeSplitting.insertAll(
-                          0, readyEntireItemListBeforeSplitting);
                       allItemsComments.insertAll(0, readyItemsComments);
                       allItemsCancelledTrueElseFalse.insertAll(
                           0, readyItemsCancelledTrueElseFalse);
@@ -3943,10 +3598,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                       allItemsStatus.insertAll(0, rejectedItemsStatus);
                       allItemsBelongsToDoc.insertAll(
                           0, rejectedItemsBelongsToDoc);
-                      allItemsEachItemFromEntireItemsString.insertAll(
-                          0, rejectedEachItemFromEntireItemsString);
-                      allItemsEntireItemListBeforeSplitting.insertAll(
-                          0, rejectedEntireItemListBeforeSplitting);
                       allItemsComments.insertAll(0, rejectedItemsComments);
                       allItemsCancelledTrueElseFalse.insertAll(
                           0, rejectedItemsCancelledTrueElseFalse);
@@ -3984,12 +3635,6 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                     final itemBelongsToDoc =
                                         allItemsBelongsToDoc[
                                             orderedItems.length - index - 1];
-                                    final entireItemListBeforeSplitting =
-                                        allItemsEntireItemListBeforeSplitting[
-                                            orderedItems.length - index - 1];
-                                    final eachItemFromEntireItemsString =
-                                        allItemsEachItemFromEntireItemsString[
-                                            orderedItems.length - index - 1];
                                     final allItemComment = allItemsComments[
                                         orderedItems.length - index - 1];
                                     final itemCancelledTrueElseFalse =
@@ -4021,26 +3666,34 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                                 if (!cancelledItemsKey
                                                         .contains(itemID) &&
                                                     statusOfOrderedItem == 9) {
-                                                  statusUpdaterInFireStore(
-                                                      eachItemFromEntireItemsString,
-                                                      entireItemListBeforeSplitting,
+                                                  statusUpdaterInFireStoreForRunningOrders(
+                                                      itemID,
                                                       itemBelongsToDoc,
-                                                      '7');
-                                                  // FireStoreUpdateStatusOfCurrentOrder(
-                                                  //         hotelName: widget
-                                                  //             .hotelName,
-                                                  //         itemID: itemID,
-                                                  //         statusOfOrder: 7)
-                                                  //     .updateStatus();
+                                                      7,
+                                                      'dontTouch');
                                                 } else if (!cancelledItemsKey
                                                         .contains(itemID) &&
                                                     statusOfOrderedItem == 7) {
+                                                  fcmProvider.sendNotification(
+                                                      token:
+                                                          dynamicTokensToStringToken(),
+                                                      title: widget.hotelName,
+                                                      restaurantNameForNotification: json.decode(Provider
+                                                              .of<PrinterAndOtherDetailsProvider>(
+                                                                  context,
+                                                                  listen: false)
+                                                          .allUserProfilesFromClass)[Provider
+                                                              .of<PrinterAndOtherDetailsProvider>(
+                                                                  context,
+                                                                  listen: false)
+                                                          .currentUserPhoneNumberFromClass]['restaurantName'],
+                                                      body: '*itemReadyRejectedCaptainAlert*');
 //sayingOrderIsReadyIfAlreadyAcceptedAndUpdatingStatusInFireStore
-                                                  statusUpdaterInFireStore(
-                                                      eachItemFromEntireItemsString,
-                                                      entireItemListBeforeSplitting,
+                                                  statusUpdaterInFireStoreForRunningOrders(
+                                                      itemID,
                                                       itemBelongsToDoc,
-                                                      '10');
+                                                      10,
+                                                      'dontTouch');
 //ThisIsTheListWhereWeWillTakeListOfAllItemsInTheReadyParcel
                                                   List<String>
                                                       parcelReadyItemNames = [];
@@ -4060,9 +3713,13 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                                         orderedItem.split(':');
 
 //IfSomethingIsParcelThenWeAddTheItemThatIsReadiedFirstIntoTheList
+//WhenWeAddedItemNamesToAllListsLikeRejected,Ready,Accepted,WeMadeAnExtraSpaceForBeauty
+//RemovingTheSpaceHere
                                                     parcelReadyItemNames.add(
                                                         parcelCheckItemNameSplit[
-                                                            1]);
+                                                                1]
+                                                            .replaceFirst(
+                                                                " ", ""));
                                                     parcelReadyNumberOfItems.add(
                                                         numberOfOrderedItem);
                                                     parcelReadyItemComments
@@ -4115,10 +3772,12 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                                                 false;
                                                           } else {
 //ElseIfItIsReady,WeAddItToTheListTheNameAndTheNumber
-                                                            parcelReadyItemNames
-                                                                .add(
-                                                                    itemToBeCheckedItemNameSplit[
-                                                                        1]);
+                                                            parcelReadyItemNames.add(
+                                                                itemToBeCheckedItemNameSplit[
+                                                                        1]
+                                                                    .replaceFirst(
+                                                                        " ",
+                                                                        ""));
                                                             parcelReadyNumberOfItems
                                                                 .add(
                                                                     numberOfOrderedItems[
@@ -4252,181 +3911,51 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
 //FirstWeCheckWhetherItIsCancelledItemMeantForDelete
                                                 if (cancelledItemsKey
                                                     .contains(itemID)) {
-                                                  if (cancelledItemsKey
-                                                          .length ==
-                                                      1) {
-//ThisMeansOnlyThisParticularItemIsCancelled
-//WeCanGoOnToDeleteTheCancelledDocumentItself
-                                                    FireStoreDeleteFinishedOrderInPresentOrders(
-                                                            hotelName: widget
-                                                                .hotelName,
-                                                            eachItemId:
-                                                                itemBelongsToDoc)
-                                                        .deleteFinishedOrder();
-                                                    cancelledItemsKey
-                                                        .remove(itemID);
-                                                  } else {
-//IfThereAreMoreItemsInCancelledList,WeShouldEnsureOnlyThatParticularItemFieldIsDeletedInServer
-                                                    FireStoreClearCancelledItemFromPresentOrders(
-                                                            hotelName: widget
-                                                                .hotelName,
-                                                            cancelledItemId:
-                                                                itemID,
-                                                            cancelledItemsDoc:
-                                                                itemBelongsToDoc)
-                                                        .deleteCancelledItem();
-                                                    cancelledItemsKey
-                                                        .remove(itemID);
-                                                  }
+                                                  Map<String, dynamic>
+                                                      masterOrderMapToServer =
+                                                      HashMap();
+//ToDeleteCancelledItem
+                                                  masterOrderMapToServer
+                                                      .addAll({
+                                                    'itemsInOrderMap': {
+                                                      itemID:
+                                                          FieldValue.delete()
+                                                    },
+                                                  });
+                                                  FireStoreAddOrderInRunningOrderFolder(
+                                                          hotelName:
+                                                              widget.hotelName,
+                                                          seatingNumber:
+                                                              itemBelongsToDoc,
+                                                          ordersMap:
+                                                              masterOrderMapToServer)
+                                                      .addOrder();
                                                 } else if (statusOfOrderedItem ==
                                                         9 ||
                                                     statusOfOrderedItem == 7) {
 //IfNewOrderOrAlsoAnAcceptedOrder-WeGiveOptionToRejectItByUpdatingStatusInFireStore
                                                   //sayingOrderIsRejected
-                                                  statusUpdaterInFireStore(
-                                                      eachItemFromEntireItemsString,
-                                                      entireItemListBeforeSplitting,
+//WeAlsoSendMessageThatItemHasBeenRejectedToAllUsers
+                                                  fcmProvider.sendNotification(
+                                                      token:
+                                                          dynamicTokensToStringToken(),
+                                                      title: widget.hotelName,
+                                                      restaurantNameForNotification: json.decode(Provider
+                                                              .of<PrinterAndOtherDetailsProvider>(
+                                                                  context,
+                                                                  listen: false)
+                                                          .allUserProfilesFromClass)[Provider
+                                                              .of<PrinterAndOtherDetailsProvider>(
+                                                                  context,
+                                                                  listen: false)
+                                                          .currentUserPhoneNumberFromClass]['restaurantName'],
+                                                      body: '*itemReadyRejectedCaptainAlert*');
+                                                  statusUpdaterInFireStoreForRunningOrders(
+                                                      itemID,
                                                       itemBelongsToDoc,
-                                                      '11');
+                                                      11,
+                                                      'dontTouch');
                                                 }
-//                                                 else if (statusOfOrderedItem ==
-//                                                     7) {
-//                                                   statusUpdaterInFireStore(
-//                                                       eachItemFromEntireItemsString,
-//                                                       entireItemListBeforeSplitting,
-//                                                       itemBelongsToDoc,
-//                                                       '10');
-// //sayingOrderIsReadyIfAlreadyAcceptedAndUpdatingStatusInFireStore
-// //                                                     FireStoreUpdateStatusOfCurrentOrder(
-// //                                                             hotelName: widget
-// //                                                                 .hotelName,
-// //                                                             itemID: itemID,
-// //                                                             statusOfOrder: 10)
-// //                                                         .updateStatus();
-// //ThisIsTheListWhereWeWillTakeListOfAllItemsInTheReadyParcel
-//                                                   List<String>
-//                                                       parcelReadyItemNames = [];
-//                                                   List<num>
-//                                                       parcelReadyNumberOfItems =
-//                                                       [];
-//                                                   List<String>
-//                                                       parcelReadyItemComments =
-//                                                       [];
-// //ThisBoolWillHelpToUnderstandWhetherAllItemsInParcelAreReadyOrNot
-//                                                   bool allItemsInParcelReady =
-//                                                       true;
-//
-//                                                   if (orderedItem
-//                                                       .startsWith('P')) {
-//                                                     final parcelCheckItemNameSplit =
-//                                                         orderedItem.split(':');
-//                                                     // localParcelNumber =
-//                                                     //     'P${parcelCheckItemNameSplit[0].toString()}';
-//                                                     // ;
-//
-// //IfSomethingIsParcelThenWeAddTheItemThatIsReadiedFirstIntoTheList
-//                                                     parcelReadyItemNames.add(
-//                                                         parcelCheckItemNameSplit[
-//                                                             1]);
-//                                                     parcelReadyNumberOfItems.add(
-//                                                         numberOfOrderedItem);
-//                                                     parcelReadyItemComments
-//                                                         .add(allItemComment);
-// //HereWeTakeTheParcelNumberOfTheItemThatHasBeenReadiedNowFromTheOrderedItemString
-//
-//                                                     String
-//                                                         parcelNumberFromOrderedItem =
-//                                                         orderedItem[1];
-// //WeGoThroughTheEntireListToCheckWhetherAllItemsInThatParcelAreReady
-//                                                     for (int i = 0;
-//                                                         i < orderedItems.length;
-//                                                         i++) {
-// //IfLoopToCheckWhetherTheCurrentItemInForLoopBelongsToThatParcel
-//                                                       final itemToBeCheckedItemNameSplit =
-//                                                           orderedItems[i]
-//                                                               .split(':');
-//
-//                                                       if (orderedItems[i]
-//                                                                   .startsWith(
-//                                                                       'P') &&
-//                                                               allItemsID[i] !=
-//                                                                   itemID &&
-//                                                               itemToBeCheckedItemNameSplit[
-//                                                                       0] ==
-//                                                                   parcelCheckItemNameSplit[
-//                                                                       0]
-//                                                           // &&
-//                                                           //     orderedItems[i]
-//                                                           //             [1] ==
-//                                                           //         parcelNumberFromOrderedItem
-//                                                           ) {
-// //IfAnItemInParcelIsNotReady,WeChangeTheBoolToFalse-10-Ready,,,3-Delivered
-//                                                         if ((allItemsStatus[
-//                                                                     i] !=
-//                                                                 10 &&
-//                                                             allItemsStatus[i] !=
-//                                                                 3)) {
-//                                                           allItemsInParcelReady =
-//                                                               false;
-//                                                         } else {
-// //ElseIfItIsReady,WeAddItToTheListTheNameAndTheNumber
-//                                                           parcelReadyItemNames.add(
-//                                                               itemToBeCheckedItemNameSplit[
-//                                                                   1]);
-//                                                           parcelReadyNumberOfItems
-//                                                               .add(
-//                                                                   numberOfOrderedItems[
-//                                                                       i]);
-//                                                           parcelReadyItemComments
-//                                                               .add(
-//                                                                   allItemsComments[
-//                                                                       i]);
-//                                                         }
-//                                                       }
-//                                                     }
-// //IfAllItemsInParcelReady,,,WeNeedBottomButtonToPrint-ExplanationSameAsLastOne
-//                                                     if (allItemsInParcelReady) {
-//                                                       int bluetoothOnOrOffState =
-//                                                           11;
-// //ThisIsSimplyCommented-ChangeItInFuture
-// //                                                           bluetoothPrint.state
-// //                                                               .listen((state) {
-// //                                                             bluetoothOnOrOffState =
-// //                                                                 state;
-// //                                                           });
-//                                                       bluetoothStateChangeFunction();
-//                                                       if (chefPrinterAfterOrderReadyPrintFromClass) {
-//                                                         showModalBottomSheet(
-//                                                             context: context,
-//                                                             builder: (context) {
-//                                                               return buildBottomSheetForParcelPrint(
-//                                                                   context,
-//                                                                   parcelReadyItemNames,
-//                                                                   parcelReadyNumberOfItems,
-//                                                                   parcelReadyItemComments,
-//                                                                   parcelCheckItemNameSplit[
-//                                                                       0]);
-//                                                             });
-//                                                       } else {
-//                                                         parcelReadyItemNames =
-//                                                             [];
-//                                                         parcelReadyNumberOfItems =
-//                                                             [];
-//                                                         parcelReadyItemComments =
-//                                                             [];
-//                                                       }
-//
-// //ModalButton
-//                                                     } else {
-// //ElseNotReady,WeClearTheList
-//                                                       parcelReadyItemNames = [];
-//                                                       parcelReadyNumberOfItems =
-//                                                           [];
-//                                                       parcelReadyItemComments =
-//                                                           [];
-//                                                     }
-//                                                   }
-//                                                 }
                                               },
                                               //BackGroundColorOfButtonBehindSlidableIsBasedOnStatusOfItem
                                               //IfNewOrder-RedButtonForRejectingOrder
@@ -4551,6 +4080,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                                         .toString();
                                                 localParcelReadyItemNames.add(
                                                     orderedItemNameSplit[1]
+                                                        .replaceFirst(" ", "")
                                                         .toString());
                                                 localParcelReadyNumberOfItems
                                                     .add(numberOfOrderedItem);
@@ -4577,6 +4107,8 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                                       localParcelReadyItemNames.add(
                                                           itemToBeCheckedItemNameSplit[
                                                                   1]
+                                                              .replaceFirst(
+                                                                  " ", "")
                                                               .toString());
                                                       localParcelReadyNumberOfItems
                                                           .add(
@@ -4676,7 +4208,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                             subtitle: (cancelledItemsKey
                                                         .contains(itemID) &&
                                                     allItemComment ==
-                                                        'nocomments')
+                                                        'noComment')
                                                 ? Row(
                                                     mainAxisAlignment:
                                                         MainAxisAlignment.end,
@@ -4697,7 +4229,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                                 : (cancelledItemsKey
                                                             .contains(itemID) &&
                                                         allItemComment !=
-                                                            'nocomments')
+                                                            'noComment')
                                                     ? Column(
                                                         crossAxisAlignment:
                                                             CrossAxisAlignment
@@ -4732,7 +4264,7 @@ class _ChefToCookFullFormState extends State<ChefToCookFullForm>
                                                         ],
                                                       )
                                                     : allItemComment ==
-                                                            'nocomments'
+                                                            'noComment'
                                                         ? null
                                                         : Text(
                                                             allItemComment,

@@ -4,55 +4,42 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/Screens/items_each_order_6.dart';
+import 'package:orders_dev/Screens/items_each_order_7.dart';
 import 'package:orders_dev/Screens/menu_page_add_items_3.dart';
+import 'package:orders_dev/Screens/menu_page_add_items_4.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/Methods/split_button.dart';
 
-class TableOrParcelSplitTwo extends StatefulWidget {
+class TableOrParcelSplitWithRunningOrders extends StatefulWidget {
   final String hotelName;
   final String partOfTableOrParcel;
   final String partOfTableOrParcelNumber;
   final List<String> menuItems;
   final List<num> menuPrices;
   final List<String> menuTitles;
-  final num cgstPercentage;
-  final num sgstPercentage;
-  final String hotelNameForPrint;
-  final String addressLine1ForPrint;
-  final String addressLine2ForPrint;
-  final String addressLine3ForPrint;
-  final String phoneNumberForPrint;
-  final num numberOfTables;
-  final String gstCodeForPrint;
 
-  const TableOrParcelSplitTwo(
-      {Key? key,
-      required this.hotelName,
-      required this.partOfTableOrParcel,
-      required this.partOfTableOrParcelNumber,
-      required this.menuItems,
-      required this.menuPrices,
-      required this.menuTitles,
-      required this.cgstPercentage,
-      required this.sgstPercentage,
-      required this.hotelNameForPrint,
-      required this.addressLine1ForPrint,
-      required this.addressLine2ForPrint,
-      required this.addressLine3ForPrint,
-      required this.phoneNumberForPrint,
-      required this.numberOfTables,
-      required this.gstCodeForPrint})
-      : super(key: key);
+  const TableOrParcelSplitWithRunningOrders({
+    Key? key,
+    required this.hotelName,
+    required this.partOfTableOrParcel,
+    required this.partOfTableOrParcelNumber,
+    required this.menuItems,
+    required this.menuPrices,
+    required this.menuTitles,
+  }) : super(key: key);
 
   @override
-  State<TableOrParcelSplitTwo> createState() => _TableOrParcelSplitTwoState();
+  State<TableOrParcelSplitWithRunningOrders> createState() =>
+      _TableOrParcelSplitWithRunningOrdersState();
 }
 
-class _TableOrParcelSplitTwoState extends State<TableOrParcelSplitTwo> {
+class _TableOrParcelSplitWithRunningOrdersState
+    extends State<TableOrParcelSplitWithRunningOrders> {
   bool showSpinner = false;
   List<Map<String, dynamic>> items = [];
   List<String> distinctTablesParcels = [];
   Map<String, num> distinctTablesParcelsColorStatus = HashMap();
+  Map<String, bool> distinctTablesParcelsBilledStatus = HashMap();
   num newButtonNeeded = 0;
   bool tableButtonPressed = false;
 
@@ -77,12 +64,19 @@ class _TableOrParcelSplitTwoState extends State<TableOrParcelSplitTwo> {
                                   distinctTablesParcels[distinctItemNumber]] ==
                               9
                           ? Colors.white
-                          : distinctTablesParcelsColorStatus[
-                                      distinctTablesParcels[
-                                          distinctItemNumber]] ==
-                                  3
-                              ? Colors.lightBlueAccent
-                              : Colors.brown.shade100,
+                          : ((distinctTablesParcelsBilledStatus[distinctTablesParcels[
+                                      distinctItemNumber]]!) &&
+                                  (distinctTablesParcelsColorStatus[
+                                          distinctTablesParcels[
+                                              distinctItemNumber]] ==
+                                      3)) //IfSomethingIsDeliveredAndBilled
+                              ? Colors.purple.shade200
+                              : distinctTablesParcelsColorStatus[
+                                          distinctTablesParcels[
+                                              distinctItemNumber]] ==
+                                      3
+                                  ? Colors.lightBlueAccent
+                                  : Colors.brown.shade100,
           borderColor: Colors.black,
           tableOrParcel:
               '${widget.partOfTableOrParcelNumber}${distinctTablesParcels[distinctItemNumber]}',
@@ -99,8 +93,6 @@ class _TableOrParcelSplitTwoState extends State<TableOrParcelSplitTwo> {
             List<int> itemsStatus = [];
             List<num> itemsEachPrice = [];
             List<String> itemsBelongsToDoc = [];
-            List<String> entireItemsListBeforeSplitting = [];
-            List<String> eachItemsFromEntireItemsString = [];
             for (var item in items) {
 //ForEachItemInItems,WeAddItemsId,Number,Status&Price
               if (item['parentOrChild'] ==
@@ -111,17 +103,13 @@ class _TableOrParcelSplitTwoState extends State<TableOrParcelSplitTwo> {
                 itemsStatus.add(item['statusoforder']);
                 itemsEachPrice.add(item['priceofeach']);
                 itemsBelongsToDoc.add(item['itemBelongsToDoc']);
-                entireItemsListBeforeSplitting
-                    .add(item['entireItemListBeforeSplitting']);
-                eachItemsFromEntireItemsString
-                    .add(item['eachItemFromEntireItemsString']);
               }
             }
             // WeGoToItemsEachTableScreenWithItemsId,Name,Number,Status,Price
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => ItemsInEachOrderBottomButtonEdit(
+                    builder: (context) => ItemsInEachOrderRunningOrder(
                           hotelName: widget.hotelName,
                           menuItems: widget.menuItems,
                           menuTitles: widget.menuTitles,
@@ -133,22 +121,9 @@ class _TableOrParcelSplitTwoState extends State<TableOrParcelSplitTwo> {
                           itemsEachPrice: itemsEachPrice,
                           itemsBelongsToDoc: itemsBelongsToDoc,
                           itemsFromDoc: itemsBelongsToDoc[0],
-                          entireItemsListBeforeSplitting:
-                              entireItemsListBeforeSplitting,
-                          eachItemsFromEntireItemsString:
-                              eachItemsFromEntireItemsString,
                           tableOrParcel: widget.partOfTableOrParcel,
                           tableOrParcelNumber:
                               num.parse(widget.partOfTableOrParcelNumber),
-                          cgstPercentage: widget.cgstPercentage,
-                          sgstPercentage: widget.sgstPercentage,
-                          hotelNameForPrint: widget.hotelNameForPrint,
-                          phoneNumberForPrint: widget.phoneNumberForPrint,
-                          addressLine1ForPrint: widget.addressLine1ForPrint,
-                          addressLine2ForPrint: widget.addressLine2ForPrint,
-                          addressLine3ForPrint: widget.addressLine3ForPrint,
-                          numberOfTables: widget.numberOfTables,
-                          gstCodeForPrint: widget.gstCodeForPrint,
                         )));
             setState(() {
               showSpinner = false;
@@ -171,26 +146,45 @@ class _TableOrParcelSplitTwoState extends State<TableOrParcelSplitTwo> {
             setState(() {
               showSpinner = true;
             });
+            //ToEnsureWeComeBackToItemsPageItself
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => MenuPageWithSplit(
+                    builder: (context) => ItemsInEachOrderRunningOrder(
                           hotelName: widget.hotelName,
-                          tableOrParcel: widget.partOfTableOrParcel,
-                          tableOrParcelNumber:
-                              num.parse(widget.partOfTableOrParcelNumber),
                           menuItems: widget.menuItems,
                           menuPrices: widget.menuPrices,
                           menuTitles: widget.menuTitles,
-                          itemsAddedMapCalled: {},
-                          itemsAddedCommentCalled: {},
-                          unavailableItems: [],
-                          addedItemsSet: '',
-                          parentOrChild: distinctTablesParcels.length == 0
-                              ? 'A'
-                              : '${String.fromCharCode(((distinctTablesParcels.last).codeUnitAt(0)) + 1)}',
-//ThisWillEnsureNewTableWithAlphabetNextToTheLastAlphabetIsMade
+                          itemsID: [],
+                          itemsName: [],
+                          itemsNumber: [],
+                          itemsStatus: [],
+                          itemsEachPrice: [],
+                          itemsBelongsToDoc: [],
+                          itemsFromDoc: distinctTablesParcels.length == 0
+                              ? '${widget.partOfTableOrParcel}:${widget.partOfTableOrParcelNumber}A'
+                              : '${widget.partOfTableOrParcel}:${widget.partOfTableOrParcelNumber}${String.fromCharCode(((distinctTablesParcels.last).codeUnitAt(0)) + 1)}',
+                          tableOrParcel: widget.partOfTableOrParcel,
+                          tableOrParcelNumber:
+                              num.parse(widget.partOfTableOrParcelNumber),
                         )));
+            Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => MenuPageWithRunningOrdersChange(
+                        hotelName: widget.hotelName,
+                        tableOrParcel: widget.partOfTableOrParcel,
+                        tableOrParcelNumber:
+                            num.parse(widget.partOfTableOrParcelNumber),
+                        menuItems: widget.menuItems,
+                        menuPrices: widget.menuPrices,
+                        menuTitles: widget.menuTitles,
+                        itemsAddedMapCalled: {},
+                        itemsAddedCommentCalled: {},
+                        parentOrChild: distinctTablesParcels.length == 0
+                            ? 'A'
+                            : '${String.fromCharCode(((distinctTablesParcels.last).codeUnitAt(0)) + 1)}',
+                        alreadyRunningTicketsMap: {})));
 
             setState(() {
               newButtonNeeded = 0;
@@ -395,8 +389,8 @@ class _TableOrParcelSplitTwoState extends State<TableOrParcelSplitTwo> {
               child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection(widget.hotelName)
-                      .doc('presentorders')
-                      .collection('presentorders')
+                      .doc('runningorders')
+                      .collection('runningorders')
                       .where('partOfTableOrParcel',
                           isEqualTo: widget.partOfTableOrParcel)
                       .where('partOfTableOrParcelNumber',
@@ -431,210 +425,192 @@ class _TableOrParcelSplitTwoState extends State<TableOrParcelSplitTwo> {
                       String eachItemFromEntireItemsString = '';
                       distinctTablesParcels = [];
                       distinctTablesParcelsColorStatus = {};
+                      distinctTablesParcelsBilledStatus = {};
                       final itemstream = snapshot.data?.docs;
                       // if (itemstream!.length == 0) {
                       //   print('came inside length 0');
                       //   Navigator.pop(context);
                       // }
                       for (var eachDoc in itemstream!) {
-                        String splitCheck = eachDoc['addedItemsSet'];
-                        final setSplit = splitCheck.split('*');
-                        setSplit.removeLast();
-                        String tableorparcel = setSplit[0];
-                        num tableorparcelnumber = num.parse(setSplit[1]);
-                        num timecustomercametoseat = num.parse(setSplit[2]);
-                        String parentOrChild = setSplit[7];
+                        Map<String, dynamic> eachDocBaseInfoMap =
+                            eachDoc['baseInfoMap'];
+
+                        // String splitCheck = eachDoc['addedItemsSet'];
+                        // final setSplit = splitCheck.split('*');
+                        // setSplit.removeLast();
+                        String tableorparcel =
+                            eachDocBaseInfoMap['tableOrParcel'];
+                        num tableorparcelnumber = num.parse(
+                            eachDocBaseInfoMap['tableOrParcelNumber']);
+                        num timecustomercametoseat =
+                            num.parse(eachDocBaseInfoMap['startTime']);
+                        String serialNumber =
+                            eachDocBaseInfoMap['serialNumber'];
+                        bool billPrinted = eachDocBaseInfoMap['billPrinted'];
+                        String parentOrChild =
+                            eachDocBaseInfoMap['parentOrChild'];
                         distinctTablesParcels.insert(
                             distinctTablesParcels.length, parentOrChild);
                         distinctTablesParcelsColorStatus[parentOrChild] = 0;
-                        for (int i = 0; i < setSplit.length; i++) {
-//thisWillEnsureWeSwitchedFromTableInfoToOrderInfo
-                          if ((i) > 14) {
-                            if ((i + 1) % 15 == 1) {
-                              mapToAddIntoItems = {};
-                              eachItemFromEntireItemsString = '';
-                              mapToAddIntoItems['tableorparcel'] =
-                                  tableorparcel;
-                              mapToAddIntoItems['tableorparcelnumber'] =
-                                  tableorparcelnumber;
-                              mapToAddIntoItems['timecustomercametoseat'] =
-                                  timecustomercametoseat;
-                              mapToAddIntoItems['parentOrChild'] =
-                                  parentOrChild;
-                              mapToAddIntoItems['eachiteminorderid'] =
-                                  setSplit[i];
-                            }
-                            if ((i + 1) % 15 == 2) {
-                              mapToAddIntoItems['item'] = setSplit[i];
-                              eachItemFromEntireItemsString +=
-                                  '${setSplit[i]}*';
-                            }
-                            if ((i + 1) % 15 == 3) {
-                              mapToAddIntoItems['priceofeach'] =
-                                  num.parse(setSplit[i]);
-                              eachItemFromEntireItemsString +=
-                                  '${setSplit[i]}*';
-                            }
-                            if ((i + 1) % 15 == 4) {
-                              mapToAddIntoItems['number'] =
-                                  num.parse(setSplit[i]);
-                              eachItemFromEntireItemsString +=
-                                  '${setSplit[i]}*';
-                            }
-
-                            if ((i + 1) % 15 == 5) {
-                              mapToAddIntoItems['timeoforder'] =
-                                  num.parse(setSplit[i]);
-                              if ((num.parse(setSplit[i]) -
-                                      timecustomercametoseat) >=
-                                  kCustomerWaitingTime) {
-                                mapToAddIntoItems[
-                                        'ThisItemOrderedTimeMinusCustomerCameToSeatTime'] =
-                                    (num.parse(setSplit[i]) -
-                                        timecustomercametoseat);
-                              } else {
-                                mapToAddIntoItems[
-                                    'ThisItemOrderedTimeMinusCustomerCameToSeatTime'] = 0;
-                              }
-
-                              eachItemFromEntireItemsString +=
-                                  '${setSplit[i]}*';
-                            }
-                            if ((i + 1) % 15 == 6) {
-                              num statusOfThisItem = num.parse(setSplit[i]);
-                              mapToAddIntoItems['statusoforder'] =
-                                  num.parse(setSplit[i]);
-                              eachItemFromEntireItemsString +=
-                                  '${setSplit[i]}*';
-                              if (tableorparcel == 'Table') {
-                                if (statusOfThisItem == 11) {
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 11;
-                                } else if (statusOfThisItem == 10 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        11) {
+                        if (billPrinted == false) {
+                          distinctTablesParcelsBilledStatus[parentOrChild] =
+                              false;
+                        } else {
+                          distinctTablesParcelsBilledStatus[parentOrChild] =
+                              true;
+                        }
+                        Map<String, dynamic> eachDocItemsInOrderMap =
+                            eachDoc['itemsInOrderMap'];
+                        eachDocItemsInOrderMap.forEach((key, value) {
+                          mapToAddIntoItems = {};
+                          mapToAddIntoItems['tableorparcel'] = tableorparcel;
+                          mapToAddIntoItems['tableorparcelnumber'] =
+                              tableorparcelnumber;
+                          mapToAddIntoItems['timecustomercametoseat'] =
+                              timecustomercametoseat;
+                          mapToAddIntoItems['parentOrChild'] = parentOrChild;
+                          mapToAddIntoItems['serialNumber'] = serialNumber;
+                          mapToAddIntoItems['eachiteminorderid'] = key;
+                          mapToAddIntoItems['item'] = value['itemName'];
+                          mapToAddIntoItems['priceofeach'] = value['itemPrice'];
+                          mapToAddIntoItems['number'] = value['numberOfItem'];
+                          mapToAddIntoItems['timeoforder'] =
+                              num.parse(value['orderTakingTime']);
+                          if ((num.parse(value['orderTakingTime']) -
+                                  timecustomercametoseat) >=
+                              kCustomerWaitingTime) {
+                            mapToAddIntoItems[
+                                    'ThisItemOrderedTimeMinusCustomerCameToSeatTime'] =
+                                (num.parse(value['orderTakingTime']) -
+                                    timecustomercametoseat);
+                          } else {
+                            mapToAddIntoItems[
+                                'ThisItemOrderedTimeMinusCustomerCameToSeatTime'] = 0;
+                          }
+                          num statusOfThisItem = value['itemStatus'];
+                          mapToAddIntoItems['statusoforder'] =
+                              value['itemStatus'];
+                          if (tableorparcel == 'Table') {
+                            if (statusOfThisItem == 11) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  11;
+                            } else if (statusOfThisItem == 10 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11) {
 //IfItemsReady
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 10;
-                                } else if (statusOfThisItem == 9 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        11 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        10) {
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 9;
-                                } else if (statusOfThisItem == 7 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        11 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        9 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        10) {
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 7;
-                                } else if (statusOfThisItem == 3 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        11 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        9 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        10 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        7) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  10;
+                            } else if (statusOfThisItem == 9 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    10) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  9;
+                            } else if (statusOfThisItem == 7 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    9 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    10) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  7;
+                            } else if (statusOfThisItem == 3 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    9 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    10 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    7) {
 //ifAllItemsDelivered
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 3;
-                                }
-                              } else if (tableorparcel == 'Parcel') {
-                                if (statusOfThisItem == 11) {
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 11;
-                                } else if (statusOfThisItem == 9 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        11) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  3;
+                            } else if (statusOfThisItem == 3 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    9 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    10 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    7) {
+//ifAllItemsDelivered
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  3;
+                            }
+                          } else if (tableorparcel == 'Parcel') {
+                            if (statusOfThisItem == 11) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  11;
+                            } else if (statusOfThisItem == 9 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11) {
 //IfItemsReady
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 9;
-                                } else if (statusOfThisItem == 7 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        11 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        9) {
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 7;
-                                } else if (statusOfThisItem == 10 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        11 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        9 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        7) {
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 10;
-                                } else if (statusOfThisItem == 3 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        11 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        9 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        10 &&
-                                    distinctTablesParcelsColorStatus[
-                                            parentOrChild] !=
-                                        7) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  9;
+                            } else if (statusOfThisItem == 7 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    9) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  7;
+                            } else if (statusOfThisItem == 10 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    9 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    7) {
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  10;
+                            } else if (statusOfThisItem == 3 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    11 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    9 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    10 &&
+                                distinctTablesParcelsColorStatus[
+                                        parentOrChild] !=
+                                    7) {
 //ifAllItemsDelivered
-                                  distinctTablesParcelsColorStatus[
-                                      parentOrChild] = 3;
-                                }
-                              }
-                            }
-                            if ((i + 1) % 15 == 7) {
-                              mapToAddIntoItems['commentsForTheItem'] =
-                                  setSplit[i];
-                              eachItemFromEntireItemsString +=
-                                  '${setSplit[i]}*';
-                            }
-                            if ((i + 1) % 15 == 8) {
-                              mapToAddIntoItems['chefKotStatus'] = setSplit[i];
-                              eachItemFromEntireItemsString +=
-                                  '${setSplit[i]}*';
-                            }
-                            if ((i + 1) % 15 == 9) {
-                              mapToAddIntoItems['ticketNumber'] = setSplit[i];
-                              mapToAddIntoItems['itemBelongsToDoc'] =
-                                  eachDoc.id;
-                              mapToAddIntoItems[
-                                  'entireItemListBeforeSplitting'] = splitCheck;
-                              eachItemFromEntireItemsString =
-                                  eachItemFromEntireItemsString +
-                                      setSplit[i] +
-                                      "*" +
-                                      "futureUse*futureUse*futureUse*futureUse*futureUse*futureUse*";
-                              mapToAddIntoItems[
-                                      'eachItemFromEntireItemsString'] =
-                                  eachItemFromEntireItemsString;
-                              items.add(mapToAddIntoItems);
+                              distinctTablesParcelsColorStatus[parentOrChild] =
+                                  3;
                             }
                           }
-                        }
+                          mapToAddIntoItems['commentsForTheItem'] =
+                              value['itemComment'];
+                          mapToAddIntoItems['chefKotStatus'] = value['chefKOT'];
+                          mapToAddIntoItems['itemBelongsToDoc'] = eachDoc.id;
+                          items.add(mapToAddIntoItems);
+                        });
                       }
                       return (items.isEmpty && newButtonNeeded != 1)
                           ? const Center(

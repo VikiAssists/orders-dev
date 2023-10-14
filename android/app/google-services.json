@@ -14,34 +14,13 @@
       },
       "oauth_client": [
         {
-          "client_id": "249676996876-0f6iggfvlicr5l6bml5o8vl580lc61ai.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAn8liwXS5JTRWH-hiCMjWb7cPFEmOlnkY"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "249676996876-0f6iggfvlicr5l6bml5o8vl580lc61ai.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:249676996876:android:5e03a65cc16e05e10b2929",
-        "android_client_info": {
-          "package_name": "com.innovassist.orders_dev"
-        }
-      },
-      "oauth_client": [
+          "client_id": "249676996876-vgojakkj2s2b7o36ean7t9vkvtvop7hb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.orders_dev",
+            "certificate_hash": "3d32f14c211a959a69cbc652f593477c5aa1b6d9"
+          }
+        },
         {
           "client_id": "249676996876-0f6iggfvlicr5l6bml5o8vl580lc61ai.apps.googleusercontent.com",
           "client_type": 3
@@ -58,6 +37,13 @@
             {
               "client_id": "249676996876-0f6iggfvlicr5l6bml5o8vl580lc61ai.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "249676996876-89nncj26v0eek1gc68kb2o5slele41gh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.ordersDev"
+              }
             }
           ]
         }

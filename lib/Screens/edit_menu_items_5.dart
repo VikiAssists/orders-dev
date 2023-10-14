@@ -1,24 +1,28 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
+import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
+import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/firestore_services.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
-class EditItemsFloatButton extends StatefulWidget {
+class EditItemsGapAtBottom extends StatefulWidget {
   final String hotelName;
-  const EditItemsFloatButton({Key? key, required this.hotelName})
+  const EditItemsGapAtBottom({Key? key, required this.hotelName})
       : super(key: key);
 
   @override
-  State<EditItemsFloatButton> createState() => _EditItemsFloatButtonState();
+  State<EditItemsGapAtBottom> createState() => _EditItemsGapAtBottomState();
 }
 
-class _EditItemsFloatButtonState extends State<EditItemsFloatButton> {
+class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
   final _fireStore = FirebaseFirestore.instance;
   List<Map<String, dynamic>> items = [];
   List<Map<String, dynamic>> offsetList = [];
@@ -38,8 +42,12 @@ class _EditItemsFloatButtonState extends State<EditItemsFloatButton> {
   bool allItemsSelected = false;
   bool addBulkPriceTrueReduceBulkPriceFalse = true;
   String bulkOffsetValue = '';
+  bool showSpinner = false;
 
   void getMenu() async {
+    setState(() {
+      showSpinner = true;
+    });
     List<num> temporaryOrderingNum = [];
     final menuCategories =
         await _fireStore.collection(widget.hotelName).doc('menu').get();
@@ -79,6 +87,9 @@ class _EditItemsFloatButtonState extends State<EditItemsFloatButton> {
         }
       }
     });
+    setState(() {
+      showSpinner = false;
+    });
   }
 
   void _scrollingToIndex(String value) {
@@ -107,18 +118,6 @@ class _EditItemsFloatButtonState extends State<EditItemsFloatButton> {
   void initState() {
     // TODO: implement initState
     getMenu();
-    FirebaseMessaging.instance.getInitialMessage();
-//foreground
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('message in foreground captain screen');
-      print(message.data);
-
-      if (message.data['title'].toString() == widget.hotelName &&
-          message.data['body'].toString().split('*')[1] ==
-              'userProfileEdited') {
-        Phoenix.rebirth(context);
-      }
-    });
     super.initState();
   }
 
@@ -462,8 +461,13 @@ class _EditItemsFloatButtonState extends State<EditItemsFloatButton> {
                       return DropdownMenuItem(
                         alignment: Alignment.center,
                         child: Text(title,
-                            style: const TextStyle(
-                                fontSize: 15, color: Colors.white)),
+                            style: title != 'Select Category'
+                                ? const TextStyle(
+                                    fontSize: 15, color: Colors.white)
+                                : const TextStyle(
+                                    fontSize: 15,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
                         value: title,
                       );
                     }).toList(),
@@ -988,325 +992,403 @@ class _EditItemsFloatButtonState extends State<EditItemsFloatButton> {
     );
   }
 
+  List<String> dynamicTokensToStringToken() {
+    List<String> tokensList = [];
+    Map<String, dynamic> allUsersTokenMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .allUserTokensFromClass);
+    for (var tokens in allUsersTokenMap.values) {
+      tokensList.add(tokens.toString());
+    }
+    print('tokensList');
+    print(tokensList);
+    return tokensList;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: ThemeData().copyWith(
-        dividerColor:
-            (bulkPriceEditSelected) ? Colors.transparent : Colors.white,
-      ),
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: kAppBarBackgroundColor,
-          // centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
-            onPressed: () {
-              Navigator.pop(context);
-            },
-          ),
-          title: Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'Bulk Edit Price',
-              style: TextStyle(color: Colors.black),
-            ),
-          ),
-          actions: [
-            Switch(
-              activeColor: Colors.green,
-              value: bulkPriceEditSelected,
-              onChanged: (bool changedValue) {
-                setState(() {
-                  bulkOffsetValue = '';
-                  _offsetTextcontroller.clear();
-                  bulkPriceEditSelected = changedValue;
-                  if (changedValue == false) {
-                    setState(() {
-                      allItemsSelected = false;
-                    });
-                    checkBoxEditForAllItemsAtOnce(false);
-                  }
-                });
+    final fcmProvider = Provider.of<NotificationProvider>(context);
+    return WillPopScope(
+      onWillPop: () async {
+        if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .menuOrRestaurantInfoUpdatedFromClass) {
+          fcmProvider.sendNotification(
+              token: dynamicTokensToStringToken(),
+              title: widget.hotelName,
+              restaurantNameForNotification: json.decode(
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .allUserProfilesFromClass)[
+                  Provider.of<PrinterAndOtherDetailsProvider>(context,
+                          listen: false)
+                      .currentUserPhoneNumberFromClass]['restaurantName'],
+              body: '*menuUpdated*');
+        }
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .menuOrRestaurantInfoUpdated(false);
+
+        Navigator.pop(context);
+
+        return false;
+      },
+      child: Theme(
+        data: ThemeData().copyWith(
+          dividerColor:
+              (bulkPriceEditSelected) ? Colors.transparent : Colors.white,
+        ),
+        child: Scaffold(
+          appBar: AppBar(
+            backgroundColor: kAppBarBackgroundColor,
+            // centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
+              onPressed: () {
+                if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .menuOrRestaurantInfoUpdatedFromClass) {
+                  fcmProvider.sendNotification(
+                      token: dynamicTokensToStringToken(),
+                      title: widget.hotelName,
+                      restaurantNameForNotification: json.decode(
+                                  Provider.of<PrinterAndOtherDetailsProvider>(
+                                          context,
+                                          listen: false)
+                                      .allUserProfilesFromClass)[
+                              Provider.of<PrinterAndOtherDetailsProvider>(
+                                      context,
+                                      listen: false)
+                                  .currentUserPhoneNumberFromClass]
+                          ['restaurantName'],
+                      body: '*menuUpdated*');
+                }
+                Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .menuOrRestaurantInfoUpdated(false);
+                Navigator.pop(context);
               },
             ),
-          ],
-        ),
-        body: Column(
-          children: [
-            bulkPriceEditSelected
-                ? Container(
-                    //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                    margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                    child: ListTile(
-                      tileColor: Colors.white54,
-//FirstWeCheckWhetherMenuTitlesListContainsItem
-//ThisMeansIt'sAHeading,WeGiveItBiggerFontThen
-//NextWeCheckWhetherUnavailableItemsListHasTheItem,ifYes,WeGiveSlightlyGreyFont
-//IfItIsn'tInEither,TheFoodItemIsNormallyShownInTheList
-                      title: Text(
-                        'Select All',
-                        style: Theme.of(context).textTheme.headline5,
-                      ),
-
-//RightSide-WeCheckWhetherItIsHeading,IfYesWeShowNothing,
-//ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
-                      trailing: Checkbox(
-                        value: allItemsSelected,
-//ifCheckBoxIsTickedOrUnticked,WeChangeAllItemsAvailabilityIndexAccordingly
-//AlsoIfSomethingIsUnticked,ThenWeNeedToRemoveTheItemFromHashmap
-//IfItIsTicked,WeNeedToAddItWithTheValueAsFalse
-                        onChanged: (value) {
-                          setState(() {
-                            if (allItemsSelected) {
-                              allItemsSelected = false;
-                              checkBoxEditForAllItemsAtOnce(false);
-                            } else {
-                              allItemsSelected = true;
-                              checkBoxEditForAllItemsAtOnce(true);
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                  )
-                : SizedBox.shrink(),
-            Expanded(
-                child: ScrollablePositionedList.builder(
-                    itemCount: items.length,
-                    itemScrollController: _itemScrollController,
-                    itemBuilder: (context, index) {
-                      final itemName = items[index]['itemName'];
-                      final itemPrice = items[index]['price'];
-                      final itemVariety = items[index]['variety'];
-                      final itemCategory = items[index]['category'];
-                      final itemBulkEditSelected =
-                          items[index]['bulkEditSelected'];
-
-                      return Container(
-                        //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                        margin: EdgeInsets.fromLTRB(5, 5, 0, 0),
-                        child: ListTile(
+            title: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Bulk Edit Price',
+                style: TextStyle(color: Colors.black),
+              ),
+            ),
+            actions: [
+              Switch(
+                activeColor: Colors.green,
+                value: bulkPriceEditSelected,
+                onChanged: (bool changedValue) {
+                  setState(() {
+                    bulkOffsetValue = '';
+                    _offsetTextcontroller.clear();
+                    bulkPriceEditSelected = changedValue;
+                    if (changedValue == false) {
+                      setState(() {
+                        allItemsSelected = false;
+                      });
+                      checkBoxEditForAllItemsAtOnce(false);
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
+          body: ModalProgressHUD(
+            inAsyncCall: showSpinner,
+            child: Visibility(
+              visible: !showSpinner,
+              child: Column(
+                children: [
+                  bulkPriceEditSelected
+                      ? Container(
+                          //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                          margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                          child: ListTile(
                             tileColor: Colors.white54,
 //FirstWeCheckWhetherMenuTitlesListContainsItem
 //ThisMeansIt'sAHeading,WeGiveItBiggerFontThen
 //NextWeCheckWhetherUnavailableItemsListHasTheItem,ifYes,WeGiveSlightlyGreyFont
 //IfItIsn'tInEither,TheFoodItemIsNormallyShownInTheList
-                            title: itemCategory == 'title'
-                                ? bulkPriceEditSelected == false
-                                    ? Text(
-                                        itemName,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .headline6,
-                                      )
-                                    : Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          Text(
-                                            itemName,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .headline6,
-                                          ),
-                                          SizedBox(),
-                                          Checkbox(
-                                            value: itemBulkEditSelected,
-//ifCheckBoxIsTickedOrUnticked,WeChangeAllItemsAvailabilityIndexAccordingly
-//AlsoIfSomethingIsUnticked,ThenWeNeedToRemoveTheItemFromHashmap
-//IfItIsTicked,WeNeedToAddItWithTheValueAsFalse
-                                            onChanged: (value) {
-                                              checkBoxEditForSingleCategory(
-                                                  index);
-                                            },
-                                          )
-                                        ],
-                                      )
-                                : Text(itemName),
-//NoPricesToSayIfIsTitleElseWeCanSayPrice
-                            subtitle: itemCategory == 'title'
-                                ? null
-                                : Text('Price:${itemPrice.toString()}'),
+                            title: Text(
+                              'Select All',
+                              style: Theme.of(context).textTheme.headline5,
+                            ),
 
 //RightSide-WeCheckWhetherItIsHeading,IfYesWeShowNothing,
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
-                            trailing: itemCategory == 'title'
-                                ? null
-                                : bulkPriceEditSelected
-                                    ? Checkbox(
-                                        value: itemBulkEditSelected,
+                            trailing: Checkbox(
+                              value: allItemsSelected,
 //ifCheckBoxIsTickedOrUnticked,WeChangeAllItemsAvailabilityIndexAccordingly
 //AlsoIfSomethingIsUnticked,ThenWeNeedToRemoveTheItemFromHashmap
 //IfItIsTicked,WeNeedToAddItWithTheValueAsFalse
-                                        onChanged: (value) {
-                                          checkBoxEditForSingleItem(index);
-                                        },
-                                      )
-                                    : IconButton(
-                                        icon: Icon(Icons.edit,
-                                            size: 20, color: Colors.green),
-                                        onPressed: () {
-                                          tempItemNameForEdit = itemName;
-                                          tempPriceForEdit = itemPrice;
-                                          tempPriceForEditInString =
-                                              itemPrice.toString();
-                                          tempCategoryForEdit = itemCategory;
-                                          _editNamecontroller =
-                                              TextEditingController(
-                                                  text: tempItemNameForEdit);
-                                          _controller = TextEditingController(
-                                              text: tempPriceForEditInString);
-                                          showModalBottomSheet(
-                                              isScrollControlled: true,
-                                              context: context,
-                                              builder: (context) {
-                                                return itemEditDeleteBottomBar(
-                                                    context, index);
-                                                // return commentsSection(context, item);
-                                              });
-                                        },
-                                      )),
-                      );
-                    })),
-          ],
-        ),
-        // floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+                              onChanged: (value) {
+                                setState(() {
+                                  if (allItemsSelected) {
+                                    allItemsSelected = false;
+                                    checkBoxEditForAllItemsAtOnce(false);
+                                  } else {
+                                    allItemsSelected = true;
+                                    checkBoxEditForAllItemsAtOnce(true);
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                        )
+                      : SizedBox.shrink(),
+                  Expanded(
+                      child: ScrollablePositionedList.builder(
+                          itemCount: items.length,
+                          itemScrollController: _itemScrollController,
+                          itemBuilder: (context, index) {
+                            final itemName = items[index]['itemName'];
+                            final itemPrice = items[index]['price'];
+                            final itemVariety = items[index]['variety'];
+                            final itemCategory = items[index]['category'];
+                            final itemBulkEditSelected =
+                                items[index]['bulkEditSelected'];
+
+                            return Container(
+                              //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                              margin: index != items.length - 1
+                                  ? EdgeInsets.fromLTRB(5, 5, 0, 0)
+                                  : EdgeInsets.fromLTRB(5, 5, 0, 100),
+//GivingLotOfSpaceFromTheBottomIfItIsTheLastItem
+                              child: ListTile(
+                                  tileColor: Colors.white54,
+//FirstWeCheckWhetherMenuTitlesListContainsItem
+//ThisMeansIt'sAHeading,WeGiveItBiggerFontThen
+//NextWeCheckWhetherUnavailableItemsListHasTheItem,ifYes,WeGiveSlightlyGreyFont
+//IfItIsn'tInEither,TheFoodItemIsNormallyShownInTheList
+                                  title: itemCategory == 'title'
+                                      ? bulkPriceEditSelected == false
+                                          ? Text(
+                                              itemName,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .headline6,
+                                            )
+                                          : Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceEvenly,
+                                              children: [
+                                                Text(
+                                                  itemName,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .headline6,
+                                                ),
+                                                SizedBox(),
+                                                Checkbox(
+                                                  value: itemBulkEditSelected,
+//ifCheckBoxIsTickedOrUnticked,WeChangeAllItemsAvailabilityIndexAccordingly
+//AlsoIfSomethingIsUnticked,ThenWeNeedToRemoveTheItemFromHashmap
+//IfItIsTicked,WeNeedToAddItWithTheValueAsFalse
+                                                  onChanged: (value) {
+                                                    checkBoxEditForSingleCategory(
+                                                        index);
+                                                  },
+                                                )
+                                              ],
+                                            )
+                                      : Text(itemName),
+//NoPricesToSayIfIsTitleElseWeCanSayPrice
+                                  subtitle: itemCategory == 'title'
+                                      ? null
+                                      : Text('Price:${itemPrice.toString()}'),
+
+//RightSide-WeCheckWhetherItIsHeading,IfYesWeShowNothing,
+//ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
+                                  trailing: itemCategory == 'title'
+                                      ? null
+                                      : bulkPriceEditSelected
+                                          ? Checkbox(
+                                              value: itemBulkEditSelected,
+//ifCheckBoxIsTickedOrUnticked,WeChangeAllItemsAvailabilityIndexAccordingly
+//AlsoIfSomethingIsUnticked,ThenWeNeedToRemoveTheItemFromHashmap
+//IfItIsTicked,WeNeedToAddItWithTheValueAsFalse
+                                              onChanged: (value) {
+                                                checkBoxEditForSingleItem(
+                                                    index);
+                                              },
+                                            )
+                                          : IconButton(
+                                              icon: Icon(Icons.edit,
+                                                  size: 20,
+                                                  color: Colors.green),
+                                              onPressed: () {
+                                                tempItemNameForEdit = itemName;
+                                                tempPriceForEdit = itemPrice;
+                                                tempPriceForEditInString =
+                                                    itemPrice.toString();
+                                                tempCategoryForEdit =
+                                                    itemCategory;
+                                                _editNamecontroller =
+                                                    TextEditingController(
+                                                        text:
+                                                            tempItemNameForEdit);
+                                                _controller = TextEditingController(
+                                                    text:
+                                                        tempPriceForEditInString);
+                                                showModalBottomSheet(
+                                                    isScrollControlled: true,
+                                                    context: context,
+                                                    builder: (context) {
+                                                      return itemEditDeleteBottomBar(
+                                                          context, index);
+                                                      // return commentsSection(context, item);
+                                                    });
+                                              },
+                                            )),
+                            );
+                          })),
+                ],
+              ),
+            ),
+          ),
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerFloat,
 //FloatingActionButtonWePutContainerToEnsureWeCanDecorateItWithColor&Curves
-        floatingActionButton: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                SizedBox(width: 100),
-                Column(
-                  children: [
-                    SizedBox(height: 75, width: 75),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 5, horizontal: 15),
-                      width: 160,
-                      decoration: BoxDecoration(
-                          color: Colors.green,
+          floatingActionButton: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  SizedBox(width: 100),
+                  Column(
+                    children: [
+                      SizedBox(height: 75, width: 75),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 5, horizontal: 15),
+                        width: 160,
+                        decoration: BoxDecoration(
+                            color: Colors.green,
 //                Theme.of(context).primaryColor
-                          borderRadius: BorderRadius.circular(30)),
+                            borderRadius: BorderRadius.circular(30)),
 //WeHaveDropDownButtonInside
 //UnderlineWillBeContainer
 //InitiallyWhenWeOpen,TheValueAlwaysWillBe 0-BrowseMenu
 //OnClicked,ItWillCheckTheValueOfThatItem&ScrollToThatIndex
-                      child: DropdownButton(
-                        isExpanded: true,
-                        underline: Container(),
-                        dropdownColor: Colors.green,
-                        value: categoriesToScroll[0],
-                        onChanged: (value) {
-                          _scrollingToIndex(value.toString());
-                        },
-                        items: categoriesToScroll.map((title) {
+                        child: DropdownButton(
+                          isExpanded: true,
+                          underline: Container(),
+                          dropdownColor: Colors.green,
+                          value: categoriesToScroll[0],
+                          onChanged: (value) {
+                            _scrollingToIndex(value.toString());
+                          },
+                          items: categoriesToScroll.map((title) {
 //DropDownMenuItemWillHaveOneByOneItems,WePutThatAsList
 //ValueWillBeEachTitle
-                          return DropdownMenuItem(
-                            child: Container(
-                                alignment: Alignment.centerLeft,
-                                child: Center(
+                            return DropdownMenuItem(
+                              child: Container(
+                                  alignment: Alignment.center,
                                   child: Text(title,
-                                      style: const TextStyle(
-                                          fontSize: 15, color: Colors.white)),
-                                )),
-                            value: title,
-                          );
-                        }).toList(),
+                                      textAlign: TextAlign.center,
+                                      style: title != 'Select Category'
+                                          ? const TextStyle(
+                                              fontSize: 15, color: Colors.white)
+                                          : const TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold))),
+                              value: title,
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                bulkPriceEditSelected
-                    ? SizedBox(height: 75, width: 75)
-                    : Column(
-                        children: [
-                          Container(
-                            width: 75.0,
-                            height: 75.0,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(1),
-                              // border: Border.all(
-                              //   color: Colors.black87,
-                              //   width: 0.2,
-                              // )
-                            ),
-                            child: MaterialButton(
-                              color: Colors.white70,
-                              onPressed: () {
-                                tempItemNameForEdit = '';
-                                tempPriceForEditInString = '';
-                                _controller = TextEditingController(
-                                    text: tempPriceForEditInString);
+                    ],
+                  ),
+                  bulkPriceEditSelected
+                      ? SizedBox(height: 75, width: 75)
+                      : Column(
+                          children: [
+                            Container(
+                              width: 75.0,
+                              height: 75.0,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(1),
+                                // border: Border.all(
+                                //   color: Colors.black87,
+                                //   width: 0.2,
+                                // )
+                              ),
+                              child: MaterialButton(
+                                color: Colors.white70,
+                                onPressed: () {
+                                  tempItemNameForEdit = '';
+                                  tempPriceForEditInString = '';
+                                  _controller = TextEditingController(
+                                      text: tempPriceForEditInString);
 //JustOneNumeralToEnsureThatNewNumberIsPlacedDuringAdd
-                                tempPriceForEdit = -10009999991000;
-                                tempCategoryForEdit = '';
+                                  tempPriceForEdit = -10009999991000;
+                                  tempCategoryForEdit = '';
 
-                                showModalBottomSheet(
-                                    // isScrollControlled: true,
-                                    context: context,
-                                    builder: (context) {
-                                      return itemAddBottomBar(context);
-                                    });
-                              },
-                              shape: CircleBorder(
+                                  showModalBottomSheet(
+                                      // isScrollControlled: true,
+                                      context: context,
+                                      builder: (context) {
+                                        return itemAddBottomBar(context);
+                                      });
+                                },
+                                shape: CircleBorder(
 
-                                  // side: BorderSide(
-                                  //     // width: 2,
-                                  //     // color: Colors.red,
-                                  //     // style: BorderStyle.solid,
-                                  //     )
-                                  ),
-                              child: const Icon(
-                                Icons.add,
-                                size: 35,
+                                    // side: BorderSide(
+                                    //     // width: 2,
+                                    //     // color: Colors.red,
+                                    //     // style: BorderStyle.solid,
+                                    //     )
+                                    ),
+                                child: const Icon(
+                                  Icons.add,
+                                  size: 35,
+                                ),
                               ),
                             ),
-                          ),
-                          SizedBox(height: 75, width: 75)
-                        ],
-                      ),
-              ],
-            ),
-          ],
-        ),
-        persistentFooterButtons: [
-          Visibility(
-            visible: (bulkPriceEditSelected),
-            child: BottomButton(
-                onTap: () {
-                  bool atleastOneItemSelected = false;
-                  for (var item in items) {
+                            SizedBox(height: 75, width: 75)
+                          ],
+                        ),
+                ],
+              ),
+            ],
+          ),
+          persistentFooterButtons: [
+            Visibility(
+              visible: (bulkPriceEditSelected),
+              child: BottomButton(
+                  onTap: () {
+                    bool atleastOneItemSelected = false;
+                    for (var item in items) {
 //HereWeEnsureWeAreOnlySelectingTheItemsThatAreCheckedAndAlsoNoTitles
 //WeAreAlsoAdditionallyNotingTheIndexOfEachItemInTheItemAndNewPrice
-                    if (item['bulkEditSelected'] == true &&
-                        item['category'] != 'title') {
-                      if (item['bulkEditSelected'] == true) {
-                        atleastOneItemSelected = true;
+                      if (item['bulkEditSelected'] == true &&
+                          item['category'] != 'title') {
+                        if (item['bulkEditSelected'] == true) {
+                          atleastOneItemSelected = true;
+                        }
                       }
                     }
-                  }
 //IfNoItemIsSelected
-                  if (!atleastOneItemSelected) {
-                    errorMessage = 'Please Select Items';
-                    errorAlertDialogBox();
-                  } else {
+                    if (!atleastOneItemSelected) {
+                      errorMessage = 'Please Select Items';
+                      errorAlertDialogBox();
+                    } else {
 //IfAnItemIsSelectedWeBringOnBottomSheet
-                    showModalBottomSheet(
-                        context: context,
-                        builder: (context) {
-                          return offsetEnterBottomSheet(context);
-                        });
-                  }
-                },
-                buttonTitle: 'Continue',
-                buttonColor: Colors.green),
-          )
-        ],
+                      showModalBottomSheet(
+                          context: context,
+                          builder: (context) {
+                            return offsetEnterBottomSheet(context);
+                          });
+                    }
+                  },
+                  buttonTitle: 'Continue',
+                  buttonColor: Colors.green),
+            )
+          ],
+        ),
       ),
     );
   }

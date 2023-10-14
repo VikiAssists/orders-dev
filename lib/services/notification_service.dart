@@ -1,13 +1,19 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
+  // AndroidNotificationChannel channel = AndroidNotificationChannel(
+  //   'high_importance_channel', // id
+  //   'High Importance Notifications', // title
+  //   importance: Importance.max,
+  // );
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   Future<void> initNotification() async {
     AndroidInitializationSettings initializationSettingsAndroid =
-        const AndroidInitializationSettings('ic_launcher_foreground');
+        const AndroidInitializationSettings('mipmap/ic_launcher');
     var initializationSettingsIOS = DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
@@ -24,16 +30,15 @@ class NotificationService {
   notificationDetails() {
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        'channelId',
-        'channelName',
-        // importance: Importance.max,
-        // priority: Priority.high,
+        'channelId', 'channelName',
         playSound: false,
         enableVibration: false,
         timeoutAfter: 2000,
-        // ledColor: Colors.white,
-        // ledOnMs: 100,
-        // ledOffMs: 100,
+        visibility: NotificationVisibility.public,
+        priority: Priority.high,
+        importance: Importance.max,
+        // fullScreenIntent: true
+//ThisSettingWillEnsureThatInLockScreenTheAppWillComeToTheFront
       ),
       iOS: DarwinNotificationDetails(),
     );

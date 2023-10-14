@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/searching_Connecting_Printer_Screen.dart';
 import 'package:orders_dev/constants.dart';
+import 'package:orders_dev/services/background_services.dart';
 import 'package:provider/provider.dart';
 
 class PrinterSettings extends StatelessWidget {
@@ -62,6 +63,7 @@ class PrinterSettings extends StatelessWidget {
                         Provider.of<PrinterAndOtherDetailsProvider>(context,
                                 listen: false)
                             .neededOrNotChefKot(changedValue);
+
                       },
                     ),
                   )

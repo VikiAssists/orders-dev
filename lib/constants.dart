@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pinput/pinput.dart';
 
 var kTextFieldInputDecoration = InputDecoration(
     filled: true,
@@ -74,3 +75,17 @@ var kAddButtonWordTextStyle =
 const kAddMinusButtonIconSize = 20.0;
 
 const kCustomerWaitingTime = 30;
+
+//themeForEnteringPin
+final kDefaultPinTheme = PinTheme(
+  width: 56,
+  height: 56,
+  textStyle: TextStyle(
+      fontSize: 20,
+      color: Color.fromRGBO(30, 60, 87, 1),
+      fontWeight: FontWeight.w600),
+  decoration: BoxDecoration(
+    border: Border.all(color: Colors.green),
+    borderRadius: BorderRadius.circular(10),
+  ),
+);

@@ -2,6 +2,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/cupertino.dart';
 
 class PrinterAndOtherDetailsProvider extends ChangeNotifier {
+  String chosenRestaurantDatabaseFromClass =
+      ''; //ThisIsTheRestaurantTheUserHasLastSignedIn
   String captainPrinterNameFromClass = '';
   String captainPrinterAddressFromClass = '';
   String captainPrinterSizeFromClass = '0';
@@ -14,6 +16,12 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
   bool captainInsideTableInstructionsVideoPlayedFromClass = false;
   bool menuOrRestaurantInfoUpdatedFromClass =
       false; //ToRegisterSomethingHasBeenUpdated
+  String allUserProfilesFromClass = '';
+  String allUserTokensFromClass = '';
+  String entireMenuFromClass = '';
+  String currentUserPhoneNumberFromClass = '';
+  String restaurantInfoDataFromClass = '';
+  String versionOfAppFromClass = '';
 
   PrinterAndOtherDetailsProvider() {
     initialState();
@@ -21,6 +29,103 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
 
   void initialState() {
     syncDataWithProvider();
+  }
+
+  void saveCurrentUserPhoneNumber(String userPhoneNumber) {
+    currentUserPhoneNumberFromClass = userPhoneNumber;
+
+    updateCurrentUserPhoneNumberSharedPreferences();
+    notifyListeners();
+  }
+
+  Future updateCurrentUserPhoneNumberSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // await prefs.setStringList('firstPrinter', firstPrinterSavingVersion);
+
+    await prefs.setString(
+        'currentUserPhoneNumberSaving', currentUserPhoneNumberFromClass);
+  }
+
+  void restaurantChosenByUser(String restaurantDatabaseName) {
+    chosenRestaurantDatabaseFromClass = restaurantDatabaseName;
+
+    updateRestaurantChosenSharedPreferences();
+    notifyListeners();
+  }
+
+  Future updateRestaurantChosenSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // await prefs.setStringList('firstPrinter', firstPrinterSavingVersion);
+
+    await prefs.setString(
+        'restaurantChosenByUserSaving', chosenRestaurantDatabaseFromClass);
+  }
+
+  void saveRestaurantInfo(String restaurantInfo) {
+    restaurantInfoDataFromClass = restaurantInfo;
+
+    updateRestaurantInfoSharedPreferences();
+    notifyListeners();
+  }
+
+  Future updateRestaurantInfoSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('restaurantInfoSaving', restaurantInfoDataFromClass);
+  }
+
+  void saveAllUserProfiles(String allUserProfile) {
+    allUserProfilesFromClass = allUserProfile;
+
+    updateAllUserProfileSharedPreferences();
+    notifyListeners();
+  }
+
+  Future updateAllUserProfileSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // await prefs.setStringList('firstPrinter', firstPrinterSavingVersion);
+
+    await prefs.setString('allUserProfileSaving', allUserProfilesFromClass);
+  }
+
+  void saveAllUserTokens(String allUserTokens) {
+    allUserTokensFromClass = allUserTokens;
+
+    updateAllUserTokensSharedPreferences();
+    notifyListeners();
+  }
+
+  Future updateAllUserTokensSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('allUserTokensSaving', allUserTokensFromClass);
+  }
+
+  void savingEntireMenuFromMap(String entireMenu) {
+    entireMenuFromClass = entireMenu;
+
+    updateEntireMenuSharedPreferences();
+    notifyListeners();
+  }
+
+  Future updateEntireMenuSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('entireMenuSaving', entireMenuFromClass);
+  }
+
+  void saveVersionOfApp(String appVersion) {
+    versionOfAppFromClass = appVersion;
+    updateVersionApp();
+  }
+
+  Future updateVersionApp() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString('appVersionSaving', versionOfAppFromClass);
   }
 
   void addCaptainPrinter(String connectingPrinterName,
@@ -138,6 +243,9 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
   Future syncDataWithProvider() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
+    var restaurantChosenResult =
+        prefs.getString('restaurantChosenByUserSaving');
+
     var captainResultName = prefs.getString('captainPrinterNameSaving');
     var captainResultAddress = prefs.getString('captainPrinterAddressSaving');
     var captainResultSize = prefs.getString('captainPrinterSizeSaving');
@@ -151,6 +259,17 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
         prefs.getBool('chefInstructionVideoPlayedOrNotSaving');
     var captainInTableInstructionsVideoPlayedOrNot =
         prefs.getBool('captainInTableInstructionVideoPlayedOrNotSaving');
+    var allUserProfileResult = prefs.getString('allUserProfileSaving');
+    var allUserTokensResult = prefs.getString('allUserTokensSaving');
+    var entireMenuResult = prefs.getString('entireMenuSaving');
+    var currentUserPhoneNumberResult =
+        prefs.getString('currentUserPhoneNumberSaving');
+    var restaurantInfoSavingResult = prefs.getString('restaurantInfoSaving');
+    var appVersionSavingResult = prefs.getString('appVersionSaving');
+
+    if (restaurantChosenResult != null) {
+      chosenRestaurantDatabaseFromClass = restaurantChosenResult;
+    }
 
     if (captainResultName != null) {
       captainPrinterNameFromClass = captainResultName;
@@ -184,6 +303,30 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
     if (captainInTableInstructionsVideoPlayedOrNot != null) {
       captainInsideTableInstructionsVideoPlayedFromClass =
           captainInTableInstructionsVideoPlayedOrNot;
+    }
+
+    if (allUserProfileResult != null) {
+      allUserProfilesFromClass = allUserProfileResult;
+    }
+
+    if (allUserTokensResult != null) {
+      allUserTokensFromClass = allUserTokensResult;
+    }
+
+    if (entireMenuResult != null) {
+      entireMenuFromClass = entireMenuResult;
+    }
+
+    if (currentUserPhoneNumberResult != null) {
+      currentUserPhoneNumberFromClass = currentUserPhoneNumberResult;
+    }
+
+    if (restaurantInfoSavingResult != null) {
+      restaurantInfoDataFromClass = restaurantInfoSavingResult;
+    }
+
+    if (appVersionSavingResult != null) {
+      versionOfAppFromClass = appVersionSavingResult;
     }
 
     notifyListeners();

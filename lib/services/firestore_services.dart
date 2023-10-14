@@ -81,6 +81,172 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 //   }
 // }
 
+class FireStoreUpdateAppVersion {
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String version;
+
+  FireStoreUpdateAppVersion({
+    required this.userPhoneNumber,
+    required this.version,
+  });
+
+  Future<void> updateAppVersion() {
+    return _fireStore
+        .collection('loginDetails')
+        .doc(userPhoneNumber)
+        .set({'appVersion': version}, SetOptions(merge: true));
+  }
+}
+
+class FireStoreUpdateUserToken {
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String token;
+  final String hotelName;
+
+  FireStoreUpdateUserToken({
+    required this.userPhoneNumber,
+    required this.token,
+    required this.hotelName,
+  });
+
+  Future<void> updateUserToken() {
+    Map<String, dynamic> userPhoneNumberAndTokenSaving = {'token': token};
+    userPhoneNumberAndTokenSaving.addAll({'phone': userPhoneNumber});
+
+    _fireStore
+        .collection(hotelName)
+        .doc('userMessagingTokens')
+        .set({userPhoneNumber: token}, SetOptions(merge: true));
+
+    return _fireStore
+        .collection('loginDetails')
+        .doc(userPhoneNumber)
+        .set(userPhoneNumberAndTokenSaving, SetOptions(merge: true));
+  }
+}
+
+class FireStoreUpdateUserProfile {
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String hotelName;
+  final Map<String, dynamic> updateUserProfileMap;
+
+  FireStoreUpdateUserProfile(
+      {required this.userPhoneNumber,
+      required this.hotelName,
+      required this.updateUserProfileMap});
+
+  Future<void> updateUserProfile() {
+//ThisWillUpdateInsideTheRestaurantDatabase
+    _fireStore
+        .collection(hotelName)
+        .doc('allUserProfiles')
+        .set({userPhoneNumber: updateUserProfileMap}, SetOptions(merge: true));
+//ThisWillUpdateInsideTheLoginDetailsFolder
+    return _fireStore
+        .collection('loginDetails')
+        .doc(userPhoneNumber)
+        .set({hotelName: updateUserProfileMap}, SetOptions(merge: true));
+  }
+}
+
+class FireStoreAddUserProfile {
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String hotelName;
+  final Map<String, dynamic> updateUserProfileMap;
+
+  FireStoreAddUserProfile(
+      {required this.userPhoneNumber,
+      required this.hotelName,
+      required this.updateUserProfileMap});
+
+  Future<void> addUserProfile() {
+//WeCanOnlyInputIntoArrayAsList.SoMakingItIntoAList
+    List<String> restaurantAddingList = [hotelName];
+//UpdatingUserForTheParticularRestaurantInTheFolder LoginDetails
+    _fireStore
+        .collection('loginDetails')
+        .doc(userPhoneNumber)
+        .set({hotelName: updateUserProfileMap}, SetOptions(merge: true));
+//thisIsToStoreOneSetOfUserProfileInsideRestaurantTooForOtherUsersToUse
+    _fireStore
+        .collection(hotelName)
+        .doc('allUserProfiles')
+        .set({userPhoneNumber: updateUserProfileMap}, SetOptions(merge: true));
+//UpdatingTheArrayOfRestaurants
+    return _fireStore.collection('loginDetails').doc(userPhoneNumber).set(
+        {'restaurants': FieldValue.arrayUnion(restaurantAddingList)},
+        SetOptions(merge: true));
+  }
+}
+
+class FireStoreDeleteUserCompletely {
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String restaurantDatabaseName;
+
+  FireStoreDeleteUserCompletely({
+    required this.userPhoneNumber,
+    required this.restaurantDatabaseName,
+  });
+
+  Future<void> deleteUserCompletely() {
+    //ThenWeNeedToDeleteThatUserFromRestaurantDatabaseToo
+    _fireStore
+        .collection(restaurantDatabaseName)
+        .doc('allUserProfiles')
+        .update({userPhoneNumber: FieldValue.delete()});
+//deletingTheTokenFromThatRestaurantDatabase
+    _fireStore
+        .collection(restaurantDatabaseName)
+        .doc('userMessagingTokens')
+        .update({userPhoneNumber: FieldValue.delete()});
+
+    return _fireStore.collection('loginDetails').doc(userPhoneNumber).delete();
+  }
+}
+
+class FireStoreDeleteUserFromOneRestaurant {
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String restaurantDatabaseName;
+
+  FireStoreDeleteUserFromOneRestaurant({
+    required this.userPhoneNumber,
+    required this.restaurantDatabaseName,
+  });
+
+  Future<void> deleteUserFromOneRestaurant() {
+//ToUpdateRestaurantList,WeCanOnlyPassItAsList
+//SoMakingListAndPassingIt
+    List<String> tempDeleteRestaurantsList = [restaurantDatabaseName];
+
+//FirstWeDeleteThatRestaurantFromUser
+    _fireStore
+        .collection('loginDetails')
+        .doc(userPhoneNumber)
+        .update({restaurantDatabaseName: FieldValue.delete()});
+//ThenWeNeedToDeleteThatUserFromRestaurantDatabaseToo
+    _fireStore
+        .collection(restaurantDatabaseName)
+        .doc('allUserProfiles')
+        .update({userPhoneNumber: FieldValue.delete()});
+    //deletingTheTokenFromThatRestaurantDatabase
+    _fireStore
+        .collection(restaurantDatabaseName)
+        .doc('userMessagingTokens')
+        .update({userPhoneNumber: FieldValue.delete()});
+
+//ThenWeUpdateTheArrayOfRestaurants
+    return _fireStore.collection('loginDetails').doc(userPhoneNumber).update({
+      'restaurants': FieldValue.arrayRemove(tempDeleteRestaurantsList),
+    });
+  }
+}
+
 class FireStoreAddOrderServiceAsString {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
@@ -142,6 +308,28 @@ class FireStoreAddOrderServiceWithSplit {
       'partOfTableOrParcel': partOfTableOrParcel,
       'partOfTableOrParcelNumber': partOfTableOrParcelNumber
     });
+  }
+}
+
+class FireStoreAddOrderInRunningOrderFolder {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final Map<String, dynamic> ordersMap;
+  final String seatingNumber;
+
+  FireStoreAddOrderInRunningOrderFolder({
+    required this.hotelName,
+    required this.ordersMap,
+    required this.seatingNumber,
+  });
+
+  Future<void> addOrder() {
+    return _fireStore
+        .collection(hotelName)
+        .doc('runningorders')
+        .collection('runningorders')
+        .doc(seatingNumber)
+        .set(ordersMap, SetOptions(merge: true));
   }
 }
 
@@ -210,6 +398,32 @@ class FireStoreUnavailableItems {
   }
 }
 
+class FireStoreChefSpecialities {
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String hotelName;
+  final List<String> chefWontCook;
+
+  FireStoreChefSpecialities(
+      {required this.userPhoneNumber,
+      required this.hotelName,
+      required this.chefWontCook});
+
+  Future<void> chefSpecialities() {
+    Map<String, dynamic> updateChefSpecialities = HashMap();
+    updateChefSpecialities.addAll({'wontCook': chefWontCook});
+//updatingTheRestaurantDatabaseFirst
+    _fireStore.collection(hotelName).doc('allUserProfiles').set(
+        {userPhoneNumber: updateChefSpecialities}, SetOptions(merge: true));
+
+//ThenUpdatingTheArrayInsideLoginDetails
+    return _fireStore
+        .collection('loginDetails')
+        .doc(userPhoneNumber)
+        .set({hotelName: updateChefSpecialities}, SetOptions(merge: true));
+  }
+}
+
 class FireStoreChefWontCook {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
@@ -254,14 +468,14 @@ class FireStoreUpdateBill {
   }
 }
 
-class FireStoreUpdateStatistics {
+class FireStoreUpdateStatisticsIndividualField {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
   final String docID;
   double? incrementBy;
   final String key;
 
-  FireStoreUpdateStatistics(
+  FireStoreUpdateStatisticsIndividualField(
       {required this.hotelName,
       required this.docID,
       this.incrementBy,
@@ -275,6 +489,27 @@ class FireStoreUpdateStatistics {
         .doc(docID)
         .set(
             {key: FieldValue.increment(incrementBy!)}, SetOptions(merge: true));
+  }
+}
+
+class FireStoreUpdateStatisticsWithMap {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String docID;
+  Map<String, dynamic> statisticsUpdateMap = HashMap();
+
+  FireStoreUpdateStatisticsWithMap(
+      {required this.hotelName,
+      required this.docID,
+      required this.statisticsUpdateMap});
+
+  Future<void> updateStatistics() {
+    return _fireStore
+        .collection(hotelName)
+        .doc('statistics')
+        .collection('statistics')
+        .doc(docID)
+        .set(statisticsUpdateMap, SetOptions(merge: true));
   }
 }
 
@@ -295,6 +530,26 @@ class FireStoreDeleteFinishedOrderInPresentOrders {
         .collection(hotelName)
         .doc('presentorders')
         .collection('presentorders')
+        .doc(eachItemId)
+        .delete();
+  }
+}
+
+class FireStoreDeleteFinishedOrderInRunningOrders {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String eachItemId;
+
+  FireStoreDeleteFinishedOrderInRunningOrders({
+    required this.hotelName,
+    required this.eachItemId,
+  });
+
+  Future<void> deleteFinishedOrder() {
+    return _fireStore
+        .collection(hotelName)
+        .doc('runningorders')
+        .collection('runningorders')
         .doc(eachItemId)
         .delete();
   }

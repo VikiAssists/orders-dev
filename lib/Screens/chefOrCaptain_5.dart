@@ -1,16 +1,26 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/about_app_info_screen.dart';
-import 'package:orders_dev/Screens/chef_to_cook_8.dart';
-import 'package:orders_dev/Screens/choosing_chef_specialities_screen.dart';
+import 'package:orders_dev/Screens/captain_screen_8.dart';
+import 'package:orders_dev/Screens/chef_to_cook_10.dart';
+import 'package:orders_dev/Screens/choosing_chef_specialities_screen_2.dart';
 import 'package:orders_dev/Screens/edit_menu_base_options.dart';
 import 'package:orders_dev/Screens/inventory_chef_specialities.dart';
+import 'package:orders_dev/Screens/inventory_chef_specialities_2.dart';
 import 'package:orders_dev/Screens/main_settings_screen.dart';
 import 'package:orders_dev/Screens/statistics_page.dart';
+
+import 'package:orders_dev/Screens/user_profiles_screen_2.dart';
+
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/main.dart';
 import 'package:orders_dev/services/notification_service.dart';
@@ -24,38 +34,24 @@ import 'order_history_4.dart';
 
 //ThisIsTheScreenWhereTheUserChoosesWhetherToBeChefOrCaptain
 //WeAlsoGiveSideBarForOtherOptionsForTheUser
-class ChefOrCaptainDeleteTillEnd extends StatelessWidget {
+class ChefOrCaptainWithSeparateRestaurantInfo extends StatelessWidget {
   final String hotelName;
   final String userNumber;
   final List<String> menuTitles;
   final List<String> entireMenuItems;
   final List<num> entireMenuPrice;
-  final num numberOfTables;
-  final num cgstPercentage;
-  final num sgstPercentage;
-  final String hotelNameForPrint;
-  final String addressLine1ForPrint;
-  final String addressLine2ForPrint;
-  final String addressLine3ForPrint;
-  final String phoneNumberForPrint;
-  final String gstCodeForPrint;
+  final List<Map<String, dynamic>> allMenuItems;
+  final Map<String, dynamic> currentUserProfileMap;
 
-  const ChefOrCaptainDeleteTillEnd(
+  const ChefOrCaptainWithSeparateRestaurantInfo(
       {Key? key,
       required this.hotelName,
       required this.userNumber,
       required this.menuTitles,
       required this.entireMenuItems,
       required this.entireMenuPrice,
-      required this.numberOfTables,
-      required this.cgstPercentage,
-      required this.sgstPercentage,
-      required this.hotelNameForPrint,
-      required this.addressLine1ForPrint,
-      required this.addressLine2ForPrint,
-      required this.addressLine3ForPrint,
-      required this.phoneNumberForPrint,
-      required this.gstCodeForPrint})
+      required this.allMenuItems,
+      required this.currentUserProfileMap})
       : super(key: key);
 
   @override
@@ -108,17 +104,21 @@ class ChefOrCaptainDeleteTillEnd extends StatelessWidget {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => ChefToCookPrintAlignment(
+          builder: (context) => ChefToCookWithRunningOrders(
             hotelName: hotelName,
-            chefSpecialities: chefWontCook,
+            currentUserProfileMap: currentUserProfileMap,
           ),
         ),
       );
       EasyLoading.dismiss();
     }
 
-    return MaterialApp(
-      home: FlutterEasyLoading(
+    return WillPopScope(
+      onWillPop: () async {
+//ToExitTheApp
+        exit(0);
+      },
+      child: FlutterEasyLoading(
         child: Scaffold(
           appBar: AppBar(
             backgroundColor: kAppBarBackgroundColor,
@@ -139,8 +139,9 @@ class ChefOrCaptainDeleteTillEnd extends StatelessWidget {
             hotelName: hotelName,
             entireMenuItems: entireMenuItems,
             menuTitles: menuTitles,
+            items: allMenuItems,
             userNumber: userNumber,
-            hotelNameForPrint: hotelNameForPrint,
+            currentUserProfileMap: currentUserProfileMap,
           ),
           body: UpgradeAlert(
             upgrader: Upgrader(
@@ -187,24 +188,11 @@ class ChefOrCaptainDeleteTillEnd extends StatelessWidget {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          CaptainScreenTileChange(
+                                          CaptainScreenWithRunningOrders(
                                         hotelName: hotelName,
-                                        numberOfTables: numberOfTables,
                                         menuTitles: menuTitles,
                                         entireMenuItems: entireMenuItems,
                                         entireMenuPrice: entireMenuPrice,
-                                        cgstPercentage: cgstPercentage,
-                                        sgstPercentage: sgstPercentage,
-                                        hotelNameForPrint: hotelNameForPrint,
-                                        addressLine1ForPrint:
-                                            addressLine1ForPrint,
-                                        addressLine2ForPrint:
-                                            addressLine2ForPrint,
-                                        addressLine3ForPrint:
-                                            addressLine3ForPrint,
-                                        phoneNumberForPrint:
-                                            phoneNumberForPrint,
-                                        gstCodeForPrint: gstCodeForPrint,
                                       ),
                                     ),
                                   );
@@ -261,7 +249,18 @@ class ChefOrCaptainDeleteTillEnd extends StatelessWidget {
                                 hasInternet = await InternetConnectionChecker()
                                     .hasConnection;
                                 if (hasInternet) {
-                                  chefWontCookMethod();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          ChefToCookWithRunningOrders(
+                                        hotelName: hotelName,
+                                        currentUserProfileMap:
+                                            currentUserProfileMap,
+                                      ),
+                                    ),
+                                  );
+                                  EasyLoading.dismiss();
                                 } else {
                                   EasyLoading.dismiss();
 
@@ -304,17 +303,19 @@ class NavigationDrawer extends StatelessWidget {
   final String hotelName;
   final List<String> entireMenuItems;
   final List<String> menuTitles;
+  final List<Map<String, dynamic>> items;
   final String userNumber;
-  final String hotelNameForPrint;
+  final Map<String, dynamic> currentUserProfileMap;
 
-  const NavigationDrawer(
-      {Key? key,
-      required this.hotelName,
-      required this.entireMenuItems,
-      required this.menuTitles,
-      required this.userNumber,
-      required this.hotelNameForPrint})
-      : super(key: key);
+  const NavigationDrawer({
+    Key? key,
+    required this.hotelName,
+    required this.entireMenuItems,
+    required this.menuTitles,
+    required this.items,
+    required this.userNumber,
+    required this.currentUserProfileMap,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) => Drawer(
@@ -354,67 +355,114 @@ class NavigationDrawer extends StatelessWidget {
           //FirstIsOrderHistoryWithAnIcon.ClickToGoToOrderHistoryPage-Input-hotelName
           ListTile(
             leading: const Icon(IconData(0xe043, fontFamily: 'MaterialIcons')),
-            title: Text(hotelNameForPrint),
-            subtitle: Text('${hotelName}_$userNumber'),
+            title: Text(json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                    context,
+                    listen: false)
+                .restaurantInfoDataFromClass)['hotelname']),
+            subtitle: Text('${currentUserProfileMap[hotelName]['username']}'),
           ),
           const Divider(color: Colors.black54),
-          ListTile(
-            leading: const Icon(IconData(0xf072b, fontFamily: 'MaterialIcons')),
-            title: Text('Order History'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (Buildcontext) =>
-                          OrderHistorySerialNumber(hotelName: hotelName)));
-            },
-          ),
+          (currentUserProfileMap[hotelName]['admin'] ||
+                  json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                              context,
+                              listen: false)
+                          .allUserProfilesFromClass)[
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .currentUserPhoneNumberFromClass]['privileges']['3'])
+              ? ListTile(
+                  leading: const Icon(
+                      IconData(0xf072b, fontFamily: 'MaterialIcons')),
+                  title: Text('Order History'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (Buildcontext) => OrderHistorySerialNumber(
+                                hotelName: hotelName)));
+                  },
+                )
+              : SizedBox.shrink(),
 //NextIsStatisticsWithAnIcon.ClickToGoToOrderStatisticsPage-Input-hotelName
-          userNumber == '1'
+          (currentUserProfileMap[hotelName]['admin'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['2'])
               ? ListTile(
                   leading:
                       const Icon(IconData(0xeebc, fontFamily: 'MaterialIcons')),
                   title: Text('Statistics Reports'),
                   onTap: () {
-                    if (userNumber == '1') {
-                      Navigator.pop(context);
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (Buildcontext) =>
-                                  StatisticsPage(hotelName: hotelName)));
-                    }
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (Buildcontext) =>
+                                StatisticsPage(hotelName: hotelName)));
                   },
                 )
               : SizedBox.shrink(),
-          const Divider(color: Colors.black54),
+          (currentUserProfileMap[hotelName]['admin'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['3'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['2'])
+              ? Divider(color: Colors.black54)
+              : SizedBox.shrink(),
 //nextIsAnOptionToRemoveOptionsThatAreOverInTheKitchen
 //InputsAreMenuItems,Titles,hotelName and
 //Finally AnOptionCalledInventoryOrChefSelection
 //Basically,WeAreUsingTheSameClassToGiveItemAvailabilityAndChefSpecialities
 //ByGiving "true" toInventoryAndChefSpecialities,WeSayWeWantInventoryPage
-          ListTile(
-            leading: const Icon(IconData(0xf823, fontFamily: 'MaterialIcons')),
-            title: Text('Item Availability'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
+          (currentUserProfileMap[hotelName]['admin'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
                   context,
-                  MaterialPageRoute(
-                      builder: (Buildcontext) => InventoryOrChefSpecialities(
-                            entireMenuItems: entireMenuItems,
-                            entireTitles: menuTitles,
-                            hotelName: hotelName,
-                            inventoryOrChefSelection: true,
-                          )));
-            },
-          ),
-          //DividerLineBecauseWeAreGoingToChefSpecialities
-          // userNumber != '1'
-          //     ? const Divider(color: Colors.black54)
-          //     : SizedBox.shrink(),
-          userNumber == '1'
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['6'])
+              ? ListTile(
+                  leading:
+                      const Icon(IconData(0xf823, fontFamily: 'MaterialIcons')),
+                  title: Text('Item Availability'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (Buildcontext) =>
+                                InventoryOrChefSpecialitiesWithFCM(
+                                  hotelName: hotelName,
+                                  inventoryOrChefSelection: true,
+                                  allMenuItems: items,
+                                )));
+                  },
+                )
+              : SizedBox.shrink(),
+          (currentUserProfileMap[hotelName]['admin'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['5'])
               ? ListTile(
                   leading: const Icon(
                       IconData(0xf04b3, fontFamily: 'MaterialIcons')),
@@ -424,17 +472,23 @@ class NavigationDrawer extends StatelessWidget {
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (Buildcontext) =>
-                                ChoosingChefForSpecialities(
-                                  entireMenuItems: entireMenuItems,
-                                  menuTitles: menuTitles,
+                            builder: (Buildcontext) => ChefSpecialities(
                                   hotelName: hotelName,
+                                  currentUserProfileMap: currentUserProfileMap,
+                                  items: items,
                                 )));
                   },
                 )
               : SizedBox.shrink(),
 //EditMenuOptions
-          userNumber == '1'
+          (currentUserProfileMap[hotelName]['admin'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['7'])
               ? ListTile(
                   leading: const Icon(Icons.edit_note_rounded),
                   title: Text('Restaurant Info & Menu'),
@@ -450,7 +504,30 @@ class NavigationDrawer extends StatelessWidget {
                 )
               : SizedBox.shrink(),
 //FinalDividerLine
-          const Divider(color: Colors.black54),
+          (currentUserProfileMap[hotelName]['admin'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['7'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['5'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['6'])
+              ? Divider(color: Colors.black54)
+              : SizedBox.shrink(),
           ListTile(
             leading: Icon(Icons.settings),
             title: Text('Settings'),
@@ -461,6 +538,39 @@ class NavigationDrawer extends StatelessWidget {
             },
           ),
           const Divider(color: Colors.black54),
+          (currentUserProfileMap[hotelName]['admin'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['4'])
+              ? ListTile(
+                  leading: Icon(Icons.supervised_user_circle_outlined),
+                  title: Text('User Profiles'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (BuildContext) => UserProfilesWithEdit(
+                                  hotelName: hotelName,
+                                  currentUserProfileMap: currentUserProfileMap,
+                                )));
+                  },
+                )
+              : SizedBox.shrink(),
+          (currentUserProfileMap[hotelName]['admin'] ||
+              json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
+                  context,
+                  listen: false)
+                  .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['privileges']['4'])
+              ? Divider(color: Colors.black54)
+              : SizedBox.shrink(),
 
           ListTile(
             leading: const Icon(IconData(0xe043, fontFamily: 'MaterialIcons')),
@@ -470,13 +580,20 @@ class NavigationDrawer extends StatelessWidget {
             onTap: () async {
               Provider.of<PrinterAndOtherDetailsProvider>(context,
                       listen: false)
+                  .restaurantChosenByUser('');
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
                   .chefVideoInstructionLookedOrNot(false);
               Provider.of<PrinterAndOtherDetailsProvider>(context,
                       listen: false)
                   .captainInsideTableVideoInstructionLookedOrNot(false);
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .restaurantChosenByUser('');
               await FirebaseAuth.instance.signOut();
-              Navigator.pushReplacement(context,
-                  MaterialPageRoute(builder: (Buildcontext) => LoginPage()));
+              Phoenix.rebirth(context);
+              // Navigator.pushReplacement(context,
+              //     MaterialPageRoute(builder: (Buildcontext) => LoginPage()));
             },
           ),
           //AboutPageForAppDetails
