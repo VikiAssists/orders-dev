@@ -28,7 +28,7 @@ class _ChefSpecialitiesState extends State<ChefSpecialities> {
 //ToGetAllTheUsersWhoAreInThisRestaurant
     final allUsersQuery = await FirebaseFirestore.instance
         .collection('loginDetails')
-        .where('restaurants', arrayContains: widget.hotelName)
+        .where('restaurantDatabase.${'${widget.hotelName}'}', isEqualTo: true)
         .get();
     for (var eachUser in allUsersQuery.docs) {
 //toEnsureAdminCanSeeAllUserButNon-AdminUsersCanSeeOnlyNon-AdminUsers

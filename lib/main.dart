@@ -31,6 +31,8 @@ void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   await Firebase.initializeApp();
+
+  await FirebaseMessaging.instance.setAutoInitEnabled(true);
   FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
       alert: true, badge: true, sound: true);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -88,15 +90,15 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         profileUpdatedTrueNotedFalse: true);
   }
 
-  if (message.data['body'].toString().split('*')[1] ==
-      'itemReadyRejectedCaptainAlert') {
-    BackgroundCheck().captainAlertsCheckInBackground(
-        hotelNameOfMessage: message.data['title'].toString());
-  }
-  if (message.data['body'].toString().split('*')[1] == 'newOrderForCook') {
-    BackgroundCheck().chefAlertsCheckInBackground(
-        hotelNameOfMessage: message.data['title'].toString());
-  }
+  // if (message.data['body'].toString().split('*')[1] ==
+  //     'itemReadyRejectedCaptainAlert') {
+  //   BackgroundCheck().captainAlertsCheckInBackground(
+  //       hotelNameOfMessage: message.data['title'].toString());
+  // }
+  // if (message.data['body'].toString().split('*')[1] == 'newOrderForCook') {
+  //   BackgroundCheck().chefAlertsCheckInBackground(
+  //       hotelNameOfMessage: message.data['title'].toString());
+  // }
 }
 
 class MyApp extends StatelessWidget {
@@ -126,6 +128,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     notificationPermissionChecker();
     _obscureText = true;
     showSpinner = false;
+    captchaVerificationScreen = false;
 
     //foreground
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -201,10 +204,10 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
 //WhenWeAreClosingTheApp
     if (isBackground3) {
 //EnsuringThatWeAreRegisteringThatTheAppIsNotInChef/CaptainScreen
-      BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
-          insideCaptainScreenTrueElseFalse: false);
-      BackgroundCheck().saveInsideChefScreenChangingInBackground(
-          insideChefScreenTrueElseFalse: false);
+//       BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
+//           insideCaptainScreenTrueElseFalse: false);
+      // BackgroundCheck().saveInsideChefScreenChangingInBackground(
+      //     insideChefScreenTrueElseFalse: false);
     }
 
     if (isForeground) {
@@ -360,7 +363,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   bool hasBackgroundPermissions = true;
   bool locationPermissionAccepted = true;
   bool isNotificationPermissionGranted = true;
-  String appVersion = '3.6';
+  String appVersion = '3.19.31';
 
   //WhatComesNextIsForAnotherPage
   List<String> menuTitles = ['Browse Menu'];
@@ -372,12 +375,14 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   List<Map<String, dynamic>> items = []; //allItemsAsMap
   var receivedID = '';
   bool otpSent = false;
+  bool manuallyOtpEntered = false;
   String userPhoneNumber = '';
   String otp = '';
   String token = '';
   Map<String, dynamic> currentUserCompleteProfile = {};
   Map<String, dynamic> allUserTokens = {};
   Map<String, dynamic> allUserProfiles = {};
+  bool captchaVerificationScreen = false;
 
   Future<void> getToken(
       bool switchToChooseRestaurantScreenTrueElseFalse) async {
@@ -491,7 +496,6 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
           Phoenix.rebirth(context);
         } else {
           userPhoneNumber = user.phoneNumber.toString();
-          print(userPhoneNumber);
           if (userPhoneNumber != '') {
             getUserInfoBasics();
           }
@@ -509,7 +513,7 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   }
 
   void verifyUserPhoneNumber(String phoneNumberForOtp) {
-    // _auth.setSettings(appVerificationDisabledForTesting: true);
+    manuallyOtpEntered = false;
     _auth.verifyPhoneNumber(
       phoneNumber: phoneNumberForOtp,
       verificationCompleted: (PhoneAuthCredential credential) async {
@@ -518,21 +522,40 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
             );
       },
       verificationFailed: (FirebaseAuthException e) {
+        print('${e.toString()}');
         setState(() {
+          print('captchaVerificationScreen3');
+          captchaVerificationScreen = false;
+          showSpinner = false;
           otpSent = false;
         });
         show('${e.code.toString()}');
       },
       codeSent: (String verificationId, int? resendToken) {
+        setState(() {
+          print('captchaVerificationScreen2');
+          captchaVerificationScreen = false;
+          showSpinner = false;
+        });
         receivedID = verificationId;
         // otpFieldVisibility = true;
         // setState(() {});
       },
       codeAutoRetrievalTimeout: (String verificationId) {},
     );
+    _auth.authStateChanges().listen((User? user) {
+      if (user != null && (manuallyOtpEntered == false)) {
+//ThisMeansThatTheUserHasHimselfEnteredTheOTP
+        setState(() {
+          showSpinner = true;
+        });
+        getUserInfoBasics();
+      }
+    });
   }
 
   Future<void> verifyOTPCode(String otp) async {
+    manuallyOtpEntered = true;
     setState(() {
       showSpinner = true;
     });
@@ -553,6 +576,12 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
   }
 
   void getUserInfoBasics() async {
+    if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .chosenRestaurantDatabaseFromClass ==
+        '') {
+      getToken(false);
+    }
+
     if (showSpinner == false) {
       setState(() {
         showSpinner = true;
@@ -561,10 +590,10 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
 
     userNumber = '1';
 //JustRegisteringThatWeAreNotInsideCaptainScreenInitially
-    BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
-        insideCaptainScreenTrueElseFalse: false);
-    BackgroundCheck().saveInsideChefScreenChangingInBackground(
-        insideChefScreenTrueElseFalse: false);
+//     BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
+//         insideCaptainScreenTrueElseFalse: false);
+    // BackgroundCheck().saveInsideChefScreenChangingInBackground(
+    //     insideChefScreenTrueElseFalse: false);
 
     String tempHotelName =
         Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
@@ -584,8 +613,14 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       currentUserCompleteProfile = userInfoQuery.data()!;
       currentUserCompleteProfile
           .addAll({'currentUserPhoneNumber': userPhoneNumber});
-
-      List<dynamic> restaurantsUserHasAccess = userInfoQuery['restaurants'];
+//tryingToSwitchToMapForRestaurants
+//       List<dynamic> restaurantsUserHasAccess = userInfoQuery['restaurants'];
+      List<String> restaurantsUserHasAccess = [];
+      Map<String, dynamic> restaurantsList =
+          userInfoQuery['restaurantDatabase'];
+      restaurantsList.forEach((key, value) {
+        restaurantsUserHasAccess.add(key.toString());
+      });
       if (restaurantsUserHasAccess.length == 1) {
         hotelName = restaurantsUserHasAccess[0].toString();
         BackgroundCheck().saveHotelNameInBackground(hotelName);
@@ -834,6 +869,18 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
     });
   }
 
+  void timerForTurningOffCaptchaScreen() {
+    Timer timerToTurnOffCaptchaScreen = Timer(Duration(seconds: 10), () {
+      print('turn off captcha');
+      if (captchaVerificationScreen) {
+        setState(() {
+          captchaVerificationScreen = false;
+          showSpinner = false;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -849,154 +896,141 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       ),
       body: ModalProgressHUD(
         inAsyncCall: showSpinner,
-        child: Padding(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(height: 120.0),
-                Text(
-                  !otpSent ? 'Phone Verification' : 'Please Enter OTP',
-                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 10),
-                !otpSent
-                    ? Container(
-                        padding: EdgeInsets.all(20),
-                        // height: 55,
-                        // decoration: BoxDecoration(
-                        //   borderRadius: BorderRadius.circular(50.0),
-                        //   border: Border.all(width: 1, color: Colors.green),
-                        // ),
-                        child: IntlPhoneField(
-                          decoration: InputDecoration(
-                            labelText: 'Phone Number',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(50.0),
-                              borderSide:
-                                  BorderSide(width: 1, color: Colors.green),
+        child: captchaVerificationScreen
+            ? Center(
+                child: Text(
+                'DON\'T PRESS BACK BUTTON\n\nRedirecting you to browser for captcha Verification',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+              ))
+            : Padding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(height: 120.0),
+                      Text(
+                        !otpSent ? 'Phone Verification' : 'Please Enter OTP',
+                        style: TextStyle(
+                            fontSize: 30, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 10),
+                      !otpSent
+                          ? Container(
+                              padding: EdgeInsets.all(20),
+                              // height: 55,
+                              // decoration: BoxDecoration(
+                              //   borderRadius: BorderRadius.circular(50.0),
+                              //   border: Border.all(width: 1, color: Colors.green),
+                              // ),
+                              child: IntlPhoneField(
+                                decoration: InputDecoration(
+                                  labelText: 'Phone Number',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(50.0),
+                                    borderSide: BorderSide(
+                                        width: 1, color: Colors.green),
+                                  ),
+                                ),
+                                initialCountryCode: 'IN',
+                                onChanged: (phone) {
+                                  userPhoneNumber = phone.completeNumber;
+                                  // print(phone.completeNumber);
+                                },
+                              ))
+                          : Container(
+                              margin: EdgeInsets.all(20),
+                              child: Pinput(
+                                defaultPinTheme: kDefaultPinTheme,
+                                length: 6,
+                                showCursor: true,
+                                onChanged: (value) {
+                                  otp = value;
+                                },
+                              ),
+                            ),
+                      SizedBox(
+                        height: 10,
+                      ),
+                      Visibility(
+                        visible: !otpSent,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade500,
+                            borderRadius: BorderRadius.circular(50.0),
+                          ),
+                          height: 50.0,
+                          width: 200.0,
+                          child: TextButton(
+                            onPressed: () async {
+                              print(userPhoneNumber);
+                              setState(() {
+                                print('captchaVerificationScreen1');
+                                captchaVerificationScreen = true;
+                                showSpinner = true;
+                                otpSent = true;
+                              });
+                              timerForTurningOffCaptchaScreen();
+                              verifyUserPhoneNumber(userPhoneNumber);
+                            },
+                            child: const Text(
+                              'Login',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 25.0, color: Colors.white),
                             ),
                           ),
-                          initialCountryCode: 'IN',
-                          onChanged: (phone) {
-                            userPhoneNumber = phone.completeNumber;
-                            // print(phone.completeNumber);
-                          },
-                        )
-                        // Row(
-                        //   children: [
-                        //     SizedBox(width: 10),
-                        //     SizedBox(width: 40, child: Text('+91')),
-                        //     Text('|',
-                        //         style: TextStyle(
-                        //             fontSize: 33, color: Colors.green)),
-                        //     SizedBox(width: 10),
-                        //     Expanded(
-                        //       child: TextField(
-                        //         controller: _phoneNumberController,
-                        //         keyboardType: TextInputType.number,
-                        //         inputFormatters: [
-                        //           FilteringTextInputFormatter.digitsOnly
-                        //         ],
-                        //         onChanged: (value) {
-                        //           phoneNumber = value;
-                        //         },
-                        //         style: TextStyle(color: Colors.black),
-                        //         decoration: InputDecoration(
-                        //             border: InputBorder.none,
-                        //             hintText: 'Enter Phone Number'),
-                        //       ),
-                        //     ),
-                        //   ],
-                        // ),
-                        )
-                    : Container(
-                        margin: EdgeInsets.all(20),
-                        child: Pinput(
-                          defaultPinTheme: kDefaultPinTheme,
-                          length: 6,
-                          showCursor: true,
-                          onChanged: (value) {
-                            otp = value;
-                          },
                         ),
                       ),
-                SizedBox(
-                  height: 10,
-                ),
-                Visibility(
-                  visible: !otpSent,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade500,
-                      borderRadius: BorderRadius.circular(50.0),
-                    ),
-                    height: 50.0,
-                    width: 200.0,
-                    child: TextButton(
-                      onPressed: () async {
-                        print(userPhoneNumber);
-                        setState(() {
-                          otpSent = true;
-                        });
-                        verifyUserPhoneNumber(userPhoneNumber);
-                      },
-                      child: const Text(
-                        'Send OTP',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 25.0, color: Colors.white),
+                      SizedBox(height: 50),
+                      Visibility(
+                        visible: otpSent,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade500,
+                            borderRadius: BorderRadius.circular(50.0),
+                          ),
+                          height: 50.0,
+                          width: 200.0,
+                          child: TextButton(
+                            onPressed: () async {
+                              verifyOTPCode(otp);
+                            },
+                            child: const Text(
+                              'Verify',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 25.0, color: Colors.white),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      otpSent
+                          ? TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  otpSent = false;
+                                });
+                              },
+                              child: Text('Edit Phone Number ?',
+                                  style: TextStyle(color: Colors.black)),
+                            )
+                          : SizedBox.shrink(),
+                      otpSent
+                          ? TextButton(
+                              onPressed: () {
+                                verifyUserPhoneNumber(userPhoneNumber);
+                              },
+                              child: Text('Resend OTP ?',
+                                  style: TextStyle(color: Colors.black)),
+                            )
+                          : SizedBox.shrink()
+                    ],
                   ),
                 ),
-                SizedBox(height: 50),
-                Visibility(
-                  visible: otpSent,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade500,
-                      borderRadius: BorderRadius.circular(50.0),
-                    ),
-                    height: 50.0,
-                    width: 200.0,
-                    child: TextButton(
-                      onPressed: () async {
-                        verifyOTPCode(otp);
-                      },
-                      child: const Text(
-                        'Verify',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 25.0, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-                otpSent
-                    ? TextButton(
-                        onPressed: () {
-                          setState(() {
-                            otpSent = false;
-                          });
-                        },
-                        child: Text('Edit Phone Number ?',
-                            style: TextStyle(color: Colors.black)),
-                      )
-                    : SizedBox.shrink(),
-                otpSent
-                    ? TextButton(
-                        onPressed: () {
-                          verifyUserPhoneNumber(userPhoneNumber);
-                        },
-                        child: Text('Resend OTP ?',
-                            style: TextStyle(color: Colors.black)),
-                      )
-                    : SizedBox.shrink()
-              ],
-            ),
-          ),
-        ),
+              ),
       ),
     );
   }

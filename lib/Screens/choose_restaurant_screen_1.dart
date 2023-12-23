@@ -11,6 +11,7 @@ import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/chefOrCaptain_5.dart';
 import 'package:orders_dev/Screens/permissions_screen.dart';
+import 'package:orders_dev/Screens/permissions_screen_2.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/background_services.dart';
 import 'package:orders_dev/services/firestore_services.dart';
@@ -60,7 +61,7 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
   Map<String, dynamic> currentUserCompleteProfile = {};
   Map<String, dynamic> allUserTokens = {};
   Map<String, dynamic> allUserProfiles = {};
-  String appVersion = '3.6';
+  String appVersion = '3.19.31';
 
   @override
   void initState() {
@@ -147,10 +148,8 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
     List<String> temporaryOrderingString = [];
     List<num> temporaryOrderingNum = [];
     //JustRegisteringThatWeAreNotInsideCaptainScreenInitially
-    BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
-        insideCaptainScreenTrueElseFalse: false);
-    BackgroundCheck().saveInsideChefScreenChangingInBackground(
-        insideChefScreenTrueElseFalse: false);
+    // BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
+    //     insideCaptainScreenTrueElseFalse: false);
 
     final userTokensOfTheRestaurant =
         await _fireStore.collection(hotelName).doc('userMessagingTokens').get();
@@ -314,7 +313,7 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
       Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (BuildContext) => PermissionsApproval(
+              builder: (BuildContext) => PermissionsWithAutoStart(
                     fromFirstScreenTrueElseFalse: true,
                   )));
     }
@@ -404,22 +403,33 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
                               currentUserCompleteProfile.addAll({
                                 'currentUserPhoneNumber': widget.userPhoneNumber
                               });
+                              Map<String, dynamic> restaurantDatabaseMap =
+                                  output!['restaurantDatabase'];
 
-                              List<dynamic> restaurantsDatabasesDynamic =
-                                  output!['restaurants'];
-
-                              for (var restaurantDatabase
-                                  in restaurantsDatabasesDynamic) {
-                                restaurantsDatabases
-                                    .add(restaurantDatabase.toString());
+                              // List<dynamic> restaurantsDatabasesDynamic =
+                              //     output!['restaurants'];
+                              restaurantDatabaseMap.forEach((key, value) {
+                                restaurantsDatabases.add(key.toString());
                                 restaurantsNamesToChoose.add(
-                                    output[restaurantDatabase]['restaurantName']
-                                        .toString());
+                                    output[key]['restaurantName'].toString());
                                 restaurantNamesDatabase.addAll({
-                                  output[restaurantDatabase]['restaurantName']
-                                      .toString(): restaurantDatabase.toString()
+                                  output[key]['restaurantName'].toString():
+                                      key.toString()
                                 });
-                              }
+                              });
+                              //
+                              // for (var restaurantDatabase
+                              //     in restaurantsDatabasesDynamic) {
+                              //   restaurantsDatabases
+                              //       .add(restaurantDatabase.toString());
+                              //   restaurantsNamesToChoose.add(
+                              //       output[restaurantDatabase]['restaurantName']
+                              //           .toString());
+                              //   restaurantNamesDatabase.addAll({
+                              //     output[restaurantDatabase]['restaurantName']
+                              //         .toString(): restaurantDatabase.toString()
+                              //   });
+                              // }
                               return Container(
                                 alignment: Alignment.center,
                                 margin: EdgeInsets.all(10),

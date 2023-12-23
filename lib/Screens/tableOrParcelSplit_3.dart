@@ -3,10 +3,8 @@ import 'dart:collection';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
-import 'package:orders_dev/Screens/items_each_order_6.dart';
-import 'package:orders_dev/Screens/items_each_order_7.dart';
-import 'package:orders_dev/Screens/menu_page_add_items_3.dart';
-import 'package:orders_dev/Screens/menu_page_add_items_4.dart';
+import 'package:orders_dev/Screens/items_each_order_8.dart';
+import 'package:orders_dev/Screens/menu_page_add_items_5.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/Methods/split_button.dart';
 
@@ -109,7 +107,7 @@ class _TableOrParcelSplitWithRunningOrdersState
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => ItemsInEachOrderRunningOrder(
+                    builder: (context) => ItemsInEachOrderWithTime(
                           hotelName: widget.hotelName,
                           menuItems: widget.menuItems,
                           menuTitles: widget.menuTitles,
@@ -150,7 +148,7 @@ class _TableOrParcelSplitWithRunningOrdersState
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => ItemsInEachOrderRunningOrder(
+                    builder: (context) => ItemsInEachOrderWithTime(
                           hotelName: widget.hotelName,
                           menuItems: widget.menuItems,
                           menuPrices: widget.menuPrices,
@@ -171,7 +169,7 @@ class _TableOrParcelSplitWithRunningOrdersState
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => MenuPageWithRunningOrdersChange(
+                    builder: (context) => MenuPageWithTimeSelectionOfEachItem(
                         hotelName: widget.hotelName,
                         tableOrParcel: widget.partOfTableOrParcel,
                         tableOrParcelNumber:
@@ -181,6 +179,7 @@ class _TableOrParcelSplitWithRunningOrdersState
                         menuTitles: widget.menuTitles,
                         itemsAddedMapCalled: {},
                         itemsAddedCommentCalled: {},
+                        itemsAddedTimeCalled: {},
                         parentOrChild: distinctTablesParcels.length == 0
                             ? 'A'
                             : '${String.fromCharCode(((distinctTablesParcels.last).codeUnitAt(0)) + 1)}',

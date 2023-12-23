@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
 import 'package:orders_dev/Providers/notification_provider.dart';
-import 'package:orders_dev/Screens/menu_page_add_items_3.dart';
-import 'package:orders_dev/Screens/menu_page_add_items_4.dart';
+
+import 'package:orders_dev/Screens/menu_page_add_items_5.dart';
 import 'package:orders_dev/Screens/printer_settings_screen.dart';
 import 'package:orders_dev/Screens/searching_Connecting_Printer_Screen.dart';
 import 'package:orders_dev/constants.dart';
@@ -19,7 +19,7 @@ import 'package:orders_dev/Methods/printerenum.dart' as printerenum;
 import 'package:provider/provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 
-class AddedItemsWithRunningOrders extends StatefulWidget {
+class AddedItemsWithSecondsSeparation extends StatefulWidget {
   //ThisIsTheScreenThatComesEveryTimeTheWaiterAddsItemsFromTheMenu,
   //AndClicksConfirmOrders
   //WeAreHavingMenuItems/prices/titles/UnavailableItemsAlsoAsInputBecause,
@@ -36,11 +36,12 @@ class AddedItemsWithRunningOrders extends StatefulWidget {
 //HowManyIsAdded
   Map<String, num> itemsAddedMap = HashMap();
   Map<String, String> itemsAddedComment = HashMap();
+  Map<String, num> itemsAddedTime = HashMap();
   final String parentOrChild;
   final Map<String, dynamic> alreadyRunningTicketsMap;
   List<Map<String, dynamic>> printingSeparateItemsListAsPerChef = [];
 
-  AddedItemsWithRunningOrders(
+  AddedItemsWithSecondsSeparation(
       {required this.hotelName,
       required this.menuItems,
       required this.menuPrices,
@@ -49,17 +50,18 @@ class AddedItemsWithRunningOrders extends StatefulWidget {
       required this.tableOrParcelNumber,
       required this.itemsAddedMap,
       required this.itemsAddedComment,
+      required this.itemsAddedTime,
       required this.unavailableItems,
       required this.parentOrChild,
       required this.alreadyRunningTicketsMap});
 
   @override
-  _AddedItemsWithRunningOrdersState createState() =>
-      _AddedItemsWithRunningOrdersState();
+  _AddedItemsWithSecondsSeparationState createState() =>
+      _AddedItemsWithSecondsSeparationState();
 }
 
-class _AddedItemsWithRunningOrdersState
-    extends State<AddedItemsWithRunningOrders> {
+class _AddedItemsWithSecondsSeparationState
+    extends State<AddedItemsWithSecondsSeparation> {
   //InThisList,InInitStateWeWillAddTheNameOfAllTheItemsThatHasBeenAdded
   List<String> nameOfItemsAdded = [];
 //ThisIsTheStringToUpdateInPlaystore
@@ -1077,6 +1079,25 @@ class _AddedItemsWithRunningOrdersState
     });
   }
 
+  num startTimeOfOrder() {
+    num tempMinValue =
+        172800000; //NumberOfHoursInTwoDaysMultipliedByMilliseconds
+    if (widget.itemsAddedTime.length == 1) {
+      widget.itemsAddedTime.forEach((key, value) {
+        tempMinValue = value;
+      });
+    } else {
+      widget.itemsAddedTime.forEach((key, value) {
+        if (value <= tempMinValue) {
+          tempMinValue = value;
+        }
+      });
+    }
+
+    return tempMinValue -
+        1000; //ReturningStartByReducingTenSecondsOfTheMinValue
+  }
+
   void addRunningOrderToServer() {
     final fcmProvider =
         Provider.of<NotificationProvider>(context, listen: false);
@@ -1097,8 +1118,7 @@ class _AddedItemsWithRunningOrdersState
       baseInfoMap.addAll({'tableOrParcel': widget.tableOrParcel});
       baseInfoMap.addAll(
           {'tableOrParcelNumber': widget.tableOrParcelNumber.toString()});
-      baseInfoMap
-          .addAll({'startTime': ((now.hour * 60) + now.minute).toString()});
+      baseInfoMap.addAll({'startTime': (startTimeOfOrder().toString())});
       baseInfoMap.addAll({'customerName': ''});
       baseInfoMap.addAll({'customerMobileNumber': ''});
       baseInfoMap.addAll({'customerAddress': ''});
@@ -1140,7 +1160,7 @@ class _AddedItemsWithRunningOrdersState
           tempItemAddingMap.addAll({'itemPrice': itemPrice});
           tempItemAddingMap.addAll({'numberOfItem': widget.itemsAddedMap[key]});
           tempItemAddingMap.addAll(
-              {'orderTakingTime': ((now.hour * 60) + now.minute).toString()});
+              {'orderTakingTime': (widget.itemsAddedTime[key]).toString()});
           tempItemAddingMap.addAll({'itemStatus': 9});
           tempItemAddingMap.addAll({'chefKOT': 'chefkotnotyet'});
           tempItemAddingMap.addAll({'ticketNumberOfItem': '1'});
@@ -1188,7 +1208,7 @@ class _AddedItemsWithRunningOrdersState
           tempItemAddingMap.addAll({'itemPrice': itemPrice});
           tempItemAddingMap.addAll({'numberOfItem': widget.itemsAddedMap[key]});
           tempItemAddingMap.addAll(
-              {'orderTakingTime': ((now.hour * 60) + now.minute).toString()});
+              {'orderTakingTime': (widget.itemsAddedTime[key]).toString()});
           tempItemAddingMap.addAll({'itemStatus': 9});
           tempItemAddingMap.addAll({'chefKOT': 'chefkotnotyet'});
           tempItemAddingMap.addAll({'ticketNumberOfItem': ticketNumberUpdater});
@@ -1325,6 +1345,7 @@ class _AddedItemsWithRunningOrdersState
             for (var item in deletingItemsIfNotThere) {
               widget.itemsAddedMap.remove(item);
               widget.itemsAddedComment.remove(item);
+              widget.itemsAddedTime.remove(item);
             }
           }
           // print('back timer is $_everyMilliSecondBeforeGoingBack');
@@ -1336,7 +1357,7 @@ class _AddedItemsWithRunningOrdersState
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => MenuPageWithRunningOrdersChange(
+                builder: (context) => MenuPageWithTimeSelectionOfEachItem(
                   hotelName: widget.hotelName,
                   tableOrParcel: widget.tableOrParcel,
                   tableOrParcelNumber: widget.tableOrParcelNumber,
@@ -1345,6 +1366,7 @@ class _AddedItemsWithRunningOrdersState
                   menuTitles: widget.menuTitles,
                   itemsAddedMapCalled: widget.itemsAddedMap,
                   itemsAddedCommentCalled: widget.itemsAddedComment,
+                  itemsAddedTimeCalled: widget.itemsAddedTime,
                   parentOrChild: widget.parentOrChild,
                   alreadyRunningTicketsMap: widget.alreadyRunningTicketsMap,
                 ),
@@ -1412,7 +1434,7 @@ class _AddedItemsWithRunningOrdersState
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => MenuPageWithRunningOrdersChange(
+                      builder: (context) => MenuPageWithTimeSelectionOfEachItem(
                         hotelName: widget.hotelName,
                         tableOrParcel: widget.tableOrParcel,
                         tableOrParcelNumber: widget.tableOrParcelNumber,
@@ -1421,6 +1443,7 @@ class _AddedItemsWithRunningOrdersState
                         menuTitles: widget.menuTitles,
                         itemsAddedMapCalled: widget.itemsAddedMap,
                         itemsAddedCommentCalled: widget.itemsAddedComment,
+                        itemsAddedTimeCalled: widget.itemsAddedTime,
                         parentOrChild: widget.parentOrChild,
                         alreadyRunningTicketsMap:
                             widget.alreadyRunningTicketsMap,

@@ -10,6 +10,7 @@ import 'package:orders_dev/Screens/choosing_chef_specialities_screen.dart';
 import 'package:orders_dev/Screens/edit_menu_base_options.dart';
 import 'package:orders_dev/Screens/inventory_chef_specialities.dart';
 import 'package:orders_dev/Screens/main_settings_screen.dart';
+import 'package:orders_dev/Screens/order_history_5.dart';
 import 'package:orders_dev/Screens/statistics_page.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/main.dart';
@@ -19,8 +20,6 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:provider/provider.dart';
 import 'package:upgrader/upgrader.dart';
 import 'captain_screen_6.dart';
-
-import 'order_history_4.dart';
 
 //ThisIsTheScreenWhereTheUserChoosesWhetherToBeChefOrCaptain
 //WeAlsoGiveSideBarForOtherOptionsForTheUser
@@ -367,7 +366,7 @@ class NavigationDrawer extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                       builder: (Buildcontext) =>
-                          OrderHistorySerialNumber(hotelName: hotelName)));
+                          OrderHistoryWithExtraItems(hotelName: hotelName)));
             },
           ),
 //NextIsStatisticsWithAnIcon.ClickToGoToOrderStatisticsPage-Input-hotelName

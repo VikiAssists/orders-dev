@@ -142,9 +142,9 @@ class _SearchingConnectingPrinterState
   }
 
   Future show(
-    String message, {
-    Duration duration: const Duration(seconds: 3),
-  }) async {
+      String message, {
+        Duration duration: const Duration(seconds: 3),
+      }) async {
     await new Future.delayed(new Duration(milliseconds: 100));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -439,16 +439,16 @@ class _SearchingConnectingPrinterState
     int _everySecondPrintThroughBluetooth = 0;
     _timerInPrintThroughBluetooth =
         Timer.periodic(Duration(seconds: 1), (_) async {
-      if (_everySecondPrintThroughBluetooth < 1) {
-        _everySecondPrintThroughBluetooth++;
-        print(
-            '_everySecondPrintThroughBluetooth $_everySecondPrintThroughBluetooth');
-      } else {
-        _timerInPrintThroughBluetooth!.cancel();
-        _everySecondPrintThroughBluetooth = 0;
-        bluetoothDisconnectFunction();
-      }
-    });
+          if (_everySecondPrintThroughBluetooth < 1) {
+            _everySecondPrintThroughBluetooth++;
+            print(
+                '_everySecondPrintThroughBluetooth $_everySecondPrintThroughBluetooth');
+          } else {
+            _timerInPrintThroughBluetooth!.cancel();
+            _everySecondPrintThroughBluetooth = 0;
+            bluetoothDisconnectFunction();
+          }
+        });
     if (showSpinner == false) {
       setState(() {
         showSpinner = true;
@@ -636,44 +636,44 @@ class _SearchingConnectingPrinterState
             children: <Widget>[
               widget.chefOrCaptain != 'Captain'
                   ? ListTile(
-                      title: Text('KOT Print'),
-                      trailing: Switch(
-                        // This bool value toggles the switch.
-                        value:
-                            Provider.of<PrinterAndOtherDetailsProvider>(context)
-                                .chefPrinterKOTFromClass,
-                        activeColor: Colors.green,
-                        onChanged: (bool changedValue) {
-                          // This is called when the user toggles the switch.
-                          Provider.of<PrinterAndOtherDetailsProvider>(context,
-                                  listen: false)
-                              .neededOrNotChefKot(changedValue);
-                        },
-                      ),
-                    )
+                title: Text('KOT Print'),
+                trailing: Switch(
+                  // This bool value toggles the switch.
+                  value:
+                  Provider.of<PrinterAndOtherDetailsProvider>(context)
+                      .chefPrinterKOTFromClass,
+                  activeColor: Colors.green,
+                  onChanged: (bool changedValue) {
+                    // This is called when the user toggles the switch.
+                    Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                        .neededOrNotChefKot(changedValue);
+                  },
+                ),
+              )
                   : SizedBox.shrink(),
               widget.chefOrCaptain != 'Captain'
                   ? Divider(thickness: 2)
                   : SizedBox.shrink(),
               widget.chefOrCaptain != 'Captain'
                   ? ListTile(
-                      title: Text('Delivery Slip Print'),
-                      trailing: Switch(
-                        // This bool value toggles the switch.
-                        value:
-                            Provider.of<PrinterAndOtherDetailsProvider>(context)
-                                .chefPrinterAfterOrderReadyPrintFromClass,
-                        activeColor: Colors.green,
-                        onChanged: (bool changedValue) {
-                          // This is called when the user toggles the switch.
+                title: Text('Delivery Slip Print'),
+                trailing: Switch(
+                  // This bool value toggles the switch.
+                  value:
+                  Provider.of<PrinterAndOtherDetailsProvider>(context)
+                      .chefPrinterAfterOrderReadyPrintFromClass,
+                  activeColor: Colors.green,
+                  onChanged: (bool changedValue) {
+                    // This is called when the user toggles the switch.
 
-                          Provider.of<PrinterAndOtherDetailsProvider>(context,
-                                  listen: false)
-                              .neededOrNotChefAfterOrderReadyPrint(
-                                  changedValue);
-                        },
-                      ),
-                    )
+                    Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                        .neededOrNotChefAfterOrderReadyPrint(
+                        changedValue);
+                  },
+                ),
+              )
                   : SizedBox.shrink(),
               widget.chefOrCaptain != 'Captain'
                   ? Divider(thickness: 2)
@@ -681,7 +681,7 @@ class _SearchingConnectingPrinterState
               ElevatedButton(
                   style: ButtonStyle(
                     backgroundColor:
-                        MaterialStateProperty.all<Color>(Colors.green),
+                    MaterialStateProperty.all<Color>(Colors.green),
                   ),
                   onPressed: () {
                     bluetoothStateChangeFunction();
@@ -698,51 +698,51 @@ class _SearchingConnectingPrinterState
               Divider(),
               additionalDevices != []
                   ? ListView.builder(
-                      physics: NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      itemCount: additionalDevices.length,
-                      itemBuilder: (context, index) {
-                        var d = additionalDevices[index];
-                        return Container(
-                          child: ListTile(
-                            title: Text(d.name ?? ''),
-                            subtitle: Text(d.address ?? ''),
-                            onTap: () async {
+                  physics: NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  itemCount: additionalDevices.length,
+                  itemBuilder: (context, index) {
+                    var d = additionalDevices[index];
+                    return Container(
+                      child: ListTile(
+                        title: Text(d.name ?? ''),
+                        subtitle: Text(d.address ?? ''),
+                        onTap: () async {
+                          setState(() {
+                            _device = d;
+                          });
+                        },
+//AtRightEndOfListTile,IfBluetoothDeviceIsNotSelected,WeShowButton
+//ButtonClickToSelect,,, IfSelected,WeGiveTheCheckedIcon
+                        trailing:
+                        _device != null && _device!.address == d.address
+                            ? Icon(
+                          Icons.check,
+                          color: Colors.green,
+                        )
+                            : ElevatedButton(
+                            style: ButtonStyle(
+                              backgroundColor:
+                              MaterialStateProperty.all<Color>(
+                                  Colors.green),
+                            ),
+                            onPressed: () {
                               setState(() {
                                 _device = d;
                               });
                             },
-//AtRightEndOfListTile,IfBluetoothDeviceIsNotSelected,WeShowButton
-//ButtonClickToSelect,,, IfSelected,WeGiveTheCheckedIcon
-                            trailing:
-                                _device != null && _device!.address == d.address
-                                    ? Icon(
-                                        Icons.check,
-                                        color: Colors.green,
-                                      )
-                                    : ElevatedButton(
-                                        style: ButtonStyle(
-                                          backgroundColor:
-                                              MaterialStateProperty.all<Color>(
-                                                  Colors.green),
-                                        ),
-                                        onPressed: () {
-                                          setState(() {
-                                            _device = d;
-                                          });
-                                        },
-                                        child: Text('Click to Select')),
-                          ),
-                        );
-                      })
-                  : Center(
-                      child: Text(
-                        'There are no paired Devices',
-                        style: TextStyle(
-                          fontSize: 30.0,
-                        ),
+                            child: Text('Click to Select')),
                       ),
-                    ),
+                    );
+                  })
+                  : Center(
+                child: Text(
+                  'There are no paired Devices',
+                  style: TextStyle(
+                    fontSize: 30.0,
+                  ),
+                ),
+              ),
               Divider(),
               Container(
                 padding: EdgeInsets.fromLTRB(20, 5, 20, 10),
@@ -752,98 +752,98 @@ class _SearchingConnectingPrinterState
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: <Widget>[
                         (_device != null &&
-                                _device!.address != null &&
-                                bluetoothOnTrueOrOffFalse)
+                            _device!.address != null &&
+                            bluetoothOnTrueOrOffFalse)
                             ? DropdownButton<String>(
-                                value: printerSizeToSave,
-                                items: [
-                                  DropdownMenuItem(
-                                    child: Text('Select Printer Size'),
-                                    value: '0',
-                                  ),
-                                  DropdownMenuItem(
-                                    child: Text('80mm'),
-                                    value: '80',
-                                  ),
-                                  DropdownMenuItem(
-                                    child: Text('58mm'),
-                                    value: '58',
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  print(value);
-                                  setState(() {
-                                    printerSizeToSave = value.toString();
-                                  });
-                                })
+                            value: printerSizeToSave,
+                            items: [
+                              DropdownMenuItem(
+                                child: Text('Select Printer Size'),
+                                value: '0',
+                              ),
+                              DropdownMenuItem(
+                                child: Text('80mm'),
+                                value: '80',
+                              ),
+                              DropdownMenuItem(
+                                child: Text('58mm'),
+                                value: '58',
+                              ),
+                            ],
+                            onChanged: (value) {
+                              print(value);
+                              setState(() {
+                                printerSizeToSave = value.toString();
+                              });
+                            })
                             : SizedBox.shrink(),
                         SizedBox(width: 20),
                         printerSizeToSave != '0'
                             ? ElevatedButton(
-                                style: ButtonStyle(
-                                  backgroundColor:
-                                      MaterialStateProperty.all<Color>(
-                                          Colors.green),
-                                ),
-                                child: Text('Connect'),
-                                onPressed: _connected
-                                    ? () {
-                                        bluetooth.disconnect();
-                                        bluetoothStateChangeFunction();
-                                        show(
-                                            'Please Try Again after 5 seconds');
-                                      }
-                                    : () async {
-                                        bluetoothStateChangeFunction();
-                                        if (bluetoothOnTrueOrOffFalse) {
-                                          if (_device != null &&
-                                              _device!.address != null) {
-                                            setState(() {
-                                              tips = 'connecting...';
-                                              connectingPrinterAddress =
-                                                  _device!.address!.toString();
-                                              connectingPrinterName =
-                                                  _device!.name!.toString();
-                                              connectingPrinterSize =
-                                                  printerSizeToSave;
-                                              if (connectingPrinterAddress !=
-                                                  '') {
-                                                if (widget.chefOrCaptain ==
-                                                    'Captain') {
-                                                  Provider.of<PrinterAndOtherDetailsProvider>(
-                                                          context,
-                                                          listen: false)
-                                                      .addCaptainPrinter(
-                                                          connectingPrinterName,
-                                                          connectingPrinterAddress,
-                                                          connectingPrinterSize);
-                                                } else {
-                                                  Provider.of<PrinterAndOtherDetailsProvider>(
-                                                          context,
-                                                          listen: false)
-                                                      .addChefPrinter(
-                                                          connectingPrinterName,
-                                                          connectingPrinterAddress,
-                                                          connectingPrinterSize);
-                                                }
+                          style: ButtonStyle(
+                            backgroundColor:
+                            MaterialStateProperty.all<Color>(
+                                Colors.green),
+                          ),
+                          child: Text('Connect'),
+                          onPressed: _connected
+                              ? () {
+                            bluetooth.disconnect();
+                            bluetoothStateChangeFunction();
+                            show(
+                                'Please Try Again after 5 seconds');
+                          }
+                              : () async {
+                            bluetoothStateChangeFunction();
+                            if (bluetoothOnTrueOrOffFalse) {
+                              if (_device != null &&
+                                  _device!.address != null) {
+                                setState(() {
+                                  tips = 'connecting...';
+                                  connectingPrinterAddress =
+                                      _device!.address!.toString();
+                                  connectingPrinterName =
+                                      _device!.name!.toString();
+                                  connectingPrinterSize =
+                                      printerSizeToSave;
+                                  if (connectingPrinterAddress !=
+                                      '') {
+                                    if (widget.chefOrCaptain ==
+                                        'Captain') {
+                                      Provider.of<PrinterAndOtherDetailsProvider>(
+                                          context,
+                                          listen: false)
+                                          .addCaptainPrinter(
+                                          connectingPrinterName,
+                                          connectingPrinterAddress,
+                                          connectingPrinterSize);
+                                    } else {
+                                      Provider.of<PrinterAndOtherDetailsProvider>(
+                                          context,
+                                          listen: false)
+                                          .addChefPrinter(
+                                          connectingPrinterName,
+                                          connectingPrinterAddress,
+                                          connectingPrinterSize);
+                                    }
 
-                                                bluetoothConnected = true;
-                                              }
-                                            });
-                                            // tappedPrintButton = true;
-                                            _connect(_device!);
-                                          } else {
-                                            setState(() {
-                                              tips = 'please select device';
-                                              bluetoothConnected = false;
-                                            });
-                                            print('please select device');
-                                          }
-                                        } else {
-                                          show('Please Turn On Bluetooth');
-                                        }
-                                      },
-                              )
+                                    bluetoothConnected = true;
+                                  }
+                                });
+                                // tappedPrintButton = true;
+                                _connect(_device!);
+                              } else {
+                                setState(() {
+                                  tips = 'please select device';
+                                  bluetoothConnected = false;
+                                });
+                                print('please select device');
+                              }
+                            } else {
+                              show('Please Turn On Bluetooth');
+                            }
+                          },
+                        )
                             : SizedBox.shrink(),
                       ],
                     ),

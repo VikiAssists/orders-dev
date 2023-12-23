@@ -12,6 +12,10 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
   String chefPrinterSizeFromClass = '0';
   bool chefPrinterKOTFromClass = false;
   bool chefPrinterAfterOrderReadyPrintFromClass = false;
+  int spacesAboveKotFromClass = 0;
+  int spacesBelowKotFromClass = 0;
+  String kotFontSizeFromClass = 'Small';
+  String savedPrintersFromClass = '';
   bool chefInstructionsVideoPlayedFromClass = false;
   bool captainInsideTableInstructionsVideoPlayedFromClass = false;
   bool menuOrRestaurantInfoUpdatedFromClass =
@@ -22,6 +26,7 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
   String currentUserPhoneNumberFromClass = '';
   String restaurantInfoDataFromClass = '';
   String versionOfAppFromClass = '';
+  bool experimentForBluetooth = false;
 
   PrinterAndOtherDetailsProvider() {
     initialState();
@@ -128,6 +133,16 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
     await prefs.setString('appVersionSaving', versionOfAppFromClass);
   }
 
+  void savingPrintersAddedByTheUser(String stringOfMapOfAddedPrinters) {
+    savedPrintersFromClass = stringOfMapOfAddedPrinters;
+    updateSavedPrintersInSharedPreferences();
+  }
+
+  Future updateSavedPrintersInSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('addedPrintersSaving', savedPrintersFromClass);
+  }
+
   void addCaptainPrinter(String connectingPrinterName,
       String connectingPrinterAddress, String connectingPrinterSize) {
     captainPrinterNameFromClass = connectingPrinterName;
@@ -204,6 +219,24 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
         chefPrinterAfterOrderReadyPrintFromClass);
   }
 
+  void kotOptionsSaving(
+      int spacesAboveKot, int spacesBelowKot, String kotFontSize) {
+    spacesAboveKotFromClass = spacesAboveKot;
+    spacesBelowKotFromClass = spacesBelowKot;
+    kotFontSizeFromClass = kotFontSize;
+
+    updateKotOptionsInSharedPreferences();
+    notifyListeners();
+  }
+
+  Future updateKotOptionsInSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    await prefs.setInt('spacesAboveKotSaving', spacesAboveKotFromClass);
+    await prefs.setInt('spacesBelowKotSaving', spacesBelowKotFromClass);
+    await prefs.setString('kotFontSizeSaving', kotFontSizeFromClass);
+  }
+
   void chefVideoInstructionLookedOrNot(bool neededChefVideoPlayedOrNot) {
     chefInstructionsVideoPlayedFromClass = neededChefVideoPlayedOrNot;
     updateChefInstructionVideoPlayedOrNotInSharedPreferences();
@@ -243,8 +276,12 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
   Future syncDataWithProvider() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
+    var bluetoothSaveResult = prefs.getBool('bluetoothExperimentSaving');
+
     var restaurantChosenResult =
         prefs.getString('restaurantChosenByUserSaving');
+
+    var savedPrintersMapResult = prefs.getString('addedPrintersSaving');
 
     var captainResultName = prefs.getString('captainPrinterNameSaving');
     var captainResultAddress = prefs.getString('captainPrinterAddressSaving');
@@ -255,6 +292,9 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
     var chefResultKOT = prefs.getBool('chefPrinterKOTPreferenceSaving');
     var chefResultAfterOrderPrint =
         prefs.getBool('chefPrinterAfterOrderReadyPrintPreferenceSaving');
+    var spacesAboveKotResult = prefs.getInt('spacesAboveKotSaving');
+    var spacesBelowKotResult = prefs.getInt('spacesBelowKotSaving');
+    var kotFontSizeResult = prefs.getString('kotFontSizeSaving');
     var chefInstructionsVideoPlayedOrNot =
         prefs.getBool('chefInstructionVideoPlayedOrNotSaving');
     var captainInTableInstructionsVideoPlayedOrNot =
@@ -269,6 +309,10 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
 
     if (restaurantChosenResult != null) {
       chosenRestaurantDatabaseFromClass = restaurantChosenResult;
+    }
+
+    if (savedPrintersMapResult != null) {
+      savedPrintersFromClass = savedPrintersMapResult;
     }
 
     if (captainResultName != null) {
@@ -294,6 +338,16 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
     }
     if (chefResultAfterOrderPrint != null) {
       chefPrinterAfterOrderReadyPrintFromClass = chefResultAfterOrderPrint;
+    }
+
+    if (spacesAboveKotResult != null) {
+      spacesAboveKotFromClass = spacesAboveKotResult;
+    }
+    if (spacesBelowKotResult != null) {
+      spacesBelowKotFromClass = spacesBelowKotResult;
+    }
+    if (kotFontSizeResult != null) {
+      kotFontSizeFromClass = kotFontSizeResult;
     }
 
     if (chefInstructionsVideoPlayedOrNot != null) {
@@ -327,6 +381,10 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
 
     if (appVersionSavingResult != null) {
       versionOfAppFromClass = appVersionSavingResult;
+    }
+
+    if (bluetoothSaveResult != null) {
+      experimentForBluetooth = bluetoothSaveResult;
     }
 
     notifyListeners();

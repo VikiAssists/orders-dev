@@ -1,5 +1,3 @@
-//ThisPageIsOrderHistoryPagePlannedToWorkWithNewBluetooth
-
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -18,19 +16,20 @@ import 'package:orders_dev/Screens/searching_Connecting_Printer_Screen.dart';
 import 'package:provider/provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 
-class OrderHistorySerialNumber extends StatefulWidget {
+class OrderHistoryWithExtraItems extends StatefulWidget {
   //ScreenWhereWeShowTheBillsTillNow
   final String hotelName;
 
-  const OrderHistorySerialNumber({Key? key, required this.hotelName})
+  const OrderHistoryWithExtraItems({Key? key, required this.hotelName})
       : super(key: key);
 
   @override
-  State<OrderHistorySerialNumber> createState() =>
-      _OrderHistorySerialNumberState();
+  State<OrderHistoryWithExtraItems> createState() =>
+      _OrderHistoryWithExtraItemsState();
 }
 
-class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
+class _OrderHistoryWithExtraItemsState
+    extends State<OrderHistoryWithExtraItems> {
   // BluetoothPrint bluetoothPrint = BluetoothPrint.instance;
   bool _connected = false;
   BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
@@ -80,6 +79,8 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
   String localnumberOfEachDistinctItemForPrint = '';
   String localpriceOfEachDistinctItemWithoutTotalForPrint = '';
   String localtotalQuantityForPrint = '';
+  String localExtraItemsDistinctNamesForPrint = '';
+  String localExtraItemsDistinctNumbersForPrint = '';
   String localDiscountForPrint = '';
   String localDiscountEnteredValue = '';
   String localDiscountValueClickedTruePercentageClickedFalse = '';
@@ -307,64 +308,6 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
       print('No device selected.');
     }
     print('end of _Connect loop');
-
-    // bluetooth.onStateChanged().listen((state) {
-    //   print('inside state listen');
-    //   switch (state) {
-    //     case BlueThermalPrinter.CONNECTED:
-    //       setState(() {
-    //         _connected = true;
-    //         printThroughBluetooth();
-    //         print("bluetooth device state: connected");
-    //       });
-    //       break;
-    //     case BlueThermalPrinter.DISCONNECTED:
-    //       setState(() {
-    //         _connected = false;
-    //         print("bluetooth device state: disconnected");
-    //       });
-    //       break;
-    //     case BlueThermalPrinter.DISCONNECT_REQUESTED:
-    //       setState(() {
-    //         _connected = false;
-    //         print("bluetooth device state: disconnect requested");
-    //       });
-    //       break;
-    //     case BlueThermalPrinter.STATE_TURNING_OFF:
-    //       setState(() {
-    //         _connected = false;
-    //         print("bluetooth device state: bluetooth turning off");
-    //       });
-    //       break;
-    //     case BlueThermalPrinter.STATE_OFF:
-    //       setState(() {
-    //         _connected = false;
-    //         print("bluetooth device state: bluetooth off");
-    //       });
-    //       break;
-    //     case BlueThermalPrinter.STATE_ON:
-    //       setState(() {
-    //         _connected = false;
-    //         print("bluetooth device state: bluetooth on");
-    //       });
-    //       break;
-    //     case BlueThermalPrinter.STATE_TURNING_ON:
-    //       setState(() {
-    //         _connected = false;
-    //         print("bluetooth device state: bluetooth turning on");
-    //       });
-    //       break;
-    //     case BlueThermalPrinter.ERROR:
-    //       setState(() {
-    //         _connected = false;
-    //         print("bluetooth device state: error");
-    //       });
-    //       break;
-    //     default:
-    //       print(state);
-    //       break;
-    //   }
-    // });
   }
 
   void intermediateFunctionToCallPrintThroughBluetooth() {
@@ -407,6 +350,8 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
               localnumberOfEachDistinctItemForPrint,
               localpriceOfEachDistinctItemWithoutTotalForPrint,
               localtotalQuantityForPrint,
+              localExtraItemsDistinctNamesForPrint,
+              localExtraItemsDistinctNumbersForPrint,
               localDiscountForPrint,
               localDiscountEnteredValue,
               localDiscountValueClickedTruePercentageClickedFalse,
@@ -811,6 +756,8 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
         localtakeAwayOrDineInForPrint = '';
         localdistinctItemsForPrint = '';
         localindividualPriceOfEachDistinctItemForPrint = '';
+        localExtraItemsDistinctNamesForPrint = '';
+        localExtraItemsDistinctNumbersForPrint = '';
         localnumberOfEachDistinctItemForPrint = '';
         localpriceOfEachDistinctItemWithoutTotalForPrint = '';
         localtotalQuantityForPrint = '';
@@ -857,6 +804,8 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
     String numberOfEachDistinctItemForPrint,
     String priceOfEachDistinctItemWithoutTotalForPrint,
     String totalQuantityForPrint,
+    String extraItemsNamesForPrint,
+    String extraItemsNumbersForPrint,
     String discountForPrint,
     String discountEnteredValue,
     String discountValueClickedTruePercentageClickedFalse,
@@ -875,6 +824,8 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
         numberOfEachDistinctItemForPrint.split('*');
     final priceOfEachDistinctItemWithoutTotal =
         priceOfEachDistinctItemWithoutTotalForPrint.split('*');
+    final distinctExtraItems = extraItemsNamesForPrint.split('*');
+    final distinctExtraItemsNumbers = extraItemsNumbersForPrint.split('*');
     Timer? _timerInPrintThroughBluetooth;
     int _everySecondPrintThroughBluetooth = 0;
     _timerInPrintThroughBluetooth =
@@ -1075,6 +1026,17 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
                       format: "%-20s %7s %7s %7s %n");
                 }
               }
+              if (distinctExtraItems.isNotEmpty) {
+                for (int l = 0; l < distinctExtraItems.length; l++) {
+                  bluetooth.print4Column(
+                      "${distinctExtraItems[l]}",
+                      " ",
+                      " ",
+                      "${distinctExtraItemsNumbers[l]}",
+                      printerenum.Size.bold.val,
+                      format: "%-20s %7s %7s %7s %n");
+                }
+              }
               bluetooth.printCustom(
                   "-----------------------------------------------",
                   printerenum.Size.bold.val,
@@ -1223,6 +1185,14 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
                 //     "${widget.individualPriceOfEachDistinctItem[i]} x ${widget.numberOfEachDistinctItem[i]}                   ${widget.priceOfEachDistinctItemWithoutTotal[i]}",
                 //     printerenum.Size.medium.val,
                 //     printerenum.Align.right.val);
+              }
+              if (distinctExtraItems.isNotEmpty) {
+                for (int l = 0; l < distinctExtraItems.length; l++) {
+                  bluetooth.printLeftRight(
+                      distinctExtraItems[l],
+                      distinctExtraItemsNumbers[l],
+                      printerenum.Size.medium.val);
+                }
               }
               bluetooth.printCustom("-------------------------------",
                   printerenum.Size.medium.val, printerenum.Align.center.val);
@@ -2274,6 +2244,8 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
                     localnumberOfEachDistinctItemForPrint = '';
                     localpriceOfEachDistinctItemWithoutTotalForPrint = '';
                     localtotalQuantityForPrint = '';
+                    localExtraItemsDistinctNamesForPrint = '';
+                    localExtraItemsDistinctNumbersForPrint = '';
                     localDiscountForPrint = '';
                     localDiscountEnteredValue = '';
                     localDiscountValueClickedTruePercentageClickedFalse = '';
@@ -2335,6 +2307,15 @@ class _OrderHistorySerialNumberState extends State<OrderHistorySerialNumber> {
                             'priceOfEachDistinctItemWithoutTotalForPrint'];
                     localtotalQuantityForPrint =
                         printData!['totalQuantityForPrint'];
+                    if (printData!['extraItemsDistinctNames'] != null) {
+                      localExtraItemsDistinctNamesForPrint =
+                          printData!['extraItemsDistinctNames'];
+                    }
+                    if (printData!['extraItemsDistinctNumbers'] != null) {
+                      localExtraItemsDistinctNumbersForPrint =
+                          printData!['extraItemsDistinctNumbers'];
+                    }
+
                     localDiscountForPrint = printData!['discount'];
                     localDiscountEnteredValue =
                         printData!['discountEnteredValue'];

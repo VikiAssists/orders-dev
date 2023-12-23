@@ -5,8 +5,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
+
 import 'package:orders_dev/Screens/added_items_list_from_menu_6.dart';
-import 'package:orders_dev/Screens/added_items_list_from_menu_7.dart';
+import 'package:orders_dev/Screens/added_items_list_from_menu_8.dart';
+import 'package:orders_dev/Screens/added_items_list_from_menu_9.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -22,12 +24,12 @@ List<String> localMenuTitles = [];
 List<String> localUnavailableItems = [];
 Map<String, num> itemsAddedMap = HashMap();
 Map<String, String> itemsAddedComment = HashMap();
+Map<String, num> itemsAddedTime = HashMap();
 
 //ThisIsThePageWeAlwaysCallForWhenWeNeedMenu
 //TheInputsWillBeMenuPrices,Titles,Items,UnavailableItems(FromInventory)
 //WeHaveAnItemsAddedMap-HashMapToPutWhateverTheWaiterIsSelecting
-
-class MenuPageWithRunningOrdersChange extends StatefulWidget {
+class MenuPageWithTimeSelectionOfEachItem extends StatefulWidget {
   final String hotelName;
   final String tableOrParcel;
   final num tableOrParcelNumber;
@@ -36,10 +38,11 @@ class MenuPageWithRunningOrdersChange extends StatefulWidget {
   final List<String> menuTitles;
   Map<String, num> itemsAddedMapCalled = HashMap();
   Map<String, String> itemsAddedCommentCalled = HashMap();
+  Map<String, num> itemsAddedTimeCalled = HashMap();
   final String parentOrChild;
   final Map<String, dynamic> alreadyRunningTicketsMap;
 
-  MenuPageWithRunningOrdersChange(
+  MenuPageWithTimeSelectionOfEachItem(
       {required this.hotelName,
       required this.tableOrParcel,
       required this.tableOrParcelNumber,
@@ -48,16 +51,17 @@ class MenuPageWithRunningOrdersChange extends StatefulWidget {
       required this.menuTitles,
       required this.itemsAddedMapCalled,
       required this.itemsAddedCommentCalled,
+      required this.itemsAddedTimeCalled,
       required this.parentOrChild,
       required this.alreadyRunningTicketsMap});
 
   @override
-  _MenuPageWithRunningOrdersChangeState createState() =>
-      _MenuPageWithRunningOrdersChangeState();
+  _MenuPageWithTimeSelectionOfEachItemState createState() =>
+      _MenuPageWithTimeSelectionOfEachItemState();
 }
 
-class _MenuPageWithRunningOrdersChangeState
-    extends State<MenuPageWithRunningOrdersChange> {
+class _MenuPageWithTimeSelectionOfEachItemState
+    extends State<MenuPageWithTimeSelectionOfEachItem> {
   final ItemScrollController _itemScrollController = ItemScrollController();
 
   @override
@@ -80,6 +84,9 @@ class _MenuPageWithRunningOrdersChangeState
       });
       widget.itemsAddedCommentCalled.forEach((key, value) {
         itemsAddedComment.addAll({key: value});
+      });
+      widget.itemsAddedTimeCalled.forEach((key, value) {
+        itemsAddedTime.addAll({key: value});
       });
     }
 //FillingTheLocalVersionOfUnavailableItems
@@ -182,6 +189,7 @@ class _MenuPageWithRunningOrdersChangeState
                       itemsAddedMap[item] = itemsAddedMap[item]! - 1;
                       itemsAddedMap.remove(item);
                       itemsAddedComment.remove(item);
+                      itemsAddedTime.remove(item);
                     } else {
                       itemsAddedMap[item] = itemsAddedMap[item]! - 1;
                     }
@@ -218,8 +226,16 @@ class _MenuPageWithRunningOrdersChangeState
         child: TextButton(
             onPressed: () {
               setState(() {
+                DateTime now = DateTime.now();
                 itemsAddedMap.addAll({item: 1});
                 itemsAddedComment.addAll({item: ''});
+
+                itemsAddedTime.addAll({
+                  item: ((now.hour * 3600000) +
+                      (now.minute * 60000) +
+                      (now.second * 1000) +
+                      now.millisecond)
+                });
               });
             },
             child: Text(
@@ -446,7 +462,7 @@ class _MenuPageWithRunningOrdersChangeState
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => AddedItemsWithRunningOrders(
+                      builder: (context) => AddedItemsWithPrinterAlignment(
                         hotelName: widget.hotelName,
                         tableOrParcel: widget.tableOrParcel,
                         tableOrParcelNumber: widget.tableOrParcelNumber,
@@ -455,6 +471,7 @@ class _MenuPageWithRunningOrdersChangeState
                         menuTitles: localMenuTitles,
                         itemsAddedMap: itemsAddedMap,
                         itemsAddedComment: itemsAddedComment,
+                        itemsAddedTime: itemsAddedTime,
                         unavailableItems: localUnavailableItems,
                         parentOrChild: widget.parentOrChild,
                         alreadyRunningTicketsMap:
@@ -583,6 +600,7 @@ class CustomSearchDelegate extends SearchDelegate {
                                                   itemsAddedMap.remove(result);
                                                   itemsAddedComment
                                                       .remove(result);
+                                                  itemsAddedTime.remove(result);
                                                 } else {
                                                   itemsAddedMap[result] =
                                                       itemsAddedMap[result]! -
@@ -621,9 +639,16 @@ class CustomSearchDelegate extends SearchDelegate {
                                     child: TextButton(
                                         onPressed: () {
                                           setState(() {
+                                            DateTime now = DateTime.now();
                                             itemsAddedMap.addAll({result: 1});
                                             itemsAddedComment
                                                 .addAll({result: ''});
+                                            itemsAddedTime.addAll({
+                                              result: ((now.hour * 3600000) +
+                                                  (now.minute * 60000) +
+                                                  (now.second * 1000) +
+                                                  now.millisecond)
+                                            });
                                           });
                                         },
                                         child: Text(
@@ -699,6 +724,7 @@ class CustomSearchDelegate extends SearchDelegate {
                                                   itemsAddedMap.remove(result);
                                                   itemsAddedComment
                                                       .remove(result);
+                                                  itemsAddedTime.remove(result);
                                                 } else {
                                                   setState(() {
                                                     itemsAddedMap[result] =
@@ -739,9 +765,16 @@ class CustomSearchDelegate extends SearchDelegate {
                                     child: TextButton(
                                         onPressed: () {
                                           setState(() {
+                                            DateTime now = DateTime.now();
                                             itemsAddedMap.addAll({result: 1});
                                             itemsAddedComment
                                                 .addAll({result: ''});
+                                            itemsAddedTime.addAll({
+                                              result: ((now.hour * 3600000) +
+                                                  (now.minute * 60000) +
+                                                  (now.second * 1000) +
+                                                  now.millisecond)
+                                            });
                                           });
                                         },
                                         child: Text(

@@ -52,9 +52,9 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
       builder: (BuildContext context) => AlertDialog(
         title: Center(
             child: Text(
-          'ERROR!',
-          style: TextStyle(color: Colors.red),
-        )),
+              'ERROR!',
+              style: TextStyle(color: Colors.red),
+            )),
         content: Text('${errorMessage}'),
         actions: [
           ElevatedButton(
@@ -73,7 +73,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
 
   void getBaseInfo() async {
     final basicInfo =
-        await _fireStore.collection(widget.hotelName).doc('basicinfo').get();
+    await _fireStore.collection(widget.hotelName).doc('basicinfo').get();
     setState(() {
       hotelname = basicInfo.data()!['hotelname']; //ThisIsTheHotelNameForPrint
 
@@ -122,7 +122,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget hotelNameEditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -141,20 +141,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempHotelname = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter Hotel Name',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter Hotel Name',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -165,7 +165,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -174,7 +174,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       if (tempHotelname == '') {
@@ -183,12 +183,12 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       } else {
                         hotelname = tempHotelname;
                         FireStoreBaseInfoStringSaving(
-                                hotelName: widget.hotelName,
-                                baseInfoKey: 'hotelname',
-                                baseInfoValue: hotelname)
+                            hotelName: widget.hotelName,
+                            baseInfoKey: 'hotelname',
+                            baseInfoValue: hotelname)
                             .addOrEditBaseInfo();
                         Provider.of<PrinterAndOtherDetailsProvider>(context,
-                                listen: false)
+                            listen: false)
                             .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -211,7 +211,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget addressLine1EditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -230,20 +230,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempAddressline1 = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter Address Line 1',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter Address Line 1',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -254,7 +254,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -263,17 +263,17 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       addressline1 = tempAddressline1;
                       FireStoreBaseInfoStringSaving(
-                              hotelName: widget.hotelName,
-                              baseInfoKey: 'addressline1',
-                              baseInfoValue: addressline1)
+                          hotelName: widget.hotelName,
+                          baseInfoKey: 'addressline1',
+                          baseInfoValue: addressline1)
                           .addOrEditBaseInfo();
                       Provider.of<PrinterAndOtherDetailsProvider>(context,
-                              listen: false)
+                          listen: false)
                           .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -295,7 +295,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget addressLine2EditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -314,20 +314,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempAddressline2 = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter Address Line 2',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter Address Line 2',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -338,7 +338,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -347,18 +347,18 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       addressline2 = tempAddressline2;
 
                       FireStoreBaseInfoStringSaving(
-                              hotelName: widget.hotelName,
-                              baseInfoKey: 'addressline2',
-                              baseInfoValue: addressline2)
+                          hotelName: widget.hotelName,
+                          baseInfoKey: 'addressline2',
+                          baseInfoValue: addressline2)
                           .addOrEditBaseInfo();
                       Provider.of<PrinterAndOtherDetailsProvider>(context,
-                              listen: false)
+                          listen: false)
                           .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -380,7 +380,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget addressLine3EditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -399,20 +399,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempAddressline3 = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter Address Line 3',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter Address Line 3',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -423,7 +423,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -432,18 +432,18 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       addressline3 = tempAddressline3;
 
                       FireStoreBaseInfoStringSaving(
-                              hotelName: widget.hotelName,
-                              baseInfoKey: 'addressline3',
-                              baseInfoValue: addressline3)
+                          hotelName: widget.hotelName,
+                          baseInfoKey: 'addressline3',
+                          baseInfoValue: addressline3)
                           .addOrEditBaseInfo();
                       Provider.of<PrinterAndOtherDetailsProvider>(context,
-                              listen: false)
+                          listen: false)
                           .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -465,7 +465,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget phoneNumberEditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -484,20 +484,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempPhonenumber = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter Phone',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter Phone',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -508,7 +508,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -517,17 +517,17 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       phonenumber = tempPhonenumber;
                       FireStoreBaseInfoStringSaving(
-                              hotelName: widget.hotelName,
-                              baseInfoKey: 'phonenumber',
-                              baseInfoValue: phonenumber)
+                          hotelName: widget.hotelName,
+                          baseInfoKey: 'phonenumber',
+                          baseInfoValue: phonenumber)
                           .addOrEditBaseInfo();
                       Provider.of<PrinterAndOtherDetailsProvider>(context,
-                              listen: false)
+                          listen: false)
                           .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -549,7 +549,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget gstCodeEditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -568,20 +568,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempGstcode = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter GST Code',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter GST Code',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -592,7 +592,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -601,17 +601,17 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       gstcode = tempGstcode;
                       FireStoreBaseInfoStringSaving(
-                              hotelName: widget.hotelName,
-                              baseInfoKey: 'gstcode',
-                              baseInfoValue: gstcode)
+                          hotelName: widget.hotelName,
+                          baseInfoKey: 'gstcode',
+                          baseInfoValue: gstcode)
                           .addOrEditBaseInfo();
                       Provider.of<PrinterAndOtherDetailsProvider>(context,
-                              listen: false)
+                          listen: false)
                           .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -633,7 +633,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget cgstEditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -652,20 +652,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempCgst = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter CGST %',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter CGST %',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -676,7 +676,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -685,7 +685,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       if (tempCgst == '') {
@@ -694,12 +694,12 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       } else {
                         cgst = tempCgst;
                         FireStoreBaseInfoNumSaving(
-                                hotelName: widget.hotelName,
-                                baseInfoKey: 'cgst',
-                                baseInfoValue: num.parse(cgst))
+                            hotelName: widget.hotelName,
+                            baseInfoKey: 'cgst',
+                            baseInfoValue: num.parse(cgst))
                             .addOrEditBaseInfo();
                         Provider.of<PrinterAndOtherDetailsProvider>(context,
-                                listen: false)
+                            listen: false)
                             .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -722,7 +722,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget sgstEditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -741,20 +741,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempSgst = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter SGST %',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter SGST %',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -765,7 +765,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -774,7 +774,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       if (tempSgst == '') {
@@ -783,12 +783,12 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       } else {
                         sgst = tempSgst;
                         FireStoreBaseInfoNumSaving(
-                                hotelName: widget.hotelName,
-                                baseInfoKey: 'sgst',
-                                baseInfoValue: num.parse(sgst))
+                            hotelName: widget.hotelName,
+                            baseInfoKey: 'sgst',
+                            baseInfoValue: num.parse(sgst))
                             .addOrEditBaseInfo();
                         Provider.of<PrinterAndOtherDetailsProvider>(context,
-                                listen: false)
+                            listen: false)
                             .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -811,7 +811,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
   Widget tablesEditDeleteBottomBar(BuildContext context) {
     return Padding(
       padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -831,20 +831,20 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                     tempTables = value.toString();
                   },
                   decoration:
-                      // kTextFieldInputDecoration,
-                      InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          hintText: 'Enter Number of Tables',
-                          hintStyle: TextStyle(color: Colors.grey),
-                          enabledBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green)),
-                          focusedBorder: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(10)),
-                              borderSide: BorderSide(color: Colors.green))),
+                  // kTextFieldInputDecoration,
+                  InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Enter Number of Tables',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.all(Radius.circular(10)),
+                          borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -855,7 +855,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -864,7 +864,7 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                          MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       if (tempTables == '' ||
@@ -873,8 +873,8 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                         errorMessage = tempTables == '0'
                             ? 'Please enter a higher number'
                             : (num.parse(tempTables) > 100)
-                                ? 'Max Limit Reached'
-                                : 'Please enter number of tables';
+                            ? 'Max Limit Reached'
+                            : 'Please enter number of tables';
                         errorAlertDialogBox();
                       } else {
                         tables = tempTables;
@@ -885,12 +885,12 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                             ? (num.parse(tables) - 8)
                             : (num.parse(tables) - 4);
                         FireStoreBaseInfoNumSaving(
-                                hotelName: widget.hotelName,
-                                baseInfoKey: 'tables',
-                                baseInfoValue: tempStoringTables)
+                            hotelName: widget.hotelName,
+                            baseInfoKey: 'tables',
+                            baseInfoValue: tempStoringTables)
                             .addOrEditBaseInfo();
                         Provider.of<PrinterAndOtherDetailsProvider>(context,
-                                listen: false)
+                            listen: false)
                             .menuOrRestaurantInfoUpdated(true);
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
@@ -932,12 +932,12 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
               token: dynamicTokensToStringToken(),
               title: widget.hotelName,
               restaurantNameForNotification: json.decode(
-                      Provider.of<PrinterAndOtherDetailsProvider>(context,
-                              listen: false)
-                          .allUserProfilesFromClass)[
                   Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .currentUserPhoneNumberFromClass]['restaurantName'],
+                      listen: false)
+                      .allUserProfilesFromClass)[
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+                  .currentUserPhoneNumberFromClass]['restaurantName'],
               body: '*restaurantInfoUpdated*');
         }
         Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
@@ -953,25 +953,25 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
               icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
               onPressed: () {
                 if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
+                    listen: false)
                     .menuOrRestaurantInfoUpdatedFromClass) {
                   fcmProvider.sendNotification(
                       token: dynamicTokensToStringToken(),
                       title: widget.hotelName,
                       restaurantNameForNotification: json.decode(
-                                  Provider.of<PrinterAndOtherDetailsProvider>(
-                                          context,
-                                          listen: false)
-                                      .allUserProfilesFromClass)[
-                              Provider.of<PrinterAndOtherDetailsProvider>(
-                                      context,
-                                      listen: false)
-                                  .currentUserPhoneNumberFromClass]
-                          ['restaurantName'],
+                          Provider.of<PrinterAndOtherDetailsProvider>(
+                              context,
+                              listen: false)
+                              .allUserProfilesFromClass)[
+                      Provider.of<PrinterAndOtherDetailsProvider>(
+                          context,
+                          listen: false)
+                          .currentUserPhoneNumberFromClass]
+                      ['restaurantName'],
                       body: '*restaurantInfoUpdated*');
                 }
                 Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
+                    listen: false)
                     .menuOrRestaurantInfoUpdated(false);
                 Navigator.pop(context);
                 Navigator.pop(context);
@@ -994,35 +994,35 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       title: Text(hotelname),
                       trailing: hotelname == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempHotelname = hotelname;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: hotelname);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempHotelname = hotelname;
+                          _stringEditingcontroller =
+                              TextEditingController(text: hotelname);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return hotelNameEditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return hotelNameEditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                _stringEditingcontroller =
-                                    TextEditingController(text: hotelname);
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return hotelNameEditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )),
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          _stringEditingcontroller =
+                              TextEditingController(text: hotelname);
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return hotelNameEditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )),
                 ),
                 Container(
                   //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1033,39 +1033,39 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       title: Text(addressline1),
                       trailing: addressline1 == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempAddressline1 = addressline1;
-                                _stringEditingcontroller =
-                                    TextEditingController(
-                                        text: tempAddressline1);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempAddressline1 = addressline1;
+                          _stringEditingcontroller =
+                              TextEditingController(
+                                  text: tempAddressline1);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return addressLine1EditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return addressLine1EditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempAddressline1 = addressline1;
-                                _stringEditingcontroller =
-                                    TextEditingController(
-                                        text: tempAddressline1);
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempAddressline1 = addressline1;
+                          _stringEditingcontroller =
+                              TextEditingController(
+                                  text: tempAddressline1);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return addressLine1EditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )),
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return addressLine1EditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )),
                 ),
                 Container(
                   //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1075,39 +1075,39 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       title: Text(addressline2),
                       trailing: addressline2 == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempAddressline2 = addressline2;
-                                _stringEditingcontroller =
-                                    TextEditingController(
-                                        text: tempAddressline2);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempAddressline2 = addressline2;
+                          _stringEditingcontroller =
+                              TextEditingController(
+                                  text: tempAddressline2);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return addressLine2EditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return addressLine2EditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempAddressline2 = addressline2;
-                                _stringEditingcontroller =
-                                    TextEditingController(
-                                        text: tempAddressline2);
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempAddressline2 = addressline2;
+                          _stringEditingcontroller =
+                              TextEditingController(
+                                  text: tempAddressline2);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return addressLine2EditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )),
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return addressLine2EditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )),
                 ),
                 Container(
                   //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1117,39 +1117,39 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       title: Text(addressline3),
                       trailing: addressline3 == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempAddressline3 = addressline3;
-                                _stringEditingcontroller =
-                                    TextEditingController(
-                                        text: tempAddressline3);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempAddressline3 = addressline3;
+                          _stringEditingcontroller =
+                              TextEditingController(
+                                  text: tempAddressline3);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return addressLine3EditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return addressLine3EditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempAddressline3 = addressline3;
-                                _stringEditingcontroller =
-                                    TextEditingController(
-                                        text: tempAddressline3);
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempAddressline3 = addressline3;
+                          _stringEditingcontroller =
+                              TextEditingController(
+                                  text: tempAddressline3);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return addressLine3EditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )),
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return addressLine3EditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )),
                 ),
                 Container(
                   //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1160,39 +1160,39 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       title: Text(phonenumber),
                       trailing: phonenumber == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempPhonenumber = phonenumber;
-                                _stringEditingcontroller =
-                                    TextEditingController(
-                                        text: tempPhonenumber);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempPhonenumber = phonenumber;
+                          _stringEditingcontroller =
+                              TextEditingController(
+                                  text: tempPhonenumber);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return phoneNumberEditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return phoneNumberEditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempPhonenumber = phonenumber;
-                                _stringEditingcontroller =
-                                    TextEditingController(
-                                        text: tempPhonenumber);
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempPhonenumber = phonenumber;
+                          _stringEditingcontroller =
+                              TextEditingController(
+                                  text: tempPhonenumber);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return phoneNumberEditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )),
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return phoneNumberEditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )),
                 ),
                 Container(
                   //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1203,37 +1203,37 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
                       title: Text(gstcode),
                       trailing: gstcode == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempGstcode = gstcode;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: tempGstcode);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempGstcode = gstcode;
+                          _stringEditingcontroller =
+                              TextEditingController(text: tempGstcode);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return gstCodeEditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return gstCodeEditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempGstcode = gstcode;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: tempGstcode);
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempGstcode = gstcode;
+                          _stringEditingcontroller =
+                              TextEditingController(text: tempGstcode);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return gstCodeEditDeleteBottomBar(
-                                          context);
-                                    });
-                              },
-                            )),
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return gstCodeEditDeleteBottomBar(
+                                    context);
+                              });
+                        },
+                      )),
                 ),
                 Container(
                   //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1246,35 +1246,35 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
                       trailing: cgst == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempCgst = cgst;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: tempCgst);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempCgst = cgst;
+                          _stringEditingcontroller =
+                              TextEditingController(text: tempCgst);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return cgstEditDeleteBottomBar(context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return cgstEditDeleteBottomBar(context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempCgst = cgst;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: tempCgst);
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempCgst = cgst;
+                          _stringEditingcontroller =
+                              TextEditingController(text: tempCgst);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return cgstEditDeleteBottomBar(context);
-                                    });
-                              },
-                            )),
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return cgstEditDeleteBottomBar(context);
+                              });
+                        },
+                      )),
                 ),
                 Container(
                   //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1287,35 +1287,35 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
                       trailing: sgst == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempSgst = sgst;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: tempSgst);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempSgst = sgst;
+                          _stringEditingcontroller =
+                              TextEditingController(text: tempSgst);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return sgstEditDeleteBottomBar(context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return sgstEditDeleteBottomBar(context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempSgst = sgst;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: tempSgst);
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempSgst = sgst;
+                          _stringEditingcontroller =
+                              TextEditingController(text: tempSgst);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return sgstEditDeleteBottomBar(context);
-                                    });
-                              },
-                            )),
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return sgstEditDeleteBottomBar(context);
+                              });
+                        },
+                      )),
                 ),
                 Container(
                   //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1329,35 +1329,35 @@ class _RestaurantBaseInfoState extends State<RestaurantBaseInfo> {
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
                       trailing: tables == ''
                           ? IconButton(
-                              icon: Icon(Icons.add,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempTables = tables;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: tempTables);
+                        icon: Icon(Icons.add,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempTables = tables;
+                          _stringEditingcontroller =
+                              TextEditingController(text: tempTables);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return tablesEditDeleteBottomBar(context);
-                                    });
-                              },
-                            )
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return tablesEditDeleteBottomBar(context);
+                              });
+                        },
+                      )
                           : IconButton(
-                              icon: Icon(Icons.edit,
-                                  size: 20, color: Colors.green),
-                              onPressed: () {
-                                tempTables = tables;
-                                _stringEditingcontroller =
-                                    TextEditingController(text: tempTables);
+                        icon: Icon(Icons.edit,
+                            size: 20, color: Colors.green),
+                        onPressed: () {
+                          tempTables = tables;
+                          _stringEditingcontroller =
+                              TextEditingController(text: tempTables);
 
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) {
-                                      return tablesEditDeleteBottomBar(context);
-                                    });
-                              },
-                            )),
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) {
+                                return tablesEditDeleteBottomBar(context);
+                              });
+                        },
+                      )),
                 ),
               ],
             ),

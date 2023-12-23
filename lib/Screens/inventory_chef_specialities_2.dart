@@ -128,24 +128,24 @@ class _InventoryOrChefSpecialitiesWithFCMState
         .doc(widget.chefPhoneNumber)
         .get();
 
-    setState(() {
-      chefName;
-    });
     List<dynamic> tempChefWontCookItems =
         wontCookQuery[widget.hotelName]['wontCook'];
 
-    int counter = 0;
-    for (var tempWontCook in tempChefWontCookItems) {
-      counter = 0;
-      for (var eachItem in itemsInMenu) {
-        if (eachItem['itemName'] == tempWontCook.toString()) {
-          Map<String, dynamic> tempMap = eachItem;
-          tempMap['itemSelected'] = false;
-          itemsInMenu[counter] = tempMap;
+    if (tempChefWontCookItems.isNotEmpty) {
+      int counter = 0;
+      for (var tempWontCook in tempChefWontCookItems) {
+        counter = 0;
+        for (var eachItem in itemsInMenu) {
+          if (eachItem['itemName'] == tempWontCook.toString()) {
+            Map<String, dynamic> tempMap = eachItem;
+            tempMap['itemSelected'] = false;
+            itemsInMenu[counter] = tempMap;
+          }
+          counter++;
         }
-        counter++;
       }
     }
+
     setState(() {
       showSpinner = false;
     });
@@ -303,9 +303,15 @@ class _InventoryOrChefSpecialitiesWithFCMState
 //WeWillPutInventory/ChefSpecialitiesWithChefNumberAccordingly
           title: widget.inventoryOrChefSelection
               ? const Text('Inventory', style: kAppBarTextStyle)
-              : Text(
-                  'Chef - ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[widget.chefPhoneNumber]['username']}',
-                  style: kAppBarTextStyle),
+              : json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                  listen: false)
+                              .allUserProfilesFromClass)[widget.chefPhoneNumber]
+                          ['username'] == //ThisIsIfChefNameIsntYetUpdated
+                      null
+                  ? Text('Chef', style: kAppBarTextStyle)
+                  : Text(
+                      'Chef - ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[widget.chefPhoneNumber]['username']}',
+                      style: kAppBarTextStyle),
           centerTitle: true,
         ),
         body: ModalProgressHUD(

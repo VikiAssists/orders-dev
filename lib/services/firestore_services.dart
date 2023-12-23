@@ -209,6 +209,27 @@ class FireStoreDeleteUserCompletely {
   }
 }
 
+class FireStoreDeleteTokenAloneFromRestaurant {
+//ThisIsUsefulWhenAnUserrSignsOut.IfWeDontRemoveToken...
+//...TheyKeepReceivingNotificationsFromThatRestaurant
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String restaurantDatabaseName;
+
+  FireStoreDeleteTokenAloneFromRestaurant({
+    required this.userPhoneNumber,
+    required this.restaurantDatabaseName,
+  });
+
+  Future<void> deleteTokenFromRestaurant() {
+//deletingTheTokenFromThatRestaurantDatabase
+    return _fireStore
+        .collection(restaurantDatabaseName)
+        .doc('userMessagingTokens')
+        .update({userPhoneNumber: FieldValue.delete()});
+  }
+}
+
 class FireStoreDeleteUserFromOneRestaurant {
   final _fireStore = FirebaseFirestore.instance;
   final String userPhoneNumber;
@@ -468,6 +489,66 @@ class FireStoreUpdateBill {
   }
 }
 
+class FireStoreUpdateAndStatisticsWithBatch {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String orderHistoryDocID;
+  Map<String, String> printOrdersMap = HashMap();
+  final String statisticsDocID;
+  Map<String, dynamic> statisticsUpdateMap = HashMap();
+
+  FireStoreUpdateAndStatisticsWithBatch({
+    required this.hotelName,
+    required this.printOrdersMap,
+    required this.orderHistoryDocID,
+    required this.statisticsDocID,
+    required this.statisticsUpdateMap,
+  });
+
+  Future<void> updateBillAndStatistics() {
+    // Map<String, dynamic> statisticsAndOrderHistoryMapTogether = HashMap();
+    // statisticsAndOrderHistoryMapTogether.addAll({
+    //   'orderhistoryy': {orderHistoryDocID: printOrdersMap}
+    // });
+    // statisticsAndOrderHistoryMapTogether.addAll({
+    //   'statisticss': {statisticsDocID: statisticsUpdateMap}
+    // });
+    var batch = _fireStore.batch();
+    var orderHistoryRef = _fireStore
+        .collection(hotelName)
+        .doc('orderhistory')
+        .collection('orderhistory')
+        .doc(orderHistoryDocID);
+    var statisticsRef = _fireStore
+        .collection(hotelName)
+        .doc('statistics')
+        .collection('statistics')
+        .doc(statisticsDocID);
+    batch.set(orderHistoryRef, printOrdersMap, SetOptions(merge: true));
+    batch.set(statisticsRef, statisticsUpdateMap, SetOptions(merge: true));
+
+    return batch.commit();
+
+    return _fireStore.collection(hotelName).add({
+      'orderhistoryy': {orderHistoryDocID: printOrdersMap},
+      'statisticss': {statisticsDocID: statisticsUpdateMap}
+    });
+
+    // _fireStore.collection(hotelName).add({{'statistics':'fgfg'},
+    //   'orderhistory': {orderHistoryDocID: printOrdersMap}}}
+    //     {
+    //   );
+    return _fireStore
+        .collection(hotelName)
+        .doc('orderhistory')
+        .collection('orderhistory')
+        .doc(orderHistoryDocID)
+        .set(printOrdersMap);
+
+    //    .add(printOrdersMap);
+  }
+}
+
 class FireStoreUpdateStatisticsIndividualField {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
@@ -538,11 +619,11 @@ class FireStoreDeleteFinishedOrderInPresentOrders {
 class FireStoreDeleteFinishedOrderInRunningOrders {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
-  final String eachItemId;
+  final String eachTableId;
 
   FireStoreDeleteFinishedOrderInRunningOrders({
     required this.hotelName,
-    required this.eachItemId,
+    required this.eachTableId,
   });
 
   Future<void> deleteFinishedOrder() {
@@ -550,7 +631,7 @@ class FireStoreDeleteFinishedOrderInRunningOrders {
         .collection(hotelName)
         .doc('runningorders')
         .collection('runningorders')
-        .doc(eachItemId)
+        .doc(eachTableId)
         .delete();
   }
 }

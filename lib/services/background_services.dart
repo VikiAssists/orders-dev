@@ -2,15 +2,9 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
-import 'package:orders_dev/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:orders_dev/Methods/printerenum.dart' as printerenum;
-import 'package:orders_dev/services/firestore_services.dart';
 
 class BackgroundCheck {
   final player = AudioPlayer();

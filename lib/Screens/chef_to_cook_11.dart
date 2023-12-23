@@ -34,7 +34,7 @@ import 'package:video_player/video_player.dart';
 // String chefPrinterSizeFromClassForBackground = '';
 
 //ThisIsTheScreenWhereTheCookGetsTheItemsToCook
-class ChefToCookWithRunningOrders extends StatefulWidget {
+class ChefToCookTableSnapshotCheck extends StatefulWidget {
   //TheInputsAreHotelNameAndChefSpecialities
   //ChefSpecialitiesAreTheItemsChefWon'tCook
   //Example:thereAreCooksWhoMakeJuicesAlone.So,
@@ -44,21 +44,21 @@ class ChefToCookWithRunningOrders extends StatefulWidget {
   final String hotelName;
   final Map<String, dynamic> currentUserProfileMap;
 
-  ChefToCookWithRunningOrders(
+  ChefToCookTableSnapshotCheck(
       {Key? key, required this.hotelName, required this.currentUserProfileMap})
       : super(key: key);
 
   @override
-  State<ChefToCookWithRunningOrders> createState() =>
-      _ChefToCookWithRunningOrdersState();
+  State<ChefToCookTableSnapshotCheck> createState() =>
+      _ChefToCookTableSnapshotCheckState();
 }
 
 //InThisScreen,WeNeedToKnowWhenTheScreenIsOnAndWhenItIsOff
 //OnlyThenWeCanAlertTheChefWhenNewItemComesEvenWhenTheScreenIsOff
 //ToUnderstandThisScreenState,WeUseWidgetsBindingObserver
 
-class _ChefToCookWithRunningOrdersState
-    extends State<ChefToCookWithRunningOrders> with WidgetsBindingObserver {
+class _ChefToCookTableSnapshotCheckState
+    extends State<ChefToCookTableSnapshotCheck> with WidgetsBindingObserver {
 //0-InitialStateOfPrinterWhenEnteringScreen
 //1-PrinterIsDisconnectedByTheUser
 //2-SomePrinterConnected
@@ -2087,9 +2087,6 @@ class _ChefToCookWithRunningOrdersState
     // chefSpecialitiesForBackground = widget.chefSpecialities;
     FlutterBackground.initialize();
     Wakelock.enable();
-//SavingThatWeAreInsideChefScreen
-    BackgroundCheck().saveInsideChefScreenChangingInBackground(
-        insideChefScreenTrueElseFalse: true);
 
     super.initState();
   }
@@ -2458,7 +2455,10 @@ class _ChefToCookWithRunningOrdersState
           num timecustomercametoseat =
               num.parse(eachDocBaseInfoMap['startTime']);
 
-          num currentTimeHourMinuteMultiplied = ((now.hour * 60) + now.minute);
+          num currentTimeHourMinuteMultiplied = ((now.hour * 3600000) +
+              (now.minute * 60000) +
+              (now.second * 1000) +
+              now.millisecond);
           Map<String, dynamic> eachDocItemsInOrderMap =
               eachDoc['itemsInOrderMap'];
           eachDocItemsInOrderMap.forEach((key, value) {
@@ -2956,8 +2956,6 @@ class _ChefToCookWithRunningOrdersState
     return WillPopScope(
       //thisOnWillPopIsForTheBackButtonInPhone&ifItIsClicked,ItWillPopTheScreen
       onWillPop: () async {
-        BackgroundCheck().saveInsideChefScreenChangingInBackground(
-            insideChefScreenTrueElseFalse: false);
         Wakelock.disable();
         showSpinner = false;
 
@@ -2995,8 +2993,6 @@ class _ChefToCookWithRunningOrdersState
           leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
               onPressed: () async {
-                BackgroundCheck().saveInsideChefScreenChangingInBackground(
-                    insideChefScreenTrueElseFalse: false);
                 Wakelock.disable();
                 showSpinner = false;
                 // thisIsChefCallingForBackground = true;
@@ -3193,59 +3189,115 @@ class _ChefToCookWithRunningOrdersState
                       final itemstream = snapshot.data?.docs;
 
                       for (var eachDoc in itemstream!) {
-                        // if (eachDoc.id != 'ZCancelledList') {
-                        Map<String, dynamic> eachDocBaseInfoMap =
-                            eachDoc['baseInfoMap'];
-                        String tableorparcel =
-                            eachDocBaseInfoMap['tableOrParcel'];
-                        num tableorparcelnumber = num.parse(
-                            eachDocBaseInfoMap['tableOrParcelNumber']);
-                        String parentOrChild =
-                            eachDocBaseInfoMap['parentOrChild'];
-                        num timecustomercametoseat =
-                            num.parse(eachDocBaseInfoMap['startTime']);
+                        Map<String, dynamic>? tempMap =
+                            eachDoc.data() as Map<String, dynamic>?;
+                        if (tempMap!.containsKey('baseInfoMap') &&
+                            tempMap!.containsKey('itemsInOrderMap') &&
+                            tempMap!.containsKey('partOfTableOrParcel') &&
+                            tempMap!.containsKey('partOfTableOrParcelNumber') &&
+                            tempMap!.containsKey('statusMap') &&
+                            tempMap!.containsKey('ticketsMap')) {
+                          Map<String, dynamic> eachDocBaseInfoMap =
+                              eachDoc['baseInfoMap'];
+                          String tableorparcel =
+                              eachDocBaseInfoMap['tableOrParcel'];
+                          num tableorparcelnumber = num.parse(
+                              eachDocBaseInfoMap['tableOrParcelNumber']);
+                          String parentOrChild =
+                              eachDocBaseInfoMap['parentOrChild'];
+                          num timecustomercametoseat =
+                              num.parse(eachDocBaseInfoMap['startTime']);
 
-                        num currentTimeHourMinuteMultiplied =
-                            ((now.hour * 60) + now.minute);
-                        Map<String, dynamic> eachDocItemsInOrderMap =
-                            eachDoc['itemsInOrderMap'];
+                          num currentTimeHourMinuteMultiplied =
+                              ((now.hour * 3600000) +
+                                  (now.minute * 60000) +
+                                  (now.second * 1000) +
+                                  now.millisecond);
+                          Map<String, dynamic> eachDocItemsInOrderMap =
+                              eachDoc['itemsInOrderMap'];
 
-                        eachDocItemsInOrderMap.forEach((key, value) {
-                          mapToAddIntoItems = {};
-                          if (value['itemCancelled'] != 'false') {
+                          eachDocItemsInOrderMap.forEach((key, value) {
+                            if (value.length > 8) {
+                              mapToAddIntoItems = {};
+                              if (value['itemCancelled'] != 'false') {
 //ThisIsCancelledItem
-                            cancelledItemsKey.add(key);
-                          }
-                          mapToAddIntoItems['cancelledItemTrueElseFalse'] =
-                              value['itemCancelled'];
-                          mapToAddIntoItems['tableorparcel'] = tableorparcel;
-                          mapToAddIntoItems['tableorparcelnumber'] =
-                              tableorparcelnumber;
-                          mapToAddIntoItems['parentOrChild'] = parentOrChild;
-                          mapToAddIntoItems['timecustomercametoseat'] =
-                              timecustomercametoseat;
-                          mapToAddIntoItems['nowMinusTimeCustomerCameToSeat'] =
-                              currentTimeHourMinuteMultiplied -
+                                cancelledItemsKey.add(key);
+                              }
+                              mapToAddIntoItems['cancelledItemTrueElseFalse'] =
+                                  value['itemCancelled'];
+                              mapToAddIntoItems['tableorparcel'] =
+                                  tableorparcel;
+                              mapToAddIntoItems['tableorparcelnumber'] =
+                                  tableorparcelnumber;
+                              mapToAddIntoItems['parentOrChild'] =
+                                  parentOrChild;
+                              mapToAddIntoItems['timecustomercametoseat'] =
                                   timecustomercametoseat;
-                          mapToAddIntoItems['eachiteminorderid'] = key;
-                          mapToAddIntoItems['item'] = value['itemName'];
-                          mapToAddIntoItems['priceofeach'] = value['itemPrice'];
-                          mapToAddIntoItems['number'] = value['numberOfItem'];
-                          mapToAddIntoItems['timeoforder'] =
-                              value['orderTakingTime'];
-                          mapToAddIntoItems['nowTimeMinusThisItemOrderedTime'] =
-                              (currentTimeHourMinuteMultiplied -
-                                  num.parse(value['orderTakingTime']));
-                          mapToAddIntoItems['commentsForTheItem'] =
-                              value['itemComment'];
-                          mapToAddIntoItems['statusoforder'] =
-                              value['itemStatus'];
-                          mapToAddIntoItems['chefKotStatus'] = value['chefKOT'];
-                          mapToAddIntoItems['ticketNumber'] =
-                              value['ticketNumberOfItem'];
-                          mapToAddIntoItems['itemBelongsToDoc'] = eachDoc.id;
-                          items.add(mapToAddIntoItems);
-                        });
+                              mapToAddIntoItems[
+                                      'nowMinusTimeCustomerCameToSeat'] =
+                                  currentTimeHourMinuteMultiplied -
+                                      timecustomercametoseat;
+                              mapToAddIntoItems['eachiteminorderid'] = key;
+                              mapToAddIntoItems['item'] = value['itemName'];
+                              mapToAddIntoItems['priceofeach'] =
+                                  value['itemPrice'];
+                              mapToAddIntoItems['number'] =
+                                  value['numberOfItem'];
+                              mapToAddIntoItems['timeoforder'] =
+                                  value['orderTakingTime'];
+                              mapToAddIntoItems[
+                                      'nowTimeMinusThisItemOrderedTime'] =
+                                  (currentTimeHourMinuteMultiplied -
+                                      num.parse(value['orderTakingTime']));
+                              mapToAddIntoItems['commentsForTheItem'] =
+                                  value['itemComment'];
+                              mapToAddIntoItems['statusoforder'] =
+                                  value['itemStatus'];
+                              mapToAddIntoItems['chefKotStatus'] =
+                                  value['chefKOT'];
+                              mapToAddIntoItems['ticketNumber'] =
+                                  value['ticketNumberOfItem'];
+                              mapToAddIntoItems['itemBelongsToDoc'] =
+                                  eachDoc.id;
+                              items.add(mapToAddIntoItems);
+                            } else {
+                              if (eachDocItemsInOrderMap.length == 1) {
+//ThisMeansThatThereIsOnlyThatWrongItemInThatTableAndHence
+//TheWholeTableNeedsToBeDeleted
+                                FireStoreDeleteFinishedOrderInRunningOrders(
+                                        hotelName: widget.hotelName,
+                                        eachTableId: eachDoc.id)
+                                    .deleteFinishedOrder();
+                              } else {
+                                Map<String, dynamic> masterOrderMapToServer =
+                                    HashMap();
+//ToDeleteCancelledItem
+                                masterOrderMapToServer.addAll({
+                                  'itemsInOrderMap': {key: FieldValue.delete()},
+                                });
+//ToSayThatTheChefHasSeenTheCancellation
+                                masterOrderMapToServer.addAll({
+                                  'statusMap': {
+                                    'chefStatus': 7,
+                                    'captainStatus': 7,
+                                  },
+                                });
+                                FireStoreAddOrderInRunningOrderFolder(
+                                        hotelName: widget.hotelName,
+                                        seatingNumber: eachDoc.id,
+                                        ordersMap: masterOrderMapToServer)
+                                    .addOrder();
+                              }
+
+//TheseAreWrongItemsThatNeedsToBeDeleted
+                            }
+                          });
+                        } else {
+                          FireStoreDeleteFinishedOrderInRunningOrders(
+                                  hotelName: widget.hotelName,
+                                  eachTableId: eachDoc.id)
+                              .deleteFinishedOrder();
+                        }
                       }
 
 //creatingNewListToPrintKOTandAlsoUpdateKOTInServer
@@ -3920,6 +3972,13 @@ class _ChefToCookWithRunningOrdersState
                                                     'itemsInOrderMap': {
                                                       itemID:
                                                           FieldValue.delete()
+                                                    },
+                                                  });
+//ToSayThatTheChefHasSeenTheCancellation
+                                                  masterOrderMapToServer
+                                                      .addAll({
+                                                    'statusMap': {
+                                                      'chefStatus': 7
                                                     },
                                                   });
                                                   FireStoreAddOrderInRunningOrderFolder(

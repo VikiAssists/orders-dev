@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
@@ -18,14 +19,15 @@ import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:orders_dev/Methods/printerenum.dart' as printerenum;
+import 'package:flutter_esc_pos_utils/flutter_esc_pos_utils.dart';
 
-class BillPrintWithRunningOrders extends StatefulWidget {
+class BillPrintWithEachOrderTime extends StatefulWidget {
   final String hotelName;
   final String addedItemsSet;
   final List<String> itemsID;
   final String itemsFromThisDocumentInFirebaseDoc;
 
-  const BillPrintWithRunningOrders({
+  const BillPrintWithEachOrderTime({
     Key? key,
     required this.hotelName,
     required this.addedItemsSet,
@@ -34,12 +36,12 @@ class BillPrintWithRunningOrders extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BillPrintWithRunningOrders> createState() =>
-      _BillPrintWithRunningOrdersState();
+  State<BillPrintWithEachOrderTime> createState() =>
+      _BillPrintWithEachOrderTimeState();
 }
 
-class _BillPrintWithRunningOrdersState
-    extends State<BillPrintWithRunningOrders> {
+class _BillPrintWithEachOrderTimeState
+    extends State<BillPrintWithEachOrderTime> {
   bool _connected = false;
   BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
 
@@ -113,146 +115,18 @@ class _BillPrintWithRunningOrdersState
   bool noItemsInTable = false;
   Map<String, dynamic> baseInfoFromServerMap = HashMap();
   Map<String, dynamic> itemsInOrderFromServerMap = HashMap();
-
-  // Widget discountsSection() {
-  //   return Padding(
-  //     padding:
-  //         EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-  //     child: Column(
-  //       mainAxisSize: MainAxisSize.min,
-  //       children: [
-  //         Row(
-  //           children: [
-  //             Expanded(
-  //               // width: double.infinity,
-  //               child: ElevatedButton(
-  //                   style: ButtonStyle(
-  //                     backgroundColor:
-  //                         discountValueClickedTruePercentageClickedFalse
-  //                             ? MaterialStateProperty.all(Colors.grey)
-  //                             : MaterialStateProperty.all(Colors.green),
-  //                   ),
-  //                   onPressed: () {
-  //                     setState(() {
-  //                       discountValueClickedTruePercentageClickedFalse = false;
-  //                       discountEnteredValue = '';
-  //                       _controller.clear();
-  //                     });
-  //                     Navigator.pop(context);
-  //                     showModalBottomSheet(
-  //                         isScrollControlled: true,
-  //                         context: context,
-  //                         builder: (context) {
-  //                           return discountsSection();
-  //                         });
-  //                   },
-  //                   child: Text('Discount Percentage')),
-  //             ),
-  //             SizedBox(width: 10),
-  //             Expanded(
-  //                 // width: double.infinity,
-  //                 child: ElevatedButton(
-  //                     style: ButtonStyle(
-  //                       backgroundColor:
-  //                           discountValueClickedTruePercentageClickedFalse
-  //                               ? MaterialStateProperty.all(Colors.green)
-  //                               : MaterialStateProperty.all(Colors.grey),
-  //                     ),
-  //                     onPressed: () {
-  //                       setState(() {
-  //                         discountValueClickedTruePercentageClickedFalse = true;
-  //                         discountEnteredValue = '';
-  //                         _controller.clear();
-  //                       });
-  //                       Navigator.pop(context);
-  //                       showModalBottomSheet(
-  //                           isScrollControlled: true,
-  //                           context: context,
-  //                           builder: (context) {
-  //                             return discountsSection();
-  //                           });
-  //                     },
-  //                     child: Text('Discount Value'))),
-  //           ],
-  //         ),
-  //         Container(
-  //           padding: EdgeInsets.all(20),
-  //           child: TextField(
-  //             maxLength: 250,
-  //             keyboardType: TextInputType.numberWithOptions(decimal: true),
-  //             controller: _controller,
-  //             // controller:
-  //             // TextEditingController(text: widget.itemsAddedComment[item]),
-  //             onChanged: (value) {
-  //               discountEnteredValue = value;
-  //             },
-  //             decoration:
-  //                 // kTextFieldInputDecoration,
-  //                 InputDecoration(
-  //                     filled: true,
-  //                     fillColor: Colors.white,
-  //                     hintText: discountValueClickedTruePercentageClickedFalse
-  //                         ? 'Enter ₹'
-  //                         : 'Enter %',
-  //                     hintStyle: TextStyle(color: Colors.grey),
-  //                     enabledBorder: OutlineInputBorder(
-  //                         borderRadius: BorderRadius.all(Radius.circular(10)),
-  //                         borderSide: BorderSide(color: Colors.green)),
-  //                     focusedBorder: OutlineInputBorder(
-  //                         borderRadius: BorderRadius.all(Radius.circular(10)),
-  //                         borderSide: BorderSide(color: Colors.green))),
-  //           ),
-  //         ),
-  //         ElevatedButton(
-  //             style: ButtonStyle(
-  //               backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
-  //             ),
-  //             onPressed: () {
-  //               setState(() {
-  //                 if (discountValueClickedTruePercentageClickedFalse) {
-  //                   setState(() {
-  //                     if (discountEnteredValue != '') {
-  //                       discount = num.parse(discountEnteredValue);
-  //                     } else {
-  //                       discount = 0;
-  //                     }
-  //                   });
-  //                 } else {
-  //                   setState(() {
-  //                     if (discountEnteredValue != '') {
-  //                       discount = num.parse((totalPriceOfAllItems *
-  //                               (num.parse(discountEnteredValue) / 100))
-  //                           .toStringAsFixed(2));
-  //                     } else {
-  //                       discount = 0;
-  //                     }
-  //                   });
-  //                 }
-  //               });
-  //               Map<String, dynamic> tempBaseInfoMapToServer = HashMap();
-  //               tempBaseInfoMapToServer
-  //                   .addAll({'discountEnteredValue': discountEnteredValue});
-  //               tempBaseInfoMapToServer.addAll({
-  //                 'discountValueTruePercentageFalse':
-  //                     discountValueClickedTruePercentageClickedFalse
-  //               });
-  //               Map<String, dynamic> tempMasterOrderMapToServer = HashMap();
-  //               tempMasterOrderMapToServer
-  //                   .addAll({'baseInfoMap': tempBaseInfoMapToServer});
-  //
-  //               FireStoreAddOrderInRunningOrderFolder(
-  //                       hotelName: widget.hotelName,
-  //                       seatingNumber:
-  //                           widget.itemsFromThisDocumentInFirebaseDoc,
-  //                       ordersMap: tempMasterOrderMapToServer)
-  //                   .addOrder();
-  //               Navigator.pop(context);
-  //             },
-  //             child: Text('Done'))
-  //       ],
-  //     ),
-  //   );
-  // }
+  String tempChargeName = '';
+  List<String> chargesNamesList = [
+    'Parcel Charges',
+    'Delivery Charges',
+    'Other'
+  ];
+  num tempChargesPriceForEdit = 0;
+  String tempChargesPriceForEditInString = '';
+  Map<String, dynamic> extraChargesMapFromServer = {};
+  String errorMessage = '';
+  List<String> extraItemsToPrint = [];
+  List<String> extraItemsPricesToPrint = [];
 
   @override
   void initState() {
@@ -280,7 +154,7 @@ class _BillPrintWithRunningOrdersState
   void internetAvailabilityChecker() async {
     if (pageHasInternet) {
       var netAvailableTrueElseFalse =
-          await InternetConnectionChecker().hasConnection;
+      await InternetConnectionChecker().hasConnection;
       setState(() {
         pageHasInternet = netAvailableTrueElseFalse;
       });
@@ -289,27 +163,27 @@ class _BillPrintWithRunningOrdersState
     int _everySecondForInternetChecking = 0;
     _timerToCheckInternet =
         Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_everySecondForInternetChecking < 2) {
-        _everySecondForInternetChecking++;
-        print(
-            '_everySecondForInternetChecking $_everySecondForInternetChecking');
-      } else {
-        internetCheckerSubscription =
-            InternetConnectionChecker().onStatusChange.listen((status) {
-          final hasInternet = status == InternetConnectionStatus.connected;
+          if (_everySecondForInternetChecking < 2) {
+            _everySecondForInternetChecking++;
+            print(
+                '_everySecondForInternetChecking $_everySecondForInternetChecking');
+          } else {
+            internetCheckerSubscription =
+                InternetConnectionChecker().onStatusChange.listen((status) {
+                  final hasInternet = status == InternetConnectionStatus.connected;
 
 //WeSetStateOfPageHasInternet
-          if (pageHasInternet != hasInternet) {
-            setState(() {
-              pageHasInternet = hasInternet;
-            });
+                  if (pageHasInternet != hasInternet) {
+                    setState(() {
+                      pageHasInternet = hasInternet;
+                    });
+                  }
+                });
+
+            _timerToCheckInternet!.cancel();
+            _everySecondForInternetChecking = 0;
           }
         });
-
-        _timerToCheckInternet!.cancel();
-        _everySecondForInternetChecking = 0;
-      }
-    });
   }
 
   void makingDistinctItemsList() {
@@ -333,13 +207,13 @@ class _BillPrintWithRunningOrdersState
     }
     if (baseInfoFromServerMap['billDay'] == '') {
       tempDay =
-          now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
+      now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
     } else {
       tempDay = baseInfoFromServerMap['billDay'];
     }
     if (baseInfoFromServerMap['billHour'] == '') {
       tempHour =
-          now.hour < 10 ? '0${now.hour.toString()}' : '${now.hour.toString()}';
+      now.hour < 10 ? '0${now.hour.toString()}' : '${now.hour.toString()}';
     } else {
       tempHour = baseInfoFromServerMap['billHour'];
     }
@@ -357,23 +231,25 @@ class _BillPrintWithRunningOrdersState
     } else {
       tempSecond = baseInfoFromServerMap['billSecond'];
     }
-
+    if (baseInfoFromServerMap['extraCharges'] != null) {
+      extraChargesMapFromServer = baseInfoFromServerMap['extraCharges'];
+    }
     discountEnteredValue = baseInfoFromServerMap['discountEnteredValue'];
     discountValueClickedTruePercentageClickedFalse =
-        baseInfoFromServerMap['discountValueTruePercentageFalse'];
+    baseInfoFromServerMap['discountValueTruePercentageFalse'];
 
     printOrdersMap = {};
     statisticsMap = {};
     orderHistoryDocID =
-        '${tempYear}${tempMonth}${tempDay}${tempHour}${tempMinute}${tempSecond}';
+    '${tempYear}${tempMonth}${tempDay}${tempHour}${tempMinute}${tempSecond}';
     statisticsDocID = '$tempYear*$tempMonth*$tempDay';
     printingDate =
-        '${tempDay}/${tempMonth}/${tempYear} at ${tempHour}:${tempMinute}';
+    '${tempDay}/${tempMonth}/${tempYear} at ${tempHour}:${tempMinute}';
     //InThePrintOrdersMap(HashMap),FirstWeSaveKeyAs "DateOfOrder"&ValueAs,,
 //year/Month/Day At Hour:Minute
     printOrdersMap.addAll({
       ' Date of Order  :':
-          '$tempYear/$tempMonth/$tempDay at $tempHour:$tempMinute'
+      '$tempYear/$tempMonth/$tempDay at $tempHour:$tempMinute'
     });
 
     Map<String, dynamic> mapToAddIntoItems = {};
@@ -408,7 +284,6 @@ class _BillPrintWithRunningOrdersState
     if (baseInfoFromServerMap['serialNumber'] != 'noSerialYet') {
       serialNumber = num.parse(baseInfoFromServerMap['serialNumber']).toInt();
     }
-    distinctItemNames = [];
     totalQuantityOfAllItems = 0;
 
     itemsInOrderFromServerMap.forEach((key, value) {
@@ -419,9 +294,9 @@ class _BillPrintWithRunningOrdersState
       mapToAddIntoItems['timecustomercametoseat'] = timecustomercametoseat;
       // widget.itemsID.add(setSplit[i]);
       mapToAddIntoItems['eachiteminorderid'] = key;
-      if (!distinctItemNames.contains(value['itemName'])) {
-        distinctItemNames.add(value['itemName']);
-      }
+      // if (!distinctItemNames.contains(value['itemName'])) {
+      //   distinctItemNames.add(value['itemName']);
+      // }
       mapToAddIntoItems['item'] = value['itemName'];
       mapToAddIntoItems['priceofeach'] = value['itemPrice'];
       mapToAddIntoItems['number'] = value['numberOfItem'];
@@ -434,6 +309,13 @@ class _BillPrintWithRunningOrdersState
           widget.itemsFromThisDocumentInFirebaseDoc;
       items.add(mapToAddIntoItems);
     });
+    items.sort((a, b) => (a['timeoforder']).compareTo(b['timeoforder']));
+    distinctItemNames = [];
+    for (var eachItem in items) {
+      if (!distinctItemNames.contains(eachItem['item'])) {
+        distinctItemNames.add(eachItem['item']);
+      }
+    }
 
 //     for (int i = 0; i < setSplit.length; i++) {
 // //thisWillEnsureWeSwitchedFromTableInfoToOrderInfo
@@ -516,10 +398,10 @@ class _BillPrintWithRunningOrdersState
       for (var eachItem in items) {
         if (distinctItemName == eachItem['item']) {
           individualPriceOfOneDistinctItemForAddingIntoList =
-              eachItem['priceofeach'];
+          eachItem['priceofeach'];
           numberOfEachDistinctItemForAddingIntoList += eachItem['number'];
           totalPriceOfEachDistinctItemForAddingIntoList +=
-              (eachItem['priceofeach'] * eachItem['number']);
+          (eachItem['priceofeach'] * eachItem['number']);
         }
       }
       if (individualPriceOfOneDistinctItemForAddingIntoList != 0) {
@@ -529,7 +411,7 @@ class _BillPrintWithRunningOrdersState
       if (numberOfEachDistinctItemForAddingIntoList != 0) {
         statisticsMap.addAll({
           distinctItemName:
-              FieldValue.increment(numberOfEachDistinctItemForAddingIntoList)
+          FieldValue.increment(numberOfEachDistinctItemForAddingIntoList)
         });
         numberOfOneDistinctItem.add(numberOfEachDistinctItemForAddingIntoList);
       }
@@ -541,18 +423,68 @@ class _BillPrintWithRunningOrdersState
       if (printOrdersMap.length < 10) {
         printOrdersMap.addAll({
           '0${printOrdersMap.length} . ${distinctItemName} x ${individualPriceOfOneDistinctItemForAddingIntoList.toString()} x ${numberOfEachDistinctItemForAddingIntoList.toString()} = ':
-              (totalPriceOfEachDistinctItemForAddingIntoList).toString()
+          (totalPriceOfEachDistinctItemForAddingIntoList).toString()
         });
       } else {
 //ifNumberMoreThan9,WeDon'tNeedTheAdditionOf 0 at First
         printOrdersMap.addAll({
           '${printOrdersMap.length} . ${distinctItemName} x ${individualPriceOfOneDistinctItemForAddingIntoList} x  ${numberOfEachDistinctItemForAddingIntoList} = ':
-              (totalPriceOfEachDistinctItemForAddingIntoList).toString()
+          (totalPriceOfEachDistinctItemForAddingIntoList).toString()
         });
       }
     }
     totalPriceOfAllItems =
-        (totalPriceOfOneDistinctItem.reduce((a, b) => a + b));
+    (totalPriceOfOneDistinctItem.reduce((a, b) => a + b));
+//AddingExtraItemChargesWithTotalPrice
+    String extraItemsNames = '*';
+    String extraItemsNumbers = '*';
+    String tempExtraParcelCharge = '';
+    String tempExtraDeliveryCharge = '';
+    extraItemsToPrint = [];
+    extraItemsPricesToPrint = [];
+    if (extraChargesMapFromServer.isNotEmpty) {
+      num extrasCounter = 941;
+
+      extraChargesMapFromServer.forEach((key, value) {
+//AddingExtraChargesToStatisticsMap
+        if (key != 'Delivery Charges' && key != 'Parcel Charges') {
+          printOrdersMap
+              .addAll({'${extrasCounter.toString()}*$key': value.toString()});
+          extraItemsToPrint.add(key);
+          extraItemsPricesToPrint.add(value.toString());
+          extrasCounter++;
+          extraItemsNames += '$key*';
+          extraItemsNumbers += '${value.toString()}*';
+        } else if (key == 'Parcel Charges') {
+          printOrdersMap.addAll({'971*$key': value.toString()});
+          tempExtraParcelCharge = value.toString();
+        } else if (key == 'Delivery Charges') {
+          printOrdersMap.addAll({'973*$key': value.toString()});
+          tempExtraDeliveryCharge = value.toString();
+        }
+        statisticsMap.addAll({key: FieldValue.increment(value)});
+        totalPriceOfAllItems += value;
+      });
+    }
+    if (tempExtraParcelCharge != '') {
+      extraItemsNames += 'Parcel Charges*';
+      extraItemsNumbers += '$tempExtraParcelCharge*';
+      extraItemsToPrint.add('Parcel Charges');
+      extraItemsPricesToPrint.add(tempExtraParcelCharge);
+    }
+    if (tempExtraDeliveryCharge != '') {
+      extraItemsNames += 'Delivery Charges*';
+      extraItemsNumbers += '$tempExtraDeliveryCharge*';
+      extraItemsToPrint.add('Delivery Charges');
+      extraItemsPricesToPrint.add(tempExtraDeliveryCharge);
+    }
+    if (extraItemsNames != '*') {
+      printOrdersMap.addAll({'extraItemsDistinctNames': extraItemsNames});
+    }
+    if (extraItemsNumbers != '*') {
+      printOrdersMap.addAll({'extraItemsDistinctNumbers': extraItemsNumbers});
+    }
+
     if (discountValueClickedTruePercentageClickedFalse) {
       if (discountEnteredValue != '') {
         discount = num.parse(discountEnteredValue);
@@ -585,20 +517,20 @@ class _BillPrintWithRunningOrdersState
     // setState(() {
     if (discount == 0) {
       return num.parse((totalPriceOfAllItems *
-              (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['cgst'] /
-                  100))
+          (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+              listen: false)
+              .restaurantInfoDataFromClass)['cgst'] /
+              100))
           .toStringAsFixed(2));
     } else {
       // cgstCalculatedForBill =
       //     (totalPriceOfAllItems - discount) * (widget.cgstPercentage / 100);
 
       return num.parse(((totalPriceOfAllItems - discount) *
-              (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['cgst'] /
-                  100))
+          (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+              listen: false)
+              .restaurantInfoDataFromClass)['cgst'] /
+              100))
           .toStringAsFixed(2));
     }
     // });
@@ -612,17 +544,17 @@ class _BillPrintWithRunningOrdersState
     // setState(() {
     if (discount == 0) {
       return num.parse((totalPriceOfAllItems *
-              (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['sgst'] /
-                  100))
+          (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+              listen: false)
+              .restaurantInfoDataFromClass)['sgst'] /
+              100))
           .toStringAsFixed(2));
     } else {
       return num.parse(((totalPriceOfAllItems - discount) *
-              (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['sgst'] /
-                  100))
+          (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+              listen: false)
+              .restaurantInfoDataFromClass)['sgst'] /
+              100))
           .toStringAsFixed(2));
     }
   }
@@ -634,9 +566,9 @@ class _BillPrintWithRunningOrdersState
     //     sgstCalculatedForBillFunction())
     //     .toStringAsFixed(2));
     return num.parse((totalPriceOfAllItems -
-            discount +
-            cgstCalculatedForBillFunction() +
-            sgstCalculatedForBillFunction())
+        discount +
+        cgstCalculatedForBillFunction() +
+        sgstCalculatedForBillFunction())
         .toStringAsFixed(2));
   }
 
@@ -666,9 +598,9 @@ class _BillPrintWithRunningOrdersState
   // }
 
   Future show(
-    String message, {
-    Duration duration: const Duration(seconds: 2),
-  }) async {
+      String message, {
+        Duration duration: const Duration(seconds: 2),
+      }) async {
     await new Future.delayed(new Duration(milliseconds: 100));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -680,6 +612,391 @@ class _BillPrintWithRunningOrdersState
         duration: duration,
       ),
     );
+  }
+
+  void errorAlertDialogBox() async {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Center(
+            child: Text(
+              'ERROR!',
+              style: TextStyle(color: Colors.red),
+            )),
+        content: Text('${errorMessage}'),
+        actions: [
+          ElevatedButton(
+              style: ButtonStyle(
+                backgroundColor: MaterialStateProperty.all<Color>(Colors.green),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text('OK')),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  void chargesAddBottomBar() {
+    showModalBottomSheet(
+        isScrollControlled: true,
+        context: context,
+        builder: (BuildContext buildContext) {
+          return StatefulBuilder(builder: (context, setStateSB) {
+            return Padding(
+              padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(height: 10),
+                    Text('Add Charges', style: TextStyle(fontSize: 30)),
+                    SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(30)),
+                      width: 200,
+                      height: 50,
+                      // height: 200,
+                      child: Center(
+                        child: DropdownButtonFormField(
+                          decoration: InputDecoration.collapsed(hintText: ''),
+                          isExpanded: true,
+                          // underline: Container(),
+                          dropdownColor: Colors.green,
+                          value: chargesNamesList[0],
+                          onChanged: (value) {
+                            if (value.toString() != 'Other') {
+                              setStateSB(() {
+                                tempChargeName = value.toString();
+                              });
+                            } else {
+                              setStateSB(() {
+                                tempChargeName = '';
+                              });
+                            }
+                          },
+                          items: chargesNamesList.map((title) {
+//DropDownMenuItemWillHaveOneByOneItems,WePutThatAsList
+//ValueWillBeEachTitle
+                            return DropdownMenuItem(
+                              alignment: Alignment.center,
+                              child: Text(title,
+                                  style: const TextStyle(
+                                      fontSize: 15, color: Colors.white)),
+                              value: title,
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Visibility(
+                      visible: tempChargeName == '' ? true : false,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          'Name of Charges',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                              fontSize: 15),
+                        ),
+                      ),
+                    ),
+                    Visibility(
+                      visible: tempChargeName == '' ? true : false,
+                      child: Container(
+                        padding: EdgeInsets.all(8),
+                        child: TextField(
+                          maxLength: 40,
+                          textCapitalization: TextCapitalization.sentences,
+                          onChanged: (value) {
+                            tempChargeName = value;
+                          },
+                          decoration:
+                          // kTextFieldInputDecoration,
+                          InputDecoration(
+                              filled: true,
+                              fillColor: Colors.white,
+                              hintText: 'Enter Charges',
+                              hintStyle: TextStyle(color: Colors.grey),
+                              enabledBorder: OutlineInputBorder(
+                                  borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                                  borderSide:
+                                  BorderSide(color: Colors.green)),
+                              focusedBorder: OutlineInputBorder(
+                                  borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                                  borderSide:
+                                  BorderSide(color: Colors.green))),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'Price',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                            fontSize: 15),
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.all(8),
+                      child: TextField(
+                        maxLength: 10,
+                        controller: _controller,
+                        keyboardType:
+                        TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (value) {
+                          tempChargesPriceForEditInString = value;
+                        },
+                        decoration:
+                        // kTextFieldInputDecoration,
+                        InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            hintText: 'Enter Price',
+                            hintStyle: TextStyle(color: Colors.grey),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius:
+                                BorderRadius.all(Radius.circular(10)),
+                                borderSide:
+                                BorderSide(color: Colors.green)),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius:
+                                BorderRadius.all(Radius.circular(10)),
+                                borderSide:
+                                BorderSide(color: Colors.green))),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                            style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.orangeAccent),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: Text('Cancel')),
+                        ElevatedButton(
+                            style: ButtonStyle(
+                              backgroundColor: MaterialStateProperty.all<Color>(
+                                  Colors.green),
+                            ),
+                            onPressed: () {
+                              if (tempChargeName == '') {
+                                errorMessage =
+                                'Please enter Name of the Charge';
+                                errorAlertDialogBox();
+                              } else if (tempChargesPriceForEditInString ==
+                                  '') {
+                                errorMessage =
+                                'Please enter Price of the Charge';
+                                errorAlertDialogBox();
+                              } else {
+                                tempChargesPriceForEdit =
+                                    num.parse(tempChargesPriceForEditInString);
+                                Map<String, dynamic> extrasMap = {
+                                  tempChargeName: tempChargesPriceForEdit
+                                };
+                                Map<String, dynamic> masterOrderMapToServer =
+                                HashMap();
+                                masterOrderMapToServer.addAll({
+                                  'baseInfoMap': {'extraCharges': extrasMap}
+                                });
+                                FireStoreAddOrderInRunningOrderFolder(
+                                    hotelName: widget.hotelName,
+                                    seatingNumber: widget
+                                        .itemsFromThisDocumentInFirebaseDoc,
+                                    ordersMap: masterOrderMapToServer)
+                                    .addOrder();
+
+                                Navigator.pop(context);
+                              }
+                            },
+                            child: Text('Add'))
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            );
+          });
+        });
+  }
+
+  void existingExtraChargesBottomBar() {
+    List<Map<String, dynamic>> tempExtraChargesList = [];
+//ThisIsToShowDeliveryChargesAlwaysAtTheEnd
+    num tempDeliveryCharges = -999;
+//ThisIsToShowParcelChargesAlwaysAtTheEnd
+    num tempParcelCharges = -999;
+    extraChargesMapFromServer.forEach((key, value) {
+      if (key != 'Delivery Charges' && key != 'Parcel Charges') {
+        tempExtraChargesList
+            .add({'extraChargesName': key, 'extraChargesPrice': value});
+      } else if (key == 'Delivery Charges') {
+        tempDeliveryCharges = value;
+      } else if (key == 'Parcel Charges') {
+        tempParcelCharges = value;
+      }
+    });
+    if (tempParcelCharges != -999) {
+      tempExtraChargesList.insert(tempExtraChargesList.length, {
+        'extraChargesName': 'Parcel Charges',
+        'extraChargesPrice': tempParcelCharges
+      });
+      tempParcelCharges = -999;
+    }
+    if (tempDeliveryCharges != -999) {
+      tempExtraChargesList.insert(tempExtraChargesList.length, {
+        'extraChargesName': 'Delivery Charges',
+        'extraChargesPrice': tempDeliveryCharges
+      });
+      tempDeliveryCharges = -999;
+    }
+    showModalBottomSheet(
+        isScrollControlled: true,
+        context: context,
+        builder: (BuildContext buildContext) {
+          return StatefulBuilder(builder: (context, setStateSB) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: 10),
+                Text('Extra Charges', style: TextStyle(fontSize: 30)),
+                SizedBox(height: 20),
+                Flexible(
+                    child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: tempExtraChargesList.length,
+                        itemBuilder: (context, index) {
+                          final extraChargeName =
+                          tempExtraChargesList[index]['extraChargesName'];
+                          final extraChargePrice =
+                          tempExtraChargesList[index]['extraChargesPrice'];
+                          return ListTile(
+                            title: Text(extraChargeName),
+                            subtitle:
+                            Text('Price: ${extraChargePrice.toString()}'),
+                            trailing: IconButton(
+                                icon: Icon(Icons.remove, color: Colors.red),
+                                onPressed: () {
+                                  Map<String, dynamic> extrasMap = {
+                                    extraChargeName: FieldValue.delete()
+                                  };
+                                  Map<String, dynamic> masterOrderMapToServer =
+                                  HashMap();
+                                  masterOrderMapToServer.addAll({
+                                    'baseInfoMap': {'extraCharges': extrasMap}
+                                  });
+                                  FireStoreAddOrderInRunningOrderFolder(
+                                      hotelName: widget.hotelName,
+                                      seatingNumber: widget
+                                          .itemsFromThisDocumentInFirebaseDoc,
+                                      ordersMap: masterOrderMapToServer)
+                                      .addOrder();
+                                  setStateSB(() {
+                                    tempExtraChargesList.removeAt(index);
+                                    if (tempExtraChargesList.isEmpty) {
+                                      Navigator.pop(context);
+                                    }
+                                  });
+                                }),
+                          );
+                        })),
+                SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                        style: ButtonStyle(
+                          backgroundColor: MaterialStateProperty.all<Color>(
+                              Colors.orangeAccent),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: Text('Cancel')),
+                    ElevatedButton(
+                        style: ButtonStyle(
+                          backgroundColor:
+                          MaterialStateProperty.all<Color>(Colors.green),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          tempChargeName = chargesNamesList[0];
+                          tempChargesPriceForEditInString = '';
+                          _controller.clear();
+                          chargesAddBottomBar();
+                        },
+                        child: Text('Add'))
+                  ],
+                )
+              ],
+            );
+          });
+        });
+  }
+
+  Widget extraChargesInMainScreen() {
+    List<Map<String, dynamic>> tempExtraChargesList = [];
+//ThisIsToShowDeliveryChargesAlwaysAtTheEnd
+    num tempDeliveryCharges = -999;
+//ThisIsToShowParcelChargesAlwaysAtTheEnd
+    num tempParcelCharges = -999;
+    extraChargesMapFromServer.forEach((key, value) {
+      if (key != 'Delivery Charges' && key != 'Parcel Charges') {
+        tempExtraChargesList
+            .add({'extraChargesName': key, 'extraChargesPrice': value});
+      } else if (key == 'Delivery Charges') {
+        tempDeliveryCharges = value;
+      } else if (key == 'Parcel Charges') {
+        tempParcelCharges = value;
+      }
+    });
+    if (tempParcelCharges != -999) {
+      tempExtraChargesList.insert(tempExtraChargesList.length, {
+        'extraChargesName': 'Parcel Charges',
+        'extraChargesPrice': tempParcelCharges
+      });
+      tempParcelCharges = -999;
+    }
+    if (tempDeliveryCharges != -999) {
+      tempExtraChargesList.insert(tempExtraChargesList.length, {
+        'extraChargesName': 'Delivery Charges',
+        'extraChargesPrice': tempDeliveryCharges
+      });
+      tempDeliveryCharges = -999;
+    }
+    return Container(
+        child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: tempExtraChargesList.length,
+            itemBuilder: (context, index) {
+              final extraChargeName =
+              tempExtraChargesList[index]['extraChargesName'];
+              final extraChargePrice =
+              tempExtraChargesList[index]['extraChargesPrice'];
+              return ListTile(
+                title: Text(extraChargeName, style: TextStyle(fontSize: 18)),
+                trailing: Text('${extraChargePrice.toString()}',
+                    style: TextStyle(fontSize: 18)),
+              );
+            }));
   }
 
   void getAllPairedDevices() async {
@@ -1164,14 +1481,12 @@ class _BillPrintWithRunningOrdersState
           //   serverUpdateOfBill();
           // }
           printThroughBluetooth();
+          // printThroughBluetoothWithUtils();
         } else {
           printingOver = true;
           setState(() {
             showSpinner = false;
-            print('6 $tappedPrintButton');
-
             tappedPrintButton = false;
-            print('7 $tappedPrintButton');
           });
           print('unable to connect');
           // bluetooth.disconnect();
@@ -1187,16 +1502,16 @@ class _BillPrintWithRunningOrdersState
     int _everySecondPrintThroughBluetooth = 0;
     _timerInPrintThroughBluetooth =
         Timer.periodic(Duration(seconds: 1), (_) async {
-      if (_everySecondPrintThroughBluetooth < 1) {
-        _everySecondPrintThroughBluetooth++;
-        print(
-            '_everySecondPrintThroughBluetooth $_everySecondPrintThroughBluetooth');
-      } else {
-        _timerInPrintThroughBluetooth!.cancel();
-        _everySecondPrintThroughBluetooth = 0;
-        bluetoothDisconnectFunction();
-      }
-    });
+          if (_everySecondPrintThroughBluetooth < 1) {
+            _everySecondPrintThroughBluetooth++;
+            print(
+                '_everySecondPrintThroughBluetooth $_everySecondPrintThroughBluetooth');
+          } else {
+            _timerInPrintThroughBluetooth!.cancel();
+            _everySecondPrintThroughBluetooth = 0;
+            bluetoothDisconnectFunction();
+          }
+        });
     if (showSpinner == false) {
       setState(() {
         showSpinner = true;
@@ -1221,16 +1536,16 @@ class _BillPrintWithRunningOrdersState
           // }
           // if (localParcelReadyItemNames.length > 1) {
           if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                  .captainPrinterSizeFromClass ==
+              listen: false)
+              .captainPrinterSizeFromClass ==
               '80') {
             bluetooth.printCustom(
                 "${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}",
                 printerenum.Size.extraLarge.val,
                 printerenum.Align.center.val);
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['addressline1'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['addressline1'] !=
                 '') {
               bluetooth.printCustom(
                   "${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}",
@@ -1238,8 +1553,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['addressline2'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['addressline2'] !=
                 '') {
               bluetooth.printCustom(
                   "${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}",
@@ -1247,8 +1562,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['addressline3'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['addressline3'] !=
                 '') {
               bluetooth.printCustom(
                   "${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}",
@@ -1256,8 +1571,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['gstcode'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['gstcode'] !=
                 '') {
               bluetooth.printCustom(
                   "GSTIN: ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['gstcode']}",
@@ -1265,8 +1580,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['phonenumber'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['phonenumber'] !=
                 '') {
               bluetooth.printCustom(
                   "PH: ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}",
@@ -1279,8 +1594,8 @@ class _BillPrintWithRunningOrdersState
                 printerenum.Align.center.val);
 
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['cgst'] >
+                listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
                 0) {
               bluetooth.printCustom("TAX INVOICE", printerenum.Size.bold.val,
                   printerenum.Align.center.val);
@@ -1295,7 +1610,7 @@ class _BillPrintWithRunningOrdersState
                 printerenum.Align.center.val);
             if (customername != '' || customermobileNumber != '') {
               String customerPrintingName =
-                  customername != '' ? 'Customer: ${customername}' : '';
+              customername != '' ? 'Customer: ${customername}' : '';
               String customerPrintingMobile = customermobileNumber != ''
                   ? 'Phone: ${customermobileNumber}'
                   : '';
@@ -1414,6 +1729,15 @@ class _BillPrintWithRunningOrdersState
                     format: "%-20s %7s %7s %7s %n");
               }
             }
+
+            if (extraItemsToPrint.isNotEmpty) {
+              for (int l = 0; l < extraItemsToPrint.length; l++) {
+                bluetooth.print4Column("${extraItemsToPrint[l]}", " ", " ",
+                    "${extraItemsPricesToPrint[l]}", printerenum.Size.bold.val,
+                    format: "%-20s %7s %7s %7s %n");
+              }
+            }
+
             bluetooth.printCustom(
                 "-----------------------------------------------",
                 printerenum.Size.bold.val,
@@ -1435,8 +1759,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['cgst'] >
+                listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
                 0) {
               // bluetooth.printCustom(
               //     "Sub-Total : ${totalPriceOfAllItems - discount}",
@@ -1452,8 +1776,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.right.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['cgst'] >
+                listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
                 0) {
               bluetooth.printCustom(
                   "CGST @ ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%: ${cgstCalculatedForBillFunction()}   ",
@@ -1461,8 +1785,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.right.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['sgst'] >
+                listen: false)
+                .restaurantInfoDataFromClass)['sgst'] >
                 0) {
               bluetooth.printCustom(
                   "SGST @ ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['sgst']}%: ${sgstCalculatedForBillFunction()}   ",
@@ -1486,16 +1810,16 @@ class _BillPrintWithRunningOrdersState
                 printerenum.Size.boldLarge.val,
                 printerenum.Align.right.val);
           } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                  .captainPrinterSizeFromClass ==
+              listen: false)
+              .captainPrinterSizeFromClass ==
               '58') {
             bluetooth.printCustom(
                 "${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}",
                 printerenum.Size.extraLarge.val,
                 printerenum.Align.center.val);
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['addressline1'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['addressline1'] !=
                 '') {
               bluetooth.printCustom(
                   "${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}",
@@ -1503,8 +1827,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['addressline2'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['addressline2'] !=
                 '') {
               bluetooth.printCustom(
                   "${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}",
@@ -1512,8 +1836,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['addressline3'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['addressline3'] !=
                 '') {
               bluetooth.printCustom(
                   "${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}",
@@ -1521,8 +1845,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['gstcode'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['gstcode'] !=
                 '') {
               bluetooth.printCustom(
                   "GSTIN: ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['gstcode']}",
@@ -1530,8 +1854,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['phonenumber'] !=
+                listen: false)
+                .restaurantInfoDataFromClass)['phonenumber'] !=
                 '') {
               bluetooth.printCustom(
                   "PH: ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}",
@@ -1541,8 +1865,8 @@ class _BillPrintWithRunningOrdersState
             bluetooth.printCustom("-------------------------------",
                 printerenum.Size.medium.val, printerenum.Align.center.val);
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['cgst'] >
+                listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
                 0) {
               bluetooth.printCustom("TAX INVOICE", printerenum.Size.bold.val,
                   printerenum.Align.center.val);
@@ -1555,7 +1879,7 @@ class _BillPrintWithRunningOrdersState
                 printerenum.Size.medium.val, printerenum.Align.center.val);
             if (customername != '' || customermobileNumber != '') {
               String customerPrintingName =
-                  customername != '' ? 'Customer: ${customername}' : '';
+              customername != '' ? 'Customer: ${customername}' : '';
               String customerPrintingMobile = customermobileNumber != ''
                   ? 'Phone: ${customermobileNumber}'
                   : '';
@@ -1632,6 +1956,14 @@ class _BillPrintWithRunningOrdersState
               //     printerenum.Size.medium.val,
               //     printerenum.Align.right.val);
             }
+            bluetooth.printNewLine();
+
+            if (extraItemsToPrint.isNotEmpty) {
+              for (int l = 0; l < extraItemsToPrint.length; l++) {
+                bluetooth.printLeftRight(extraItemsToPrint[l],
+                    extraItemsPricesToPrint[l], printerenum.Size.medium.val);
+              }
+            }
             bluetooth.printCustom("-------------------------------",
                 printerenum.Size.medium.val, printerenum.Align.center.val);
             // bluetooth.printCustom("TOTAL Qty: ${totalQuantity()}",
@@ -1651,8 +1983,8 @@ class _BillPrintWithRunningOrdersState
                   printerenum.Size.medium.val, printerenum.Align.center.val);
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['cgst'] >
+                listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
                 0) {
               bluetooth.printCustom(
                   "Sub-Total : ${totalPriceOfAllItems - discount}",
@@ -1665,8 +1997,8 @@ class _BillPrintWithRunningOrdersState
               //     format: "%-5s %5s %n");
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['cgst'] >
+                listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
                 0) {
               bluetooth.printCustom(
                   "CGST @ ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}% : ${cgstCalculatedForBillFunction()}",
@@ -1679,8 +2011,8 @@ class _BillPrintWithRunningOrdersState
               //     format: "%-5s %5s %n");
             }
             if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .restaurantInfoDataFromClass)['sgst'] >
+                listen: false)
+                .restaurantInfoDataFromClass)['sgst'] >
                 0) {
               bluetooth.printCustom(
                   "SGST @ ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['sgst']}% : ${sgstCalculatedForBillFunction()}",
@@ -1910,9 +2242,9 @@ class _BillPrintWithRunningOrdersState
             tempMasterMap.addAll({'baseInfoMap': tempBaseInfoMap});
 
             FireStoreAddOrderInRunningOrderFolder(
-                    hotelName: widget.hotelName,
-                    seatingNumber: widget.itemsFromThisDocumentInFirebaseDoc,
-                    ordersMap: tempMasterMap)
+                hotelName: widget.hotelName,
+                seatingNumber: widget.itemsFromThisDocumentInFirebaseDoc,
+                ordersMap: tempMasterMap)
                 .addOrder();
           }
           bluetooth.disconnect();
@@ -3427,7 +3759,7 @@ class _BillPrintWithRunningOrdersState
       statisticsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
       statisticsMap.addAll({
         'totalbillamounttoday':
-            FieldValue.increment(totalBillWithTaxes().round())
+        FieldValue.increment(totalBillWithTaxes().round())
       });
 
 //IfBillHadAlreadyBeenPrintedSerialNumberNeedNotBeAdded
@@ -3451,21 +3783,21 @@ class _BillPrintWithRunningOrdersState
       updatePrintOrdersMap
           .addAll({'985*Total': (totalPriceOfAllItems - discount).toString()});
       if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                  listen: false)
-              .restaurantInfoDataFromClass)['cgst'] >
+          listen: false)
+          .restaurantInfoDataFromClass)['cgst'] >
           0) {
         updatePrintOrdersMap.addAll({
           '989*CGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
-              (cgstCalculatedForBillFunction()).toString()
+          (cgstCalculatedForBillFunction()).toString()
         });
       }
       if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                  listen: false)
-              .restaurantInfoDataFromClass)['cgst'] >
+          listen: false)
+          .restaurantInfoDataFromClass)['cgst'] >
           0) {
         updatePrintOrdersMap.addAll({
           '993*SGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
-              (sgstCalculatedForBillFunction()).toString()
+          (sgstCalculatedForBillFunction()).toString()
         });
       }
       updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
@@ -3499,7 +3831,7 @@ class _BillPrintWithRunningOrdersState
             numberOfEachDistinctItemForPrint + '*';
       }
       for (var priceOfEachDistinctItem
-          in updatedPriceOfEachDistinctItemWithoutTotal) {
+      in updatedPriceOfEachDistinctItemWithoutTotal) {
         priceOfEachDistinctItemWithoutTotalForPrint =
             priceOfEachDistinctItemWithoutTotalForPrint +
                 priceOfEachDistinctItem.toString();
@@ -3508,23 +3840,23 @@ class _BillPrintWithRunningOrdersState
       }
       updatePrintOrdersMap.addAll({
         'hotelNameForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
+        '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
       });
       updatePrintOrdersMap.addAll({
         'addressline1ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
+        '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
       });
       updatePrintOrdersMap.addAll({
         'addressline2ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
+        '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
       });
       updatePrintOrdersMap.addAll({
         'addressline3ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
+        '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
       });
       updatePrintOrdersMap.addAll({
         'phoneNumberForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
+        '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
       });
       updatePrintOrdersMap.addAll({'customerNameForPrint': '$customername'});
       updatePrintOrdersMap
@@ -3540,33 +3872,33 @@ class _BillPrintWithRunningOrdersState
       if (thisIsParcelTrueElseFalse) {
         updatePrintOrdersMap.addAll({
           'takeAwayOrDineInForPrint':
-              'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+          'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
         });
       } else {
         updatePrintOrdersMap.addAll({
           'takeAwayOrDineInForPrint':
-              'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+          'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
         });
       }
       updatePrintOrdersMap
           .addAll({'distinctItemsForPrint': distinctItemsForPrint});
       updatePrintOrdersMap.addAll({
         'individualPriceOfEachDistinctItemForPrint':
-            individualPriceOfEachDistinctItemForPrint
+        individualPriceOfEachDistinctItemForPrint
       });
       updatePrintOrdersMap.addAll({
         'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint
       });
       updatePrintOrdersMap.addAll({
         'priceOfEachDistinctItemWithoutTotalForPrint':
-            priceOfEachDistinctItemWithoutTotalForPrint
+        priceOfEachDistinctItemWithoutTotalForPrint
       });
       updatePrintOrdersMap.addAll({'discount': discount.toString()});
       updatePrintOrdersMap
           .addAll({'discountEnteredValue': discountEnteredValue.toString()});
       updatePrintOrdersMap.addAll({
         'discountValueClickedTruePercentageClickedFalse':
-            discountValueClickedTruePercentageClickedFalse.toString()
+        discountValueClickedTruePercentageClickedFalse.toString()
       });
 
       updatePrintOrdersMap.addAll(
@@ -3577,8 +3909,8 @@ class _BillPrintWithRunningOrdersState
       updatePrintOrdersMap.addAll({
         'cgstPercentageForPrint': json
             .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
-                .restaurantInfoDataFromClass)['cgst']
+            listen: false)
+            .restaurantInfoDataFromClass)['cgst']
             .toString()
       });
       updatePrintOrdersMap.addAll({
@@ -3587,8 +3919,8 @@ class _BillPrintWithRunningOrdersState
       updatePrintOrdersMap.addAll({
         'sgstPercentageForPrint': json
             .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
-                .restaurantInfoDataFromClass)['cgst']
+            listen: false)
+            .restaurantInfoDataFromClass)['cgst']
             .toString()
       });
       updatePrintOrdersMap.addAll({
@@ -3599,29 +3931,22 @@ class _BillPrintWithRunningOrdersState
       if (billUpdatedInServer == false) {
         billUpdatedInServer = true;
 
-        //WithThisUpdateBill,itWillPutPrintOrdersMapAsMapItselfInServer
-        FireStoreUpdateBill(
-                hotelName: widget.hotelName,
-                orderHistoryDocID: orderHistoryDocID,
-                //        printOrdersMap: widget.printOrdersMap
-                printOrdersMap: updatePrintOrdersMap)
-            .updateBill();
-//MakingThisToEnsureThereAreNoRipplesAndTheOrderHistoryIsn'tSentAgain
+        FireStoreUpdateAndStatisticsWithBatch(
+            hotelName: widget.hotelName,
+            orderHistoryDocID: orderHistoryDocID,
+            printOrdersMap: updatePrintOrdersMap,
+            statisticsDocID: statisticsDocID,
+            statisticsUpdateMap: statisticsMap)
+            .updateBillAndStatistics();
+
         orderHistoryDocID = '';
         updatePrintOrdersMap = {};
-
-        FireStoreUpdateStatisticsWithMap(
-                hotelName: widget.hotelName,
-                docID: statisticsDocID,
-                statisticsUpdateMap: statisticsMap)
-            .updateStatistics();
         statisticsMap = {};
         statisticsDocID = '';
-//MakingThisToEnsureThereAreNoRipplesAndTheStatisticsIsn'tSentAgain
 
         FireStoreDeleteFinishedOrderInRunningOrders(
-                hotelName: widget.hotelName,
-                eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
+            hotelName: widget.hotelName,
+            eachTableId: widget.itemsFromThisDocumentInFirebaseDoc)
             .deleteFinishedOrder();
 
 //ToUpdateStatistics,WeGoThroughEachKeyAndUsingIncrementByFunction,We,,
@@ -3696,15 +4021,15 @@ class _BillPrintWithRunningOrdersState
           } else {
             serialNumber =
                 num.parse((statisticsData!['serialNumber']).toString())
-                        .toInt() +
+                    .toInt() +
                     1;
           }
 //SinceSerialNumberIsZeroWeWillHaveToIncrementSerialNumberByOneAnyway
           FireStoreUpdateStatisticsIndividualField(
-                  hotelName: widget.hotelName,
-                  docID: statisticsDocID,
-                  incrementBy: 1,
-                  key: 'serialNumber')
+              hotelName: widget.hotelName,
+              docID: statisticsDocID,
+              incrementBy: 1,
+              key: 'serialNumber')
               .updateStatistics();
 
           serialNumberUpdateInServerWhenPrintClickedFirstTime();
@@ -3745,7 +4070,7 @@ class _BillPrintWithRunningOrdersState
         statisticsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
         statisticsMap.addAll({
           'totalbillamounttoday':
-              FieldValue.increment(totalBillWithTaxes().round())
+          FieldValue.increment(totalBillWithTaxes().round())
         });
 
         //  print(widget.printOrdersMap);
@@ -3766,21 +4091,21 @@ class _BillPrintWithRunningOrdersState
         updatePrintOrdersMap.addAll(
             {'985*Total': (totalPriceOfAllItems - discount).toString()});
         if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
-                .restaurantInfoDataFromClass)['cgst'] >
+            listen: false)
+            .restaurantInfoDataFromClass)['cgst'] >
             0) {
           updatePrintOrdersMap.addAll({
             '989*CGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
-                (cgstCalculatedForBillFunction()).toString()
+            (cgstCalculatedForBillFunction()).toString()
           });
         }
         if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
-                .restaurantInfoDataFromClass)['sgst'] >
+            listen: false)
+            .restaurantInfoDataFromClass)['sgst'] >
             0) {
           updatePrintOrdersMap.addAll({
             '993*SGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['sgst']}%':
-                (sgstCalculatedForBillFunction()).toString()
+            (sgstCalculatedForBillFunction()).toString()
           });
         }
         updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
@@ -3814,7 +4139,7 @@ class _BillPrintWithRunningOrdersState
               numberOfEachDistinctItemForPrint + '*';
         }
         for (var priceOfEachDistinctItem
-            in updatedPriceOfEachDistinctItemWithoutTotal) {
+        in updatedPriceOfEachDistinctItemWithoutTotal) {
           priceOfEachDistinctItemWithoutTotalForPrint =
               priceOfEachDistinctItemWithoutTotalForPrint +
                   priceOfEachDistinctItem.toString();
@@ -3823,23 +4148,23 @@ class _BillPrintWithRunningOrdersState
         }
         updatePrintOrdersMap.addAll({
           'hotelNameForPrint':
-              '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
         });
         updatePrintOrdersMap.addAll({
           'addressline1ForPrint':
-              '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
         });
         updatePrintOrdersMap.addAll({
           'addressline2ForPrint':
-              '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
         });
         updatePrintOrdersMap.addAll({
           'addressline3ForPrint':
-              '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
         });
         updatePrintOrdersMap.addAll({
           'phoneNumberForPrint':
-              '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
         });
         updatePrintOrdersMap.addAll({'customerNameForPrint': '$customername'});
         updatePrintOrdersMap
@@ -3855,33 +4180,33 @@ class _BillPrintWithRunningOrdersState
         if (thisIsParcelTrueElseFalse) {
           updatePrintOrdersMap.addAll({
             'takeAwayOrDineInForPrint':
-                'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+            'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
           });
         } else {
           updatePrintOrdersMap.addAll({
             'takeAwayOrDineInForPrint':
-                'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+            'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
           });
         }
         updatePrintOrdersMap
             .addAll({'distinctItemsForPrint': distinctItemsForPrint});
         updatePrintOrdersMap.addAll({
           'individualPriceOfEachDistinctItemForPrint':
-              individualPriceOfEachDistinctItemForPrint
+          individualPriceOfEachDistinctItemForPrint
         });
         updatePrintOrdersMap.addAll({
           'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint
         });
         updatePrintOrdersMap.addAll({
           'priceOfEachDistinctItemWithoutTotalForPrint':
-              priceOfEachDistinctItemWithoutTotalForPrint
+          priceOfEachDistinctItemWithoutTotalForPrint
         });
         updatePrintOrdersMap.addAll({'discount': discount.toString()});
         updatePrintOrdersMap
             .addAll({'discountEnteredValue': discountEnteredValue.toString()});
         updatePrintOrdersMap.addAll({
           'discountValueClickedTruePercentageClickedFalse':
-              discountValueClickedTruePercentageClickedFalse.toString()
+          discountValueClickedTruePercentageClickedFalse.toString()
         });
 
         updatePrintOrdersMap.addAll(
@@ -3892,8 +4217,8 @@ class _BillPrintWithRunningOrdersState
         updatePrintOrdersMap.addAll({
           'cgstPercentageForPrint': json
               .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                  .restaurantInfoDataFromClass)['cgst']
+              listen: false)
+              .restaurantInfoDataFromClass)['cgst']
               .toString()
         });
         updatePrintOrdersMap.addAll({
@@ -3902,8 +4227,8 @@ class _BillPrintWithRunningOrdersState
         updatePrintOrdersMap.addAll({
           'sgstPercentageForPrint': json
               .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                  .restaurantInfoDataFromClass)['sgst']
+              listen: false)
+              .restaurantInfoDataFromClass)['sgst']
               .toString()
         });
         updatePrintOrdersMap.addAll({
@@ -3913,58 +4238,28 @@ class _BillPrintWithRunningOrdersState
             .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
         if (billUpdatedInServer == false) {
           billUpdatedInServer = true;
+          FireStoreUpdateAndStatisticsWithBatch(
+              hotelName: widget.hotelName,
+              orderHistoryDocID: orderHistoryDocID,
+              printOrdersMap: updatePrintOrdersMap,
+              statisticsDocID: statisticsDocID,
+              statisticsUpdateMap: statisticsMap)
+              .updateBillAndStatistics();
 
-          //WithThisUpdateBill,itWillPutPrintOrdersMapAsMapItselfInServer
-          FireStoreUpdateBill(
-                  hotelName: widget.hotelName,
-                  orderHistoryDocID: orderHistoryDocID,
-                  //        printOrdersMap: widget.printOrdersMap
-                  printOrdersMap: updatePrintOrdersMap)
-              .updateBill();
-//MakingThisToEnsureThereAreNoRipplesAndTheOrderHistoryIsn'tSentAgain
           orderHistoryDocID = '';
           updatePrintOrdersMap = {};
-          FireStoreUpdateStatisticsWithMap(
-                  hotelName: widget.hotelName,
-                  docID: statisticsDocID,
-                  statisticsUpdateMap: statisticsMap)
-              .updateStatistics();
           statisticsMap = {};
           statisticsDocID = '';
-//MakingThisToEnsureThereAreNoRipplesAndTheStatisticsIsn'tSentAgain
 
           FireStoreDeleteFinishedOrderInRunningOrders(
-                  hotelName: widget.hotelName,
-                  eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
+              hotelName: widget.hotelName,
+              eachTableId: widget.itemsFromThisDocumentInFirebaseDoc)
               .deleteFinishedOrder();
 
 //ToUpdateStatistics,WeGoThroughEachKeyAndUsingIncrementByFunction,We,,
 //CanIncrementTheNumberThatIsAlreadyThereInTheServer
 //ThisWillHelpToAddToTheStatisticsThat'sAlreadyThere
-          int counterToDeleteTableOrParcelOrderFromFireStore = 1;
-          // statisticsMap.forEach((key, value) {
-          //   counterToDeleteTableOrParcelOrderFromFireStore++;
-          //   double? incrementBy = statisticsMap[key]?.toDouble();
-          //   FireStoreUpdateStatistics(
-          //       hotelName: widget.hotelName,
-          //       docID: statisticsDocID,
-          //       incrementBy: incrementBy,
-          //       key: key)
-          //       .updateStatistics();
-          //   if (counterToDeleteTableOrParcelOrderFromFireStore ==
-          //       statisticsMap.length) {
-          //     FireStoreDeleteFinishedOrderInPresentOrders(
-          //         hotelName: widget.hotelName,
-          //         eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
-          //         .deleteFinishedOrder();
-          //   }
-          // });
-          //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
-          // for (String eachItemId in widget.itemsID) {
-          //   FireStoreDeleteFinishedOrder(
-          //           hotelName: widget.hotelName, eachItemId: eachItemId)
-          //       .deleteFinishedOrder();
-          // }
+
         }
         screenPopOutTimerAfterServerUpdate();
       }
@@ -3985,9 +4280,9 @@ class _BillPrintWithRunningOrdersState
     tempMasterMap.addAll({'baseInfoMap': tempBaseInfoMap});
 
     FireStoreAddOrderInRunningOrderFolder(
-            hotelName: widget.hotelName,
-            seatingNumber: widget.itemsFromThisDocumentInFirebaseDoc,
-            ordersMap: tempMasterMap)
+        hotelName: widget.hotelName,
+        seatingNumber: widget.itemsFromThisDocumentInFirebaseDoc,
+        ordersMap: tempMasterMap)
         .addOrder();
   }
 
@@ -4026,7 +4321,7 @@ class _BillPrintWithRunningOrdersState
                     '${index + 1}.$itemName x $itemPrice x $numberOfEachItems =',
                     style: TextStyle(fontSize: 18.0)),
                 trailing:
-                    Text('$eachItemPrice', style: TextStyle(fontSize: 18.0)),
+                Text('$eachItemPrice', style: TextStyle(fontSize: 18.0)),
               );
             }),
       );
@@ -4034,7 +4329,7 @@ class _BillPrintWithRunningOrdersState
 
     return WillPopScope(
       onWillPop: () async {
-        if (billUpdatedInServer) {
+        if (billUpdatedInServer || noItemsInTable) {
           if (bluetoothConnected) {
             bluetooth.disconnect();
             _everySecondForConnection = 0;
@@ -4061,7 +4356,7 @@ class _BillPrintWithRunningOrdersState
           leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
               onPressed: () async {
-                if (billUpdatedInServer) {
+                if (billUpdatedInServer || noItemsInTable) {
                   if (bluetoothConnected) {
                     bluetooth.disconnect();
                     _everySecondForConnection = 0;
@@ -4102,364 +4397,473 @@ class _BillPrintWithRunningOrdersState
                 ))
           ],
         ),
-        body: ModalProgressHUD(
+        body: Column(
+          children: [
+            Expanded(
+              child: ModalProgressHUD(
 //ThisIsToShowSpinnerOnceWeClickPrintButton
-          inAsyncCall: showSpinner,
-          child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection(widget.hotelName)
-                  .doc('runningorders')
-                  .collection('runningorders')
-                  .doc(widget.itemsFromThisDocumentInFirebaseDoc)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                inAsyncCall: showSpinner,
+                child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    stream: FirebaseFirestore.instance
+                        .collection(widget.hotelName)
+                        .doc('runningorders')
+                        .collection('runningorders')
+                        .doc(widget.itemsFromThisDocumentInFirebaseDoc)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
 //IfConnectionStateIsWaiting,ThenWePutTheRotatingCircleThatShowsLoadingInTheCenter
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      backgroundColor: Colors.lightBlueAccent,
-                    ),
-                  );
-                } else if (snapshot.hasError) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            backgroundColor: Colors.lightBlueAccent,
+                          ),
+                        );
+                      } else if (snapshot.hasError) {
 //IfThereIsAnError,WeCaptureTheErrorAndPutItInThePage
-                  return Center(
-                    child: Text(snapshot.error.toString()),
-                  );
-                } else if (snapshot.hasData) {
-                  if (snapshot.data!.data() == null) {
-                    print('came inside null');
-                    noItemsInTable = true;
+                        return Center(
+                          child: Text(snapshot.error.toString()),
+                        );
+                      } else if (snapshot.hasData) {
+                        if (snapshot.data!.data() == null) {
+                          print('came inside null');
+                          noItemsInTable = true;
 
-                    return const Center(
-                      child: Text(
-                        'Bill Closed',
-                        style: TextStyle(fontSize: 30),
-                      ),
-                    );
-                  } else {
-                    noItemsInTable = false;
-                    var output = snapshot.data!.data();
-                    baseInfoFromServerMap = output!['baseInfoMap'];
-                    itemsInOrderFromServerMap = output!['itemsInOrderMap'];
-                    makingDistinctItemsList();
-                    return buildBillDataScreen(billItemsForDisplay);
-                  }
-                } else {
-                  return CircularProgressIndicator();
-                }
-              }),
-        ),
-        floatingActionButton: Container(
-          width: 75.0,
-          height: 75.0,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(1)),
-          child: FloatingActionButton(
-            backgroundColor: Colors.white70,
-            child: const Text(
-              'Discount',
-              style:
-                  TextStyle(color: Colors.black, fontWeight: FontWeight.w900),
-            ),
-            onPressed: () {
+                          return const Center(
+                            child: Text(
+                              'Bill Closed',
+                              style: TextStyle(fontSize: 30),
+                            ),
+                          );
+                        } else {
+                          noItemsInTable = false;
+                          var output = snapshot.data!.data();
+                          baseInfoFromServerMap = output!['baseInfoMap'];
+                          itemsInOrderFromServerMap =
+                          output!['itemsInOrderMap'];
+                          makingDistinctItemsList();
+
+                          return Scaffold(
+                            body: buildBillDataScreen(billItemsForDisplay),
+                            floatingActionButton: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Container(
+                                  width: 85,
+                                  height: 75.0,
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(1)),
+                                  child: MaterialButton(
+                                    color: Colors.white70,
+                                    shape: CircleBorder(),
+                                    child: const Text(
+                                      'Charges',
+                                      style: TextStyle(
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.w900),
+                                    ),
+                                    onPressed: () {
 //shouldBeActiveOnlyWhenThereIsNoOtherImportantActivityLikePrintHappening
-              if (!showSpinner) {
-                //onPressedWeAlreadyHaveAllTheBelowInputsAsThisScreenWasCalled
+                                      if (!showSpinner) {
+                                        if (extraChargesMapFromServer.isEmpty) {
+                                          tempChargeName = chargesNamesList[0];
+                                          tempChargesPriceForEditInString = '';
+                                          _controller.clear();
+                                          chargesAddBottomBar();
+                                        } else {
+                                          existingExtraChargesBottomBar();
+                                        }
+                                      }
+                                    },
+                                  ),
+                                ),
+                                SizedBox(height: 20),
+                                Container(
+                                  width: 75.0,
+                                  height: 75.0,
+                                  decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(1)),
+                                  child: FloatingActionButton(
+                                    backgroundColor: Colors.white70,
+                                    child: const Text(
+                                      'Discount',
+                                      style: TextStyle(
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.w900),
+                                    ),
+                                    onPressed: () {
+//shouldBeActiveOnlyWhenThereIsNoOtherImportantActivityLikePrintHappening
+                                      if (!showSpinner) {
+                                        //onPressedWeAlreadyHaveAllTheBelowInputsAsThisScreenWasCalled
 //WeGiveUnavailableItemsToEnsureWeDon'tShowItAndItemsAddedMap
 //WillHaveTheItemNameAsKeyAndTheNumberAsValue
-                String tempDiscountEnteredValue = discountEnteredValue;
-                bool tempDiscountValueClickedTruePercentageClickedFalse =
-                    discountValueClickedTruePercentageClickedFalse;
-                _controller =
-                    TextEditingController(text: tempDiscountEnteredValue);
+                                        String tempDiscountEnteredValue =
+                                            discountEnteredValue;
+                                        bool
+                                        tempDiscountValueClickedTruePercentageClickedFalse =
+                                            discountValueClickedTruePercentageClickedFalse;
+                                        _controller = TextEditingController(
+                                            text: tempDiscountEnteredValue);
 
-                showModalBottomSheet(
-                    isScrollControlled: true,
-                    context: context,
-                    builder: (BuildContext buildContext) {
-                      return StatefulBuilder(builder: (context, setStateSB) {
-                        return Padding(
-                          padding: EdgeInsets.only(
-                              bottom: MediaQuery.of(context).viewInsets.bottom),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
+                                        showModalBottomSheet(
+                                            isScrollControlled: true,
+                                            context: context,
+                                            builder:
+                                                (BuildContext buildContext) {
+                                              return StatefulBuilder(builder:
+                                                  (context, setStateSB) {
+                                                return Padding(
+                                                  padding: EdgeInsets.only(
+                                                      bottom:
+                                                      MediaQuery.of(context)
+                                                          .viewInsets
+                                                          .bottom),
+                                                  child: Column(
+                                                    mainAxisSize:
+                                                    MainAxisSize.min,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            // width: double.infinity,
+                                                            child:
+                                                            ElevatedButton(
+                                                                style:
+                                                                ButtonStyle(
+                                                                  backgroundColor: tempDiscountValueClickedTruePercentageClickedFalse
+                                                                      ? MaterialStateProperty.all(Colors
+                                                                      .grey)
+                                                                      : MaterialStateProperty.all(
+                                                                      Colors.green),
+                                                                ),
+                                                                onPressed:
+                                                                    () {
+                                                                  setStateSB(
+                                                                          () {
+                                                                        tempDiscountValueClickedTruePercentageClickedFalse =
+                                                                        false;
+                                                                        print(
+                                                                            'tempDiscountValueClickedTruePercentageClickedFalse');
+                                                                        print(
+                                                                            tempDiscountValueClickedTruePercentageClickedFalse);
+                                                                        tempDiscountEnteredValue =
+                                                                        '';
+                                                                        _controller
+                                                                            .clear();
+                                                                      });
+                                                                },
+                                                                child: Text(
+                                                                    'Discount Percentage')),
+                                                          ),
+                                                          SizedBox(width: 10),
+                                                          Expanded(
+                                                            // width: double.infinity,
+                                                              child:
+                                                              ElevatedButton(
+                                                                  style:
+                                                                  ButtonStyle(
+                                                                    backgroundColor: tempDiscountValueClickedTruePercentageClickedFalse
+                                                                        ? MaterialStateProperty.all(Colors.green)
+                                                                        : MaterialStateProperty.all(Colors.grey),
+                                                                  ),
+                                                                  onPressed:
+                                                                      () {
+                                                                    setStateSB(
+                                                                            () {
+                                                                          tempDiscountValueClickedTruePercentageClickedFalse =
+                                                                          true;
+                                                                          tempDiscountEnteredValue =
+                                                                          '';
+                                                                          _controller
+                                                                              .clear();
+                                                                        });
+                                                                  },
+                                                                  child: Text(
+                                                                      'Discount Value'))),
+                                                        ],
+                                                      ),
+                                                      Container(
+                                                        padding:
+                                                        EdgeInsets.all(20),
+                                                        child: TextField(
+                                                          maxLength: 250,
+                                                          keyboardType:
+                                                          TextInputType
+                                                              .numberWithOptions(
+                                                              decimal:
+                                                              true),
+                                                          controller:
+                                                          _controller,
+                                                          // controller:
+                                                          // TextEditingController(text: widget.itemsAddedComment[item]),
+                                                          onChanged: (value) {
+                                                            tempDiscountEnteredValue =
+                                                                value;
+                                                          },
+                                                          decoration:
+                                                          // kTextFieldInputDecoration,
+                                                          InputDecoration(
+                                                              filled: true,
+                                                              fillColor:
+                                                              Colors
+                                                                  .white,
+                                                              hintText: tempDiscountValueClickedTruePercentageClickedFalse
+                                                                  ? 'Enter ₹'
+                                                                  : 'Enter %',
+                                                              hintStyle: TextStyle(
+                                                                  color: Colors
+                                                                      .grey),
+                                                              enabledBorder: OutlineInputBorder(
+                                                                  borderRadius: BorderRadius
+                                                                      .all(Radius.circular(
+                                                                      10)),
+                                                                  borderSide: BorderSide(
+                                                                      color: Colors
+                                                                          .green)),
+                                                              focusedBorder: OutlineInputBorder(
+                                                                  borderRadius:
+                                                                  BorderRadius.all(Radius.circular(
+                                                                      10)),
+                                                                  borderSide:
+                                                                  BorderSide(
+                                                                      color: Colors.green))),
+                                                        ),
+                                                      ),
+                                                      ElevatedButton(
+                                                          style: ButtonStyle(
+                                                            backgroundColor:
+                                                            MaterialStateProperty
+                                                                .all<Color>(
+                                                                Colors
+                                                                    .green),
+                                                          ),
+                                                          onPressed: () {
+                                                            if (tempDiscountValueClickedTruePercentageClickedFalse) {
+                                                              setState(() {
+                                                                if (tempDiscountEnteredValue !=
+                                                                    '') {
+                                                                  discount =
+                                                                      num.parse(
+                                                                          tempDiscountEnteredValue);
+                                                                } else {
+                                                                  discount = 0;
+                                                                }
+                                                              });
+                                                            } else {
+                                                              setStateSB(() {
+                                                                if (tempDiscountEnteredValue !=
+                                                                    '') {
+                                                                  discount = num.parse((totalPriceOfAllItems *
+                                                                      (num.parse(tempDiscountEnteredValue) /
+                                                                          100))
+                                                                      .toStringAsFixed(
+                                                                      2));
+                                                                } else {
+                                                                  discount = 0;
+                                                                }
+                                                              });
+                                                            }
+
+                                                            Map<String, dynamic>
+                                                            tempBaseInfoMapToServer =
+                                                            HashMap();
+                                                            tempBaseInfoMapToServer
+                                                                .addAll({
+                                                              'discountEnteredValue':
+                                                              tempDiscountEnteredValue
+                                                            });
+                                                            tempBaseInfoMapToServer
+                                                                .addAll({
+                                                              'discountValueTruePercentageFalse':
+                                                              tempDiscountValueClickedTruePercentageClickedFalse
+                                                            });
+                                                            Map<String, dynamic>
+                                                            tempMasterOrderMapToServer =
+                                                            HashMap();
+                                                            tempMasterOrderMapToServer
+                                                                .addAll({
+                                                              'baseInfoMap':
+                                                              tempBaseInfoMapToServer
+                                                            });
+
+                                                            FireStoreAddOrderInRunningOrderFolder(
+                                                                hotelName:
+                                                                widget
+                                                                    .hotelName,
+                                                                seatingNumber:
+                                                                widget
+                                                                    .itemsFromThisDocumentInFirebaseDoc,
+                                                                ordersMap:
+                                                                tempMasterOrderMapToServer)
+                                                                .addOrder();
+                                                            Navigator.pop(
+                                                                context);
+                                                          },
+                                                          child: Text('Done'))
+                                                    ],
+                                                  ),
+                                                );
+                                              });
+                                            });
+                                      }
+                                    },
+                                  ),
+                                )
+                              ],
+                            ),
+                            persistentFooterButtons: [
                               Row(
                                 children: [
                                   Expanded(
-                                    // width: double.infinity,
-                                    child: ElevatedButton(
-                                        style: ButtonStyle(
-                                          backgroundColor:
-                                              tempDiscountValueClickedTruePercentageClickedFalse
-                                                  ? MaterialStateProperty.all(
-                                                      Colors.grey)
-                                                  : MaterialStateProperty.all(
-                                                      Colors.green),
-                                        ),
-                                        onPressed: () {
-                                          setStateSB(() {
-                                            tempDiscountValueClickedTruePercentageClickedFalse =
-                                                false;
-                                            print(
-                                                'tempDiscountValueClickedTruePercentageClickedFalse');
-                                            print(
-                                                tempDiscountValueClickedTruePercentageClickedFalse);
-                                            tempDiscountEnteredValue = '';
-                                            _controller.clear();
-                                          });
-                                        },
-                                        child: Text('Discount Percentage')),
+                                    child: BottomButton(
+                                      onTap: () async {
+                                        if (showSpinner == false) {
+                                          if (billUpdatedInServer == false &&
+                                              pageHasInternet) {
+                                            setState(() {
+                                              showSpinner = true;
+                                            });
+                                            serverUpdateOfBill();
+                                          }
+                                        }
+                                      },
+                                      buttonTitle: 'Payment Done',
+                                      buttonColor: Colors.green,
+                                      // buttonWidth: double.infinity,
+                                    ),
                                   ),
                                   SizedBox(width: 10),
-                                  Expanded(
-                                      // width: double.infinity,
-                                      child: ElevatedButton(
-                                          style: ButtonStyle(
-                                            backgroundColor:
-                                                tempDiscountValueClickedTruePercentageClickedFalse
-                                                    ? MaterialStateProperty.all(
-                                                        Colors.green)
-                                                    : MaterialStateProperty.all(
-                                                        Colors.grey),
-                                          ),
-                                          onPressed: () {
-                                            setStateSB(() {
-                                              tempDiscountValueClickedTruePercentageClickedFalse =
-                                                  true;
-                                              tempDiscountEnteredValue = '';
-                                              _controller.clear();
-                                            });
-                                          },
-                                          child: Text('Discount Value'))),
+                                  Provider.of<PrinterAndOtherDetailsProvider>(
+                                      context)
+                                      .captainPrinterAddressFromClass ==
+                                      ''
+                                      ? Expanded(
+//IfNoPrinterAddressWeWillSayWeNeedThePrinterSetUpScreen
+                                    child: BottomButton(
+                                      onTap: () async {
+                                        if (showSpinner == false) {
+                                          disconnectAndConnectAttempted =
+                                          false;
+                                          // tappedPrintButton = true;
+                                          print(
+                                              'from bottom button 1 entry-tapped Print Button $tappedPrintButton');
+
+                                          bluetoothStateChangeFunction();
+
+                                          if (bluetoothOnTrueOrOffFalse) {
+                                            Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        SearchingConnectingPrinter(
+                                                            chefOrCaptain:
+                                                            'Captain')));
+                                            // getAllPairedDevices();
+                                            // setState(() {
+                                            //   noNeedPrinterConnectionScreen = false;
+                                            // });
+                                            print('nknsjkdndjsndsjk');
+                                          } else if (bluetoothOnTrueOrOffFalse ==
+                                              false &&
+                                              tappedPrintButton ==
+                                                  false &&
+                                              _connected == false) {
+//HereOnlyBluetoothIsTheIssue HenceTappedPrintButtonCanBeFalseItself
+                                            tappedPrintButton = false;
+                                            print(
+                                                '14 $tappedPrintButton');
+
+                                            const snackBar = SnackBar(
+                                              content: Text(
+                                                'Please Turn On Bluetooth!',
+                                                textAlign:
+                                                TextAlign.center,
+                                                style: TextStyle(
+                                                    fontSize: 30),
+                                              ),
+                                            );
+
+// Find the ScaffoldMessenger in the widget tree
+// and use it to show a SnackBar.
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(snackBar);
+                                          }
+                                        }
+                                      },
+                                      buttonTitle: 'Print',
+                                      buttonColor: Colors.red,
+                                      // buttonWidth: double.infinity,
+                                    ),
+                                  )
+                                      : Expanded(
+                                    child: BottomButton(
+                                      onTap: () async {
+                                        if (showSpinner == false) {
+                                          disconnectAndConnectAttempted =
+                                          false;
+                                          if (tappedPrintButton ==
+                                              false) {
+                                            bluetoothStateChangeFunction();
+                                          }
+
+                                          //ThisWayYouCan'tPrintAgainOnceBillHasBeenUpdatedInServer
+//                               bluetoothPrint.state.listen((state) {
+                                          // print('state is $state');
+                                          print(
+                                              'tapped button state is $tappedPrintButton');
+                                          if (bluetoothOnTrueOrOffFalse &&
+                                              tappedPrintButton ==
+                                                  false &&
+                                              pageHasInternet) {
+                                            if (serialNumber != 0) {
+                                              startOfCallForPrintingBill();
+                                            } else {
+                                              serialNumberStatisticsExistsOrNot();
+                                            }
+                                          } else if (bluetoothOnTrueOrOffFalse ==
+                                              false &&
+                                              tappedPrintButton ==
+                                                  false &&
+                                              _connected == false) {
+//HereOnlyBluetoothIsTheIssue HenceTappedPrintButtonCanBeFalseItself
+                                            tappedPrintButton = false;
+                                            print(
+                                                '14 $tappedPrintButton');
+
+                                            const snackBar = SnackBar(
+                                              content: Text(
+                                                'Please Turn On Bluetooth!',
+                                                textAlign:
+                                                TextAlign.center,
+                                                style: TextStyle(
+                                                    fontSize: 30),
+                                              ),
+                                            );
+
+// Find the ScaffoldMessenger in the widget tree
+// and use it to show a SnackBar.
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(snackBar);
+                                          }
+                                        }
+                                      },
+                                      buttonTitle: 'Print',
+                                      buttonColor: Colors.orangeAccent,
+                                      // buttonWidth: double.infinity,
+                                    ),
+                                  ),
                                 ],
                               ),
-                              Container(
-                                padding: EdgeInsets.all(20),
-                                child: TextField(
-                                  maxLength: 250,
-                                  keyboardType: TextInputType.numberWithOptions(
-                                      decimal: true),
-                                  controller: _controller,
-                                  // controller:
-                                  // TextEditingController(text: widget.itemsAddedComment[item]),
-                                  onChanged: (value) {
-                                    tempDiscountEnteredValue = value;
-                                  },
-                                  decoration:
-                                      // kTextFieldInputDecoration,
-                                      InputDecoration(
-                                          filled: true,
-                                          fillColor: Colors.white,
-                                          hintText:
-                                              tempDiscountValueClickedTruePercentageClickedFalse
-                                                  ? 'Enter ₹'
-                                                  : 'Enter %',
-                                          hintStyle:
-                                              TextStyle(color: Colors.grey),
-                                          enabledBorder: OutlineInputBorder(
-                                              borderRadius: BorderRadius.all(
-                                                  Radius.circular(10)),
-                                              borderSide: BorderSide(
-                                                  color: Colors.green)),
-                                          focusedBorder: OutlineInputBorder(
-                                              borderRadius: BorderRadius.all(
-                                                  Radius.circular(10)),
-                                              borderSide: BorderSide(
-                                                  color: Colors.green))),
-                                ),
-                              ),
-                              ElevatedButton(
-                                  style: ButtonStyle(
-                                    backgroundColor:
-                                        MaterialStateProperty.all<Color>(
-                                            Colors.green),
-                                  ),
-                                  onPressed: () {
-                                    if (tempDiscountValueClickedTruePercentageClickedFalse) {
-                                      setState(() {
-                                        if (tempDiscountEnteredValue != '') {
-                                          discount = num.parse(
-                                              tempDiscountEnteredValue);
-                                        } else {
-                                          discount = 0;
-                                        }
-                                      });
-                                    } else {
-                                      setStateSB(() {
-                                        if (tempDiscountEnteredValue != '') {
-                                          discount = num.parse(
-                                              (totalPriceOfAllItems *
-                                                      (num.parse(
-                                                              tempDiscountEnteredValue) /
-                                                          100))
-                                                  .toStringAsFixed(2));
-                                        } else {
-                                          discount = 0;
-                                        }
-                                      });
-                                    }
-
-                                    Map<String, dynamic>
-                                        tempBaseInfoMapToServer = HashMap();
-                                    tempBaseInfoMapToServer.addAll({
-                                      'discountEnteredValue':
-                                          tempDiscountEnteredValue
-                                    });
-                                    tempBaseInfoMapToServer.addAll({
-                                      'discountValueTruePercentageFalse':
-                                          tempDiscountValueClickedTruePercentageClickedFalse
-                                    });
-                                    Map<String, dynamic>
-                                        tempMasterOrderMapToServer = HashMap();
-                                    tempMasterOrderMapToServer.addAll({
-                                      'baseInfoMap': tempBaseInfoMapToServer
-                                    });
-
-                                    FireStoreAddOrderInRunningOrderFolder(
-                                            hotelName: widget.hotelName,
-                                            seatingNumber: widget
-                                                .itemsFromThisDocumentInFirebaseDoc,
-                                            ordersMap:
-                                                tempMasterOrderMapToServer)
-                                        .addOrder();
-                                    Navigator.pop(context);
-                                  },
-                                  child: Text('Done'))
                             ],
-                          ),
-                        );
-                      });
-                    });
-              }
-            },
-          ),
-        ),
-        persistentFooterButtons: [
-          Row(
-            children: [
-              Expanded(
-                child: BottomButton(
-                  onTap: () {
-                    if (showSpinner == false) {
-                      if (billUpdatedInServer == false && pageHasInternet) {
-                        setState(() {
-                          showSpinner = true;
-                        });
-                        serverUpdateOfBill();
+                          );
+                        }
+                      } else {
+                        return CircularProgressIndicator();
                       }
-                    }
-                  },
-                  buttonTitle: 'Payment Done',
-                  buttonColor: Colors.green,
-                  // buttonWidth: double.infinity,
-                ),
+                    }),
               ),
-              SizedBox(width: 10),
-              Provider.of<PrinterAndOtherDetailsProvider>(context)
-                          .captainPrinterAddressFromClass ==
-                      ''
-                  ? Expanded(
-//IfNoPrinterAddressWeWillSayWeNeedThePrinterSetUpScreen
-                      child: BottomButton(
-                        onTap: () async {
-                          if (showSpinner == false) {
-                            disconnectAndConnectAttempted = false;
-                            // tappedPrintButton = true;
-                            print(
-                                'from bottom button 1 entry-tapped Print Button $tappedPrintButton');
-
-                            bluetoothStateChangeFunction();
-
-                            if (bluetoothOnTrueOrOffFalse) {
-                              Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          SearchingConnectingPrinter(
-                                              chefOrCaptain: 'Captain')));
-                              // getAllPairedDevices();
-                              // setState(() {
-                              //   noNeedPrinterConnectionScreen = false;
-                              // });
-                              print('nknsjkdndjsndsjk');
-                            } else if (bluetoothOnTrueOrOffFalse == false &&
-                                tappedPrintButton == false &&
-                                _connected == false) {
-//HereOnlyBluetoothIsTheIssue HenceTappedPrintButtonCanBeFalseItself
-                              tappedPrintButton = false;
-                              print('14 $tappedPrintButton');
-
-                              const snackBar = SnackBar(
-                                content: Text(
-                                  'Please Turn On Bluetooth!',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 30),
-                                ),
-                              );
-
-// Find the ScaffoldMessenger in the widget tree
-// and use it to show a SnackBar.
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(snackBar);
-                            }
-                          }
-                        },
-                        buttonTitle: 'Print',
-                        buttonColor: Colors.red,
-                        // buttonWidth: double.infinity,
-                      ),
-                    )
-                  : Expanded(
-                      child: BottomButton(
-                        onTap: () async {
-                          if (showSpinner == false) {
-                            disconnectAndConnectAttempted = false;
-                            if (tappedPrintButton == false) {
-                              bluetoothStateChangeFunction();
-                            }
-
-                            //ThisWayYouCan'tPrintAgainOnceBillHasBeenUpdatedInServer
-//                               bluetoothPrint.state.listen((state) {
-                            // print('state is $state');
-                            print('tapped button state is $tappedPrintButton');
-                            if (bluetoothOnTrueOrOffFalse &&
-                                tappedPrintButton == false &&
-                                pageHasInternet) {
-                              if (serialNumber != 0) {
-                                startOfCallForPrintingBill();
-                              } else {
-                                serialNumberStatisticsExistsOrNot();
-                              }
-                            } else if (bluetoothOnTrueOrOffFalse == false &&
-                                tappedPrintButton == false &&
-                                _connected == false) {
-//HereOnlyBluetoothIsTheIssue HenceTappedPrintButtonCanBeFalseItself
-                              tappedPrintButton = false;
-                              print('14 $tappedPrintButton');
-
-                              const snackBar = SnackBar(
-                                content: Text(
-                                  'Please Turn On Bluetooth!',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 30),
-                                ),
-                              );
-
-// Find the ScaffoldMessenger in the widget tree
-// and use it to show a SnackBar.
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(snackBar);
-                            }
-                          }
-                        },
-                        buttonTitle: 'Print',
-                        buttonColor: Colors.orangeAccent,
-                        // buttonWidth: double.infinity,
-                      ),
-                    ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -4473,16 +4877,16 @@ class _BillPrintWithRunningOrdersState
         children: [
           pageHasInternet
               ? const SizedBox(
-                  height: 30.0,
-                )
+            height: 30.0,
+          )
               : Container(
-                  width: double.infinity,
-                  color: Colors.red,
-                  child: const Center(
-                    child: Text('You are Offline',
-                        style: TextStyle(color: Colors.white, fontSize: 30.0)),
-                  ),
-                ),
+            width: double.infinity,
+            color: Colors.red,
+            child: const Center(
+              child: Text('You are Offline',
+                  style: TextStyle(color: Colors.white, fontSize: 30.0)),
+            ),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -4501,82 +4905,91 @@ class _BillPrintWithRunningOrdersState
           ),
           //returnItems(),
           billItemsForDisplay(),
+          extraChargesMapFromServer.isNotEmpty
+              ? Divider(
+            thickness: 2,
+            color: Colors.black,
+          )
+              : SizedBox.shrink(),
+          extraChargesMapFromServer.isNotEmpty
+              ? extraChargesInMainScreen()
+              : SizedBox.shrink(),
           Divider(
             thickness: 2,
             color: Colors.black,
           ),
           discount != 0
               ? ListTile(
-                  title: discountValueClickedTruePercentageClickedFalse
-                      ? Text('Discount ₹', style: TextStyle(fontSize: 20.0))
-                      : Text('Discount $discountEnteredValue % ',
-                          style: TextStyle(fontSize: 20.0)),
-                  trailing: Text('$discount', style: TextStyle(fontSize: 20.0)),
-                )
+            title: discountValueClickedTruePercentageClickedFalse
+                ? Text('Discount ₹', style: TextStyle(fontSize: 20.0))
+                : Text('Discount $discountEnteredValue % ',
+                style: TextStyle(fontSize: 20.0)),
+            trailing: Text('$discount', style: TextStyle(fontSize: 20.0)),
+          )
               : SizedBox.shrink(),
           discount != 0
               ? Divider(
-                  thickness: 2,
-                  color: Colors.black,
-                )
+            thickness: 2,
+            color: Colors.black,
+          )
               : SizedBox.shrink(),
           json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['cgst'] >
-                  0
+              listen: false)
+              .restaurantInfoDataFromClass)['cgst'] >
+              0
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text('Sub-Total', style: TextStyle(fontSize: 25.0)),
-                    Text('${totalPriceOfAllItems - discount}',
-                        style: TextStyle(fontSize: 25.0))
-                  ],
-                )
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('Sub-Total', style: TextStyle(fontSize: 25.0)),
+              Text('${totalPriceOfAllItems - discount}',
+                  style: TextStyle(fontSize: 25.0))
+            ],
+          )
               : SizedBox.shrink(),
           json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['cgst'] >
-                  0
+              listen: false)
+              .restaurantInfoDataFromClass)['cgst'] >
+              0
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text(
-                        'CGST@ ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%',
-                        style: TextStyle(fontSize: 25.0)),
-                    Text('${cgstCalculatedForBillFunction()}',
-                        style: TextStyle(fontSize: 25.0))
-                  ],
-                )
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text(
+                  'CGST@ ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%',
+                  style: TextStyle(fontSize: 25.0)),
+              Text('${cgstCalculatedForBillFunction()}',
+                  style: TextStyle(fontSize: 25.0))
+            ],
+          )
               : SizedBox.shrink(),
           json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['sgst'] >
-                  0
+              listen: false)
+              .restaurantInfoDataFromClass)['sgst'] >
+              0
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text(
-                        'SGST@ ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['sgst']}%',
-                        style: TextStyle(fontSize: 25.0)),
-                    Text('${sgstCalculatedForBillFunction()}',
-                        style: TextStyle(fontSize: 25.0))
-                  ],
-                )
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text(
+                  'SGST@ ${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['sgst']}%',
+                  style: TextStyle(fontSize: 25.0)),
+              Text('${sgstCalculatedForBillFunction()}',
+                  style: TextStyle(fontSize: 25.0))
+            ],
+          )
               : SizedBox.shrink(),
           roundOff() != '0'
               ? Divider(
-                  thickness: 2,
-                  color: Colors.black,
-                )
+            thickness: 2,
+            color: Colors.black,
+          )
               : SizedBox.shrink(),
           roundOff() != '0'
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    Text('Round Off', style: TextStyle(fontSize: 15.0)),
-                    Text('${roundOff()}', style: TextStyle(fontSize: 15.0))
-                  ],
-                )
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('Round Off', style: TextStyle(fontSize: 15.0)),
+              Text('${roundOff()}', style: TextStyle(fontSize: 15.0))
+            ],
+          )
               : SizedBox.shrink(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,

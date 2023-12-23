@@ -66,6 +66,10 @@ dependencies:
   firebase_messaging: ^13.1.0
   http: ^0.13.5
   auto_start_flutter: ^0.1.1
+  flutter_esc_pos_utils: ^0.1.8
+  flutter_esc_pos_network: ^1.0.2
+  flutter_pos_printer_platform_image_3: ^1.1.2
+
 
 flutter_native_splash:
   background_image: "assets/splash_background_1.png"

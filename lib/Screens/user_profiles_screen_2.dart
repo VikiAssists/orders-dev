@@ -431,6 +431,7 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                   updateUserMap.addAll(
                                       {'restaurantName': tempRestaurantName});
                                   updateUserMap.addAll({'admin': tempAdmin});
+                                  updateUserMap.addAll({'wontCook': []});
                                   Map<String, bool> updatePrivilegesMap =
                                       HashMap();
                                   updatePrivilegesMap
@@ -483,6 +484,20 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                           hotelName: widget.hotelName,
                                           updateUserProfileMap: updateUserMap)
                                       .addUserProfile();
+                                  fcmProvider.sendNotification(
+                                      token: dynamicTokensToStringToken(),
+                                      title: widget.hotelName,
+                                      restaurantNameForNotification: json.decode(Provider
+                                                  .of<PrinterAndOtherDetailsProvider>(
+                                                      context,
+                                                      listen: false)
+                                              .allUserProfilesFromClass)[Provider
+                                                  .of<PrinterAndOtherDetailsProvider>(
+                                                      context,
+                                                      listen: false)
+                                              .currentUserPhoneNumberFromClass]
+                                          ['restaurantName'],
+                                      body: '*userProfileEdited*');
                                   Navigator.pop(context);
                                 }
                               },
@@ -732,6 +747,7 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                   updateUserMap.addAll(
                                       {'restaurantName': tempRestaurantName});
                                   updateUserMap.addAll({'admin': false});
+                                  updateUserMap.addAll({'wontCook': []});
                                   Map<String, bool> updatePrivilegesMap =
                                       HashMap();
                                   updatePrivilegesMap
@@ -784,6 +800,20 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                           hotelName: widget.hotelName,
                                           updateUserProfileMap: updateUserMap)
                                       .addUserProfile();
+                                  fcmProvider.sendNotification(
+                                      token: dynamicTokensToStringToken(),
+                                      title: widget.hotelName,
+                                      restaurantNameForNotification: json.decode(Provider
+                                                  .of<PrinterAndOtherDetailsProvider>(
+                                                      context,
+                                                      listen: false)
+                                              .allUserProfilesFromClass)[Provider
+                                                  .of<PrinterAndOtherDetailsProvider>(
+                                                      context,
+                                                      listen: false)
+                                              .currentUserPhoneNumberFromClass]
+                                          ['restaurantName'],
+                                      body: '*userProfileEdited*');
                                   Navigator.pop(context);
                                 }
                               },
@@ -801,6 +831,7 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
     void adminEditUserProfileBottomSheet(
         context, Map<String, dynamic> userProfileMap) {
       tempListOfRestaurantsOfUser = userProfileMap['restaurantsOfTheUser'];
+
       tempUserPhoneNumber = userProfileMap['userPhoneNumber'];
       tempUserName = userProfileMap['username'];
       tempOwnerOrNot = userProfileMap['privileges']['1'];
@@ -1414,7 +1445,8 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
           StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('loginDetails')
-                  .where('restaurants', arrayContains: widget.hotelName)
+                  .where('restaurantDatabase.${'${widget.hotelName}'}',
+                      isEqualTo: true)
                   .snapshots(),
               builder: (context, snapshot) {
                 List<Map<String, dynamic>> users = [];
@@ -1442,8 +1474,16 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                     temporaryMapToAdd.addAll({'userPhoneNumber': eachDoc.id});
                     tempRestaurantName =
                         eachDoc[widget.hotelName]['restaurantName'];
-                    temporaryMapToAdd.addAll(
-                        {'restaurantsOfTheUser': eachDoc['restaurants']});
+                    Map<String, dynamic> tempTempMapOfEachRestaurantsOfUser =
+                        eachDoc['restaurantDatabase'];
+                    List<String> tempTempListOfRestaurantsOfEachUser = [];
+                    tempTempMapOfEachRestaurantsOfUser.forEach((key, value) {
+                      tempTempListOfRestaurantsOfEachUser.add(key.toString());
+                    });
+                    temporaryMapToAdd.addAll({
+                      'restaurantsOfTheUser':
+                          tempTempListOfRestaurantsOfEachUser
+                    });
                     temporaryMapToAdd.addAll(eachDoc[widget.hotelName]);
                     users.add(temporaryMapToAdd);
                   }
@@ -1528,7 +1568,8 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
           StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('loginDetails')
-                  .where('restaurants', arrayContains: widget.hotelName)
+                  .where('restaurantDatabase.${'${widget.hotelName}'}',
+                      isEqualTo: true)
                   .snapshots(),
               builder: (context, snapshot) {
                 List<Map<String, dynamic>> users = [];
@@ -1556,8 +1597,16 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                       temporaryMapToAdd.addAll({'userPhoneNumber': eachDoc.id});
                       tempRestaurantName =
                           eachDoc[widget.hotelName]['restaurantName'];
-                      temporaryMapToAdd.addAll(
-                          {'restaurantsOfTheUser': eachDoc['restaurants']});
+                      Map<String, dynamic> tempTempMapOfEachRestaurantsOfUser =
+                          eachDoc['restaurantDatabase'];
+                      List<String> tempTempListOfRestaurantsOfEachUser = [];
+                      tempTempMapOfEachRestaurantsOfUser.forEach((key, value) {
+                        tempTempListOfRestaurantsOfEachUser.add(key.toString());
+                      });
+                      temporaryMapToAdd.addAll({
+                        'restaurantsOfTheUser':
+                            tempTempListOfRestaurantsOfEachUser
+                      });
                       temporaryMapToAdd.addAll(eachDoc[widget.hotelName]);
                       users.add(temporaryMapToAdd);
                     }
@@ -1639,7 +1688,8 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
           StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('loginDetails')
-                  .where('restaurants', arrayContains: widget.hotelName)
+                  .where('restaurantDatabase.${'${widget.hotelName}'}',
+                      isEqualTo: true)
                   .snapshots(),
               builder: (context, snapshot) {
                 List<Map<String, dynamic>> users = [];
@@ -1668,8 +1718,16 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                       temporaryMapToAdd.addAll({'userPhoneNumber': eachDoc.id});
                       tempRestaurantName =
                           eachDoc[widget.hotelName]['restaurantName'];
-                      temporaryMapToAdd.addAll(
-                          {'restaurantsOfTheUser': eachDoc['restaurants']});
+                      Map<String, dynamic> tempTempMapOfEachRestaurantsOfUser =
+                          eachDoc['restaurantDatabase'];
+                      List<String> tempTempListOfRestaurantsOfEachUser = [];
+                      tempTempMapOfEachRestaurantsOfUser.forEach((key, value) {
+                        tempTempListOfRestaurantsOfEachUser.add(key.toString());
+                      });
+                      temporaryMapToAdd.addAll({
+                        'restaurantsOfTheUser':
+                            tempTempListOfRestaurantsOfEachUser
+                      });
                       temporaryMapToAdd.addAll(eachDoc[widget.hotelName]);
                       users.add(temporaryMapToAdd);
                     }

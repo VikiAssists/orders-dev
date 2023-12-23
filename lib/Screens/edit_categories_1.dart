@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
@@ -641,7 +642,14 @@ class _EditCategoriesState extends State<EditCategories> {
             visible: !showSpinner,
             child: Column(
               children: [
-                SizedBox(height: 10),
+                Container(
+                    alignment: Alignment.center,
+                    width: double.infinity,
+                    color: Colors.black54,
+                    child: Text(
+                      'Long Press and Drag to Re-Order Categories',
+                      style: TextStyle(fontSize: 15, color: Colors.white),
+                    )),
                 Expanded(
                     child: ReorderableListView.builder(
                         onReorder: (oldIndex, newIndex) {
@@ -662,7 +670,7 @@ class _EditCategoriesState extends State<EditCategories> {
                             //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
                             margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
                             child: ListTile(
-                                leading: Icon(Icons.menu),
+                                leading: Icon(Icons.drag_indicator),
                                 tileColor: Colors.white54,
 //FirstWeCheckWhetherMenuTitlesListContainsItem
 //ThisMeansIt'sAHeading,WeGiveItBiggerFontThen

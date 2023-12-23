@@ -43,6 +43,8 @@ class EachOrderHistory extends StatelessWidget {
       temporaryMap.remove('individualPriceOfEachDistinctItemForPrint');
       temporaryMap.remove('numberOfEachDistinctItemForPrint');
       temporaryMap.remove('priceOfEachDistinctItemWithoutTotalForPrint');
+      temporaryMap.remove('extraItemsDistinctNames');
+      temporaryMap.remove('extraItemsDistinctNumbers');
       temporaryMap.remove('totalQuantityForPrint');
       temporaryMap.remove('discount');
       temporaryMap.remove('discountEnteredValue');
@@ -71,6 +73,8 @@ class EachOrderHistory extends StatelessWidget {
       //ThenInsideListOfTypeRows,WePutEachItemAndEachPrice
       for (int i = 0; i < itemNames.length; i++) {
         String itemName = '';
+//InOrderHistoryMap,ForDiscountToTotalBillWithTaxesIHaveAddedA *
+//ToRemoveIt, * RemovingCodeNeedsToBeAdded
         if (itemNames[i].contains('*')) {
           final itemSplit = itemNames[i].toString().split('*');
           itemName = itemSplit[1];
