@@ -5,10 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
-
-import 'package:orders_dev/Screens/added_items_list_from_menu_6.dart';
-import 'package:orders_dev/Screens/added_items_list_from_menu_8.dart';
-import 'package:orders_dev/Screens/added_items_list_from_menu_9.dart';
+import 'package:orders_dev/Screens/added_items_list_from_menu_12.dart';
+import 'package:orders_dev/Screens/added_items_list_from_menu_13.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -29,7 +27,7 @@ Map<String, num> itemsAddedTime = HashMap();
 //ThisIsThePageWeAlwaysCallForWhenWeNeedMenu
 //TheInputsWillBeMenuPrices,Titles,Items,UnavailableItems(FromInventory)
 //WeHaveAnItemsAddedMap-HashMapToPutWhateverTheWaiterIsSelecting
-class MenuPageWithTimeSelectionOfEachItem extends StatefulWidget {
+class MenuPageWithBackButtonUsage extends StatefulWidget {
   final String hotelName;
   final String tableOrParcel;
   final num tableOrParcelNumber;
@@ -42,7 +40,7 @@ class MenuPageWithTimeSelectionOfEachItem extends StatefulWidget {
   final String parentOrChild;
   final Map<String, dynamic> alreadyRunningTicketsMap;
 
-  MenuPageWithTimeSelectionOfEachItem(
+  MenuPageWithBackButtonUsage(
       {required this.hotelName,
       required this.tableOrParcel,
       required this.tableOrParcelNumber,
@@ -56,13 +54,14 @@ class MenuPageWithTimeSelectionOfEachItem extends StatefulWidget {
       required this.alreadyRunningTicketsMap});
 
   @override
-  _MenuPageWithTimeSelectionOfEachItemState createState() =>
-      _MenuPageWithTimeSelectionOfEachItemState();
+  _MenuPageWithBackButtonUsageState createState() =>
+      _MenuPageWithBackButtonUsageState();
 }
 
-class _MenuPageWithTimeSelectionOfEachItemState
-    extends State<MenuPageWithTimeSelectionOfEachItem> {
+class _MenuPageWithBackButtonUsageState
+    extends State<MenuPageWithBackButtonUsage> {
   final ItemScrollController _itemScrollController = ItemScrollController();
+  bool backButtonNotPressed = true;
 
   @override
   void initState() {
@@ -72,6 +71,8 @@ class _MenuPageWithTimeSelectionOfEachItemState
     // TODO: implement initState
     localUnavailableItems = [];
     itemsAddedMap = {};
+    itemsAddedComment = {};
+    itemsAddedTime = {};
 
     makeMenu();
 
@@ -113,7 +114,6 @@ class _MenuPageWithTimeSelectionOfEachItemState
     allItemsFromMenuMap = json.decode(
         Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
             .entireMenuFromClass);
-    print(allItemsFromMenuMap);
     localMenuTitles = ['Browse Menu'];
     localMenuPrice = [];
     localMenuItems = [];
@@ -261,6 +261,73 @@ class _MenuPageWithTimeSelectionOfEachItemState
     }
   }
 
+  void backClickedAlertDialogBox() async {
+//ThisNeedsToPopUpIfThereAreItemsAddedAndTheUserClicksBack
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Center(
+            child: Text(
+          'WARNING!',
+          style: TextStyle(color: Colors.red),
+        )),
+        content: Text('There are items added. Do you want to exit?'),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(
+                  style: ButtonStyle(
+                    backgroundColor:
+                        MaterialStateProperty.all<Color>(Colors.green),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    backButtonNotPressed = true;
+                  },
+                  child: Text('Cancel')),
+              ElevatedButton(
+                  style: ButtonStyle(
+                    backgroundColor:
+                        MaterialStateProperty.all<Color>(Colors.red),
+                  ),
+                  onPressed: () {
+                    clearingAddedItemsBeforeExit();
+                    Navigator.pop(context);
+                  },
+                  child: Text('Exit')),
+            ],
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  void clearingAddedItemsBeforeExit() {
+    int _everyMilliSecondBeforeGoingBack = 0;
+    Timer? _timerAtBackButton;
+    _timerAtBackButton = Timer.periodic(Duration(milliseconds: 100), (_) {
+      itemsAddedMap = {};
+      widget.itemsAddedMapCalled = {};
+      print('back timer is $_everyMilliSecondBeforeGoingBack');
+      // return false;
+      _everyMilliSecondBeforeGoingBack++;
+      if (_everyMilliSecondBeforeGoingBack >= 4) {
+        print('back timer at cancel is $_everyMilliSecondBeforeGoingBack');
+        _timerAtBackButton!.cancel();
+        if (widget.alreadyRunningTicketsMap.isNotEmpty) {
+          backButtonNotPressed = true;
+          Navigator.pop(context);
+        } else {
+          backButtonNotPressed = true;
+          int count = 0;
+          Navigator.of(context).popUntil((_) => count++ >= 2);
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     const title = 'Menu';
@@ -270,25 +337,16 @@ class _MenuPageWithTimeSelectionOfEachItemState
 //IfWeDon'tDoIt,itWasObservedThatIfTheWaiterGoesToAnotherTable&Menu,,
 //TheseAddedItemsIsShowingThere
       onWillPop: () async {
-        int _everyMilliSecondBeforeGoingBack = 0;
-        Timer? _timerAtBackButton;
-        _timerAtBackButton = Timer.periodic(Duration(milliseconds: 100), (_) {
-          itemsAddedMap = {};
-          widget.itemsAddedMapCalled = {};
-          print('back timer is $_everyMilliSecondBeforeGoingBack');
-          // return false;
-          _everyMilliSecondBeforeGoingBack++;
-          if (_everyMilliSecondBeforeGoingBack >= 4) {
-            print('back timer at cancel is $_everyMilliSecondBeforeGoingBack');
-            _timerAtBackButton!.cancel();
-            if (widget.alreadyRunningTicketsMap.isNotEmpty) {
-              Navigator.pop(context);
-            } else {
-              int count = 0;
-              Navigator.of(context).popUntil((_) => count++ >= 2);
-            }
+        if (backButtonNotPressed) {
+          backButtonNotPressed = false;
+          if (itemsAddedMap.isEmpty) {
+            clearingAddedItemsBeforeExit();
+          } else {
+            backClickedAlertDialogBox();
           }
-        });
+        } else {
+          backButtonNotPressed = true;
+        }
         return false;
       },
       child: MaterialApp(
@@ -299,27 +357,16 @@ class _MenuPageWithTimeSelectionOfEachItemState
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
               onPressed: () {
-                int _everyMilliSecondBeforeGoingBack = 0;
-                Timer? _timerAtBackButton;
-                _timerAtBackButton =
-                    Timer.periodic(Duration(milliseconds: 100), (_) {
-                  itemsAddedMap = {};
-                  widget.itemsAddedMapCalled = {};
-                  print('back timer is $_everyMilliSecondBeforeGoingBack');
-                  // return false;
-                  _everyMilliSecondBeforeGoingBack++;
-                  if (_everyMilliSecondBeforeGoingBack >= 4) {
-                    print(
-                        'back timer at cancel is $_everyMilliSecondBeforeGoingBack');
-                    _timerAtBackButton!.cancel();
-                    if (widget.alreadyRunningTicketsMap.isNotEmpty) {
-                      Navigator.pop(context);
-                    } else {
-                      int count = 0;
-                      Navigator.of(context).popUntil((_) => count++ >= 2);
-                    }
+                if (backButtonNotPressed) {
+                  backButtonNotPressed = false;
+                  if (itemsAddedMap.isEmpty) {
+                    clearingAddedItemsBeforeExit();
+                  } else {
+                    backClickedAlertDialogBox();
                   }
-                });
+                } else {
+                  backButtonNotPressed = true;
+                }
               },
             ),
             backgroundColor: kAppBarBackgroundColor,
@@ -462,7 +509,7 @@ class _MenuPageWithTimeSelectionOfEachItemState
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => AddedItemsWithPrinterAlignment(
+                      builder: (context) => AddedItemsWithCaptainInfo(
                         hotelName: widget.hotelName,
                         tableOrParcel: widget.tableOrParcel,
                         tableOrParcelNumber: widget.tableOrParcelNumber,
@@ -507,16 +554,18 @@ class CustomSearchDelegate extends SearchDelegate {
   @override
   List<Widget>? buildActions(BuildContext context) {
     return [
-      IconButton(
-        onPressed: () {
-          query = '';
-        },
-//WeUseClearIconForThat
-        icon: const Icon(
-          Icons.clear,
-          color: kAppBarBackIconColor,
-        ),
-      ),
+      query != ''
+          ? IconButton(
+              onPressed: () {
+                query = '';
+              },
+//WeUseDeleteIconForThat
+              icon: const Icon(
+                Icons.delete,
+                color: kAppBarBackIconColor,
+              ),
+            )
+          : SizedBox.shrink(),
     ];
   }
 
@@ -525,6 +574,7 @@ class CustomSearchDelegate extends SearchDelegate {
   Widget? buildLeading(BuildContext context) {
     return IconButton(
       onPressed: () {
+        query = '';
         close(context, null);
       },
       icon: const Icon(

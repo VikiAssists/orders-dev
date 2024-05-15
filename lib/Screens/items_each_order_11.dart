@@ -9,9 +9,11 @@ import 'package:orders_dev/Methods/bottom_button.dart';
 import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 
-import 'package:orders_dev/Screens/bill_print_screen_9.dart';
+import 'package:orders_dev/Screens/bill_print_screen_12.dart';
+import 'package:orders_dev/Screens/bill_print_screen_14.dart';
+import 'package:orders_dev/Screens/bill_print_screen_15.dart';
 
-import 'package:orders_dev/Screens/menu_page_add_items_5.dart';
+import 'package:orders_dev/Screens/menu_page_add_items_6.dart';
 import 'package:orders_dev/Screens/tableOrParcelSplit_3.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/firestore_services.dart';
@@ -25,7 +27,7 @@ enum _MenuValues { split, move, deliveredAll }
 //ThisIsTheScreenIfTheWaiterClicksOnAnyTable/Parcel
 //ItWillShowHimAllItemsThatHaveBeenOrderedTillNow
 //AndHeWillHaveOptionToAddMenuOrHeCanGoForBillPrintScreen
-class ItemsInEachOrderWithTime extends StatefulWidget {
+class ItemsWithCancelRegister extends StatefulWidget {
 //WhenWeClickOnATable/Parcel,WeWillDownloadAllTheBelowDataFromFireStore,
 //AndInputToThisClass
   final String hotelName;
@@ -42,7 +44,7 @@ class ItemsInEachOrderWithTime extends StatefulWidget {
   final String tableOrParcel;
   final num tableOrParcelNumber;
 
-  const ItemsInEachOrderWithTime(
+  const ItemsWithCancelRegister(
       {Key? key,
       required this.hotelName,
       required this.menuItems,
@@ -60,11 +62,11 @@ class ItemsInEachOrderWithTime extends StatefulWidget {
       : super(key: key);
 
   @override
-  State<ItemsInEachOrderWithTime> createState() =>
-      _ItemsInEachOrderWithTimeState();
+  State<ItemsWithCancelRegister> createState() =>
+      _ItemsWithCancelRegisterState();
 }
 
-class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
+class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
     with WidgetsBindingObserver {
 //KeepingInitialStateOfAllItemsDeliveredAsFalse
 
@@ -78,9 +80,9 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
   List<Map<String, dynamic>> deliveredItems = [];
   List<Map<String, dynamic>> otherItems = [];
 
-  String addedItemsSet = '';
   Map<String, dynamic> baseInfoFromServerMap = HashMap();
   Map<String, dynamic> itemsInOrderFromServerMap = HashMap();
+  Map<String, dynamic> cancelledItemsInOrderFromServerMap = HashMap();
   Map<String, dynamic> statusFromServerMap = HashMap();
   Map<String, dynamic> ticketsFromServerMap = HashMap();
   String partOfTableOrParcelFromMap = '';
@@ -101,6 +103,8 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
   late VideoPlayerController _videoController;
   bool noItemsInTable = false;
   bool deliveredStatus = true;
+  bool orderIdCheckedWhenEnteringScreen = false;
+  String firstCheckedOrderId = '';
 
   @override
   void initState() {
@@ -130,6 +134,8 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
     // // itemsDeliveredOrNotStatusChecker();
     splitPressed = false;
     movePressed = false;
+    orderIdCheckedWhenEnteringScreen = false;
+    firstCheckedOrderId = '';
 
     super.initState();
   }
@@ -153,6 +159,23 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
     }
 
     super.didChangeAppLifecycleState(state);
+  }
+
+  Future show(
+    String message, {
+    Duration duration: const Duration(seconds: 2),
+  }) async {
+    await new Future.delayed(new Duration(milliseconds: 100));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: kSnackbarMessageSize),
+        ),
+        duration: duration,
+      ),
+    );
   }
 
   void internetAvailabilityChecker() {
@@ -721,6 +744,10 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
                                 tempMasterUpdaterMap.addAll({
                                   'itemsInOrderMap': itemsInOrderFromServerMap
                                 });
+                                tempMasterUpdaterMap.addAll({
+                                  'cancelledItemsInOrder':
+                                      cancelledItemsInOrderFromServerMap
+                                });
                                 tempMasterUpdaterMap
                                     .addAll({'statusMap': statusFromServerMap});
                                 tempMasterUpdaterMap.addAll(
@@ -802,6 +829,10 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
                                 tempSecondMasterUpdaterMap.addAll({
                                   'itemsInOrderMap': itemsInOrderFromServerMap
                                 });
+                                tempSecondMasterUpdaterMap.addAll({
+                                  'cancelledItemsInOrder':
+                                      cancelledItemsInOrderFromServerMap
+                                });
                                 tempSecondMasterUpdaterMap
                                     .addAll({'statusMap': statusFromServerMap});
                                 tempSecondMasterUpdaterMap.addAll(
@@ -842,6 +873,11 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
                               tempSecondMasterUpdaterMap.addAll({
                                 'itemsInOrderMap': itemsInOrderFromServerMap
                               });
+                              tempSecondMasterUpdaterMap.addAll({
+                                'cancelledItemsInOrder':
+                                    cancelledItemsInOrderFromServerMap
+                              });
+
                               tempSecondMasterUpdaterMap
                                   .addAll({'statusMap': statusFromServerMap});
                               tempSecondMasterUpdaterMap
@@ -946,6 +982,10 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
                                 tempMasterUpdaterMap.addAll({
                                   'itemsInOrderMap': itemsInOrderFromServerMap
                                 });
+                                tempMasterUpdaterMap.addAll({
+                                  'cancelledItemsInOrder':
+                                      cancelledItemsInOrderFromServerMap
+                                });
                                 tempMasterUpdaterMap
                                     .addAll({'statusMap': statusFromServerMap});
                                 tempMasterUpdaterMap.addAll(
@@ -1027,6 +1067,11 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
                                 tempSecondMasterUpdaterMap.addAll({
                                   'itemsInOrderMap': itemsInOrderFromServerMap
                                 });
+                                tempSecondMasterUpdaterMap.addAll({
+                                  'cancelledItemsInOrder':
+                                      cancelledItemsInOrderFromServerMap
+                                });
+
                                 tempSecondMasterUpdaterMap
                                     .addAll({'statusMap': statusFromServerMap});
                                 tempSecondMasterUpdaterMap.addAll(
@@ -1070,6 +1115,10 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
                               tempSecondMasterUpdaterMap.addAll({
                                 'itemsInOrderMap': itemsInOrderFromServerMap
                               });
+                              tempSecondMasterUpdaterMap.addAll({
+                                'cancelledItemsInOrder':
+                                    cancelledItemsInOrderFromServerMap
+                              });
                               tempSecondMasterUpdaterMap
                                   .addAll({'statusMap': statusFromServerMap});
                               tempSecondMasterUpdaterMap
@@ -1107,102 +1156,194 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
       );
     }
 
+    String billIdOfThisOrder() {
+      DateTime now = DateTime.now();
+
+      String tempYear = '';
+      String tempMonth = '';
+      String tempDay = '';
+      String tempHour = '';
+      String tempMinute = '';
+      String tempSecond = '';
+      if (baseInfoFromServerMap['billYear'] == '') {
+        tempYear = now.year.toString();
+      } else {
+        tempYear = baseInfoFromServerMap['billYear'];
+      }
+      if (baseInfoFromServerMap['billMonth'] == '') {
+        tempMonth = now.month < 10
+            ? '0${now.month.toString()}'
+            : '${now.month.toString()}';
+      } else {
+        tempMonth = baseInfoFromServerMap['billMonth'];
+      }
+      if (baseInfoFromServerMap['billDay'] == '') {
+        tempDay =
+            now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
+      } else {
+        tempDay = baseInfoFromServerMap['billDay'];
+      }
+      if (baseInfoFromServerMap['billHour'] == '') {
+        tempHour = now.hour < 10
+            ? '0${now.hour.toString()}'
+            : '${now.hour.toString()}';
+      } else {
+        tempHour = baseInfoFromServerMap['billHour'];
+      }
+      if (baseInfoFromServerMap['billMinute'] == '') {
+        tempMinute = now.minute < 10
+            ? '0${now.minute.toString()}'
+            : '${now.minute.toString()}';
+      } else {
+        tempMinute = baseInfoFromServerMap['billMinute'];
+      }
+      if (baseInfoFromServerMap['billSecond'] == '') {
+        tempSecond = now.second < 10
+            ? '0${now.second.toString()}'
+            : '${now.second.toString()}';
+      } else {
+        tempSecond = baseInfoFromServerMap['billSecond'];
+      }
+      String orderIdForCreatingDocId = baseInfoFromServerMap['orderID'];
+      return '${tempYear}${tempMonth}${tempDay}${orderIdForCreatingDocId}';
+    }
+
     void splitTableOrParcel() async {
       if (noItemsInTable) {
         Navigator.pop(context);
       } else {
-        setState(() {
-          splitPressed = true;
-        });
-        if (parentOrChild == 'parent') {
-          Map<String, dynamic> tempBaseInfoMap = baseInfoFromServerMap;
-          tempBaseInfoMap['parentOrChild'] = 'A';
-          Map<String, dynamic> tempSecondMasterUpdaterMap = HashMap();
-          tempSecondMasterUpdaterMap.addAll({'baseInfoMap': tempBaseInfoMap});
-          tempSecondMasterUpdaterMap
-              .addAll({'itemsInOrderMap': itemsInOrderFromServerMap});
-          tempSecondMasterUpdaterMap.addAll({'statusMap': statusFromServerMap});
-          tempSecondMasterUpdaterMap
-              .addAll({'ticketsMap': ticketsFromServerMap});
-          tempSecondMasterUpdaterMap
-              .addAll({'partOfTableOrParcel': partOfTableOrParcelFromMap});
-          tempSecondMasterUpdaterMap.addAll(
-              {'partOfTableOrParcelNumber': partOfTableOrParcelNumberFromMap});
+        try {
+          final docIdCheckSnapshot = await FirebaseFirestore.instance
+              .collection(widget.hotelName)
+              .doc('orderhistory')
+              .collection('orderhistory')
+              .doc(billIdOfThisOrder())
+              .get()
+              .timeout(Duration(seconds: 5));
+          if (docIdCheckSnapshot == null || !docIdCheckSnapshot.exists) {
+            setState(() {
+              splitPressed = true;
+            });
+            if (parentOrChild == 'parent') {
+              Map<String, dynamic> tempBaseInfoMap = baseInfoFromServerMap;
+              tempBaseInfoMap['parentOrChild'] = 'A';
+              Map<String, dynamic> tempSecondMasterUpdaterMap = HashMap();
+              tempSecondMasterUpdaterMap
+                  .addAll({'baseInfoMap': tempBaseInfoMap});
+              tempSecondMasterUpdaterMap
+                  .addAll({'itemsInOrderMap': itemsInOrderFromServerMap});
+              tempSecondMasterUpdaterMap.addAll({
+                'cancelledItemsInOrder': cancelledItemsInOrderFromServerMap
+              });
+              tempSecondMasterUpdaterMap
+                  .addAll({'statusMap': statusFromServerMap});
+              tempSecondMasterUpdaterMap
+                  .addAll({'ticketsMap': ticketsFromServerMap});
+              tempSecondMasterUpdaterMap
+                  .addAll({'partOfTableOrParcel': partOfTableOrParcelFromMap});
+              tempSecondMasterUpdaterMap.addAll({
+                'partOfTableOrParcelNumber': partOfTableOrParcelNumberFromMap
+              });
 
-          FireStoreAddOrderInRunningOrderFolder(
-                  hotelName: widget.hotelName,
-                  seatingNumber:
-                      '${widget.tableOrParcel}:${widget.tableOrParcelNumber}A',
-                  ordersMap: tempSecondMasterUpdaterMap)
-              .addOrder();
+              FireStoreAddOrderInRunningOrderFolder(
+                      hotelName: widget.hotelName,
+                      seatingNumber:
+                          '${widget.tableOrParcel}:${widget.tableOrParcelNumber}A',
+                      ordersMap: tempSecondMasterUpdaterMap)
+                  .addOrder();
 
-          // Navigator.pop(context);
+              // Navigator.pop(context);
 
-          Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => TableOrParcelSplitWithRunningOrders(
-                        hotelName: widget.hotelName,
-                        partOfTableOrParcel: widget.tableOrParcel,
-                        partOfTableOrParcelNumber:
-                            widget.tableOrParcelNumber.toString(),
-                        menuItems: widget.menuItems,
-                        menuTitles: widget.menuTitles,
-                        menuPrices: widget.menuPrices,
-                      )));
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => TableOrParcelSplitWithRunningOrders(
+                            hotelName: widget.hotelName,
+                            partOfTableOrParcel: widget.tableOrParcel,
+                            partOfTableOrParcelNumber:
+                                widget.tableOrParcelNumber.toString(),
+                            menuItems: widget.menuItems,
+                            menuTitles: widget.menuTitles,
+                            menuPrices: widget.menuPrices,
+                          )));
 
-          FireStoreDeleteFinishedOrderInRunningOrders(
-                  hotelName: widget.hotelName, eachTableId: widget.itemsFromDoc)
-              .deleteFinishedOrder();
-        } else {
-          // int count = 0;
-          // Navigator.of(context)
-          //     .popUntil((_) => count++ >= 2);
-          Navigator.pop(context);
+              FireStoreDeleteFinishedOrderInRunningOrders(
+                      hotelName: widget.hotelName,
+                      eachTableId: widget.itemsFromDoc)
+                  .deleteFinishedOrder();
+            } else {
+              // int count = 0;
+              // Navigator.of(context)
+              //     .popUntil((_) => count++ >= 2);
+              Navigator.pop(context);
+            }
+          } else {
+//thisMeansTableAlreadyClosedButExistingInThisUserPhoneForSomeReason
+            show('Bill Already Closed. Kindly Check');
+          }
+        } catch (e) {
+          show('Please check Internet. Unable to reach server');
         }
       }
     }
 
     void moveTableOrParcel() async {
-      final tablesParcelsOccupied = await FirebaseFirestore.instance
-          .collection(widget.hotelName)
-          .doc('runningorders')
-          .collection('runningorders')
-          .get();
-      presentTablesParcelsOccupied = [];
-      Map<String, dynamic> mapToAddPresentTablesParcels = {};
-      for (var eachTableParcelOccupied in tablesParcelsOccupied.docs) {
-        mapToAddPresentTablesParcels['baseInfoMap'] =
-            eachTableParcelOccupied['baseInfoMap'];
-        mapToAddPresentTablesParcels['itemsInOrderMap'] =
-            eachTableParcelOccupied['itemsInOrderMap'];
-        mapToAddPresentTablesParcels['statusMap'] =
-            eachTableParcelOccupied['statusMap'];
-        mapToAddPresentTablesParcels['ticketsMap'] =
-            eachTableParcelOccupied['ticketsMap'];
-        mapToAddPresentTablesParcels['partOfTableOrParcel'] =
-            eachTableParcelOccupied['partOfTableOrParcel'];
-        mapToAddPresentTablesParcels['partOfTableOrParcelNumber'] =
-            eachTableParcelOccupied['partOfTableOrParcelNumber'];
-        mapToAddPresentTablesParcels['presentOccupiedTablesParcelsID'] =
-            eachTableParcelOccupied.id;
+      try {
+        final docIdCheckSnapshot = await FirebaseFirestore.instance
+            .collection(widget.hotelName)
+            .doc('orderhistory')
+            .collection('orderhistory')
+            .doc(billIdOfThisOrder())
+            .get()
+            .timeout(Duration(seconds: 5));
+        if (docIdCheckSnapshot == null || !docIdCheckSnapshot.exists) {
+          final tablesParcelsOccupied = await FirebaseFirestore.instance
+              .collection(widget.hotelName)
+              .doc('runningorders')
+              .collection('runningorders')
+              .get();
+          presentTablesParcelsOccupied = [];
+          Map<String, dynamic> mapToAddPresentTablesParcels = {};
+          for (var eachTableParcelOccupied in tablesParcelsOccupied.docs) {
+            mapToAddPresentTablesParcels['baseInfoMap'] =
+                eachTableParcelOccupied['baseInfoMap'];
+            mapToAddPresentTablesParcels['itemsInOrderMap'] =
+                eachTableParcelOccupied['itemsInOrderMap'];
+            mapToAddPresentTablesParcels['statusMap'] =
+                eachTableParcelOccupied['statusMap'];
+            mapToAddPresentTablesParcels['ticketsMap'] =
+                eachTableParcelOccupied['ticketsMap'];
+            mapToAddPresentTablesParcels['partOfTableOrParcel'] =
+                eachTableParcelOccupied['partOfTableOrParcel'];
+            mapToAddPresentTablesParcels['partOfTableOrParcelNumber'] =
+                eachTableParcelOccupied['partOfTableOrParcelNumber'];
+            mapToAddPresentTablesParcels['presentOccupiedTablesParcelsID'] =
+                eachTableParcelOccupied.id;
 
-        if (eachTableParcelOccupied['partOfTableOrParcel'] == 'Table') {
-          tablesAlreadyOccupied
-              .add(eachTableParcelOccupied['partOfTableOrParcelNumber']);
+            if (eachTableParcelOccupied['partOfTableOrParcel'] == 'Table') {
+              tablesAlreadyOccupied
+                  .add(eachTableParcelOccupied['partOfTableOrParcelNumber']);
+            }
+            if (eachTableParcelOccupied['partOfTableOrParcel'] == 'Parcel') {
+              parcelsAlreadyOccupied
+                  .add(eachTableParcelOccupied['partOfTableOrParcelNumber']);
+            }
+            presentTablesParcelsOccupied.insert(
+                presentTablesParcelsOccupied.length,
+                mapToAddPresentTablesParcels);
+            mapToAddPresentTablesParcels = {};
+          }
+
+          // Navigator.pop(context);
+
+          buildMoveTableOrParcelAlertDialogWidget();
+        } else {
+//thisMeansTableAlreadyClosedButExistingInThisUserPhoneForSomeReason
+          show('Bill Already Closed. Kindly Check');
         }
-        if (eachTableParcelOccupied['partOfTableOrParcel'] == 'Parcel') {
-          parcelsAlreadyOccupied
-              .add(eachTableParcelOccupied['partOfTableOrParcelNumber']);
-        }
-        presentTablesParcelsOccupied.insert(
-            presentTablesParcelsOccupied.length, mapToAddPresentTablesParcels);
-        mapToAddPresentTablesParcels = {};
+      } catch (e) {
+        show('Please check Internet. Unable to reach server');
       }
-
-      // Navigator.pop(context);
-
-      buildMoveTableOrParcelAlertDialogWidget();
     }
 
     void deliveredAllAlertDialogBox() async {
@@ -1368,765 +1509,539 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
             (splitPressed || movePressed)
                 ? Expanded(child: Center(child: CircularProgressIndicator()))
                 : Expanded(
-                    child: StreamBuilder<
-                            DocumentSnapshot<Map<String, dynamic>>>(
-                        stream: FirebaseFirestore.instance
-                            .collection(widget.hotelName)
-                            .doc('runningorders')
-                            .collection('runningorders')
-                            .doc(widget.itemsFromDoc)
-                            .snapshots(),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
+                    child:
+                        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                            stream: FirebaseFirestore.instance
+                                .collection(widget.hotelName)
+                                .doc('runningorders')
+                                .collection('runningorders')
+                                .doc(widget.itemsFromDoc)
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
 //IfConnectionStateIsWaiting,ThenWePutTheRotatingCircleThatShowsLoadingInTheCenter
-                            return const Center(
-                              child: CircularProgressIndicator(
-                                backgroundColor: Colors.lightBlueAccent,
-                              ),
-                            );
-                          } else if (snapshot.hasError) {
+                                return const Center(
+                                  child: CircularProgressIndicator(
+                                    backgroundColor: Colors.lightBlueAccent,
+                                  ),
+                                );
+                              } else if (snapshot.hasError) {
 //IfThereIsAnError,WeCaptureTheErrorAndPutItInThePage
-                            return Center(
-                              child: Text(snapshot.error.toString()),
-                            );
-                          } else if (snapshot.hasData) {
-                            if (snapshot.data!.data() == null) {
-                              print('came inside null');
-                              noItemsInTable = true;
+                                return Center(
+                                  child: Text(snapshot.error.toString()),
+                                );
+                              } else if (snapshot.hasData) {
+                                if (snapshot.data!.data() == null) {
+                                  print('came inside null');
+                                  noItemsInTable = true;
 
-                              return const Center(
-                                child: Text(
-                                  'Table Closed',
-                                  style: TextStyle(fontSize: 30),
-                                ),
-                              );
-                            } else {
-                              noItemsInTable = false;
-                              deliveredStatus = true;
-                              items = [];
-                              rejectedItems = [];
-                              readyItems = [];
-                              acceptedItems = [];
-                              nonAcceptedItems = [];
-                              deliveredItems = [];
-                              otherItems = [];
+                                  return const Center(
+                                    child: Text(
+                                      'Table\nClosed/Split/Moved',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 30),
+                                    ),
+                                  );
+                                } else {
+                                  noItemsInTable = false;
+                                  deliveredStatus = true;
+                                  items = [];
+                                  rejectedItems = [];
+                                  readyItems = [];
+                                  acceptedItems = [];
+                                  nonAcceptedItems = [];
+                                  deliveredItems = [];
+                                  otherItems = [];
 //RemakingTheEntireListPassedIntoThisPageEachTimeStreamBuilderRebuildsIt
-                              widget.itemsID.clear();
-                              widget.itemsName.clear();
-                              widget.itemsNumber.clear();
-                              widget.itemsStatus.clear();
-                              widget.itemsEachPrice.clear();
+                                  widget.itemsID.clear();
+                                  widget.itemsName.clear();
+                                  widget.itemsNumber.clear();
+                                  widget.itemsStatus.clear();
+                                  widget.itemsEachPrice.clear();
 
-                              Map<String, dynamic> mapToAddIntoItems = {};
-                              var output = snapshot.data!.data();
+                                  Map<String, dynamic> mapToAddIntoItems = {};
+                                  var output = snapshot.data!.data();
 
-                              baseInfoFromServerMap = output!['baseInfoMap'];
-                              itemsInOrderFromServerMap =
-                                  output!['itemsInOrderMap'];
-                              statusFromServerMap = output!['statusMap'];
-                              ticketsFromServerMap = output!['ticketsMap'];
-                              partOfTableOrParcelFromMap =
-                                  output!['partOfTableOrParcel'];
-                              partOfTableOrParcelNumberFromMap =
-                                  output!['partOfTableOrParcelNumber'];
-                              chefStatusForSplit =
-                                  statusFromServerMap['chefStatus'];
-                              captainStatusForSplit =
-                                  statusFromServerMap['captainStatus'];
-                              String tableorparcel =
-                                  baseInfoFromServerMap['tableOrParcel'];
-                              num tableorparcelnumber = num.parse(
-                                  baseInfoFromServerMap['tableOrParcelNumber']);
-                              num timecustomercametoseat =
-                                  num.parse(baseInfoFromServerMap['startTime']);
-                              customername =
-                                  baseInfoFromServerMap['customerName'];
-                              customermobileNumber =
-                                  baseInfoFromServerMap['customerMobileNumber'];
-                              customeraddressline1 =
-                                  baseInfoFromServerMap['customerAddress'];
-                              parentOrChild =
-                                  baseInfoFromServerMap['parentOrChild'];
-
-                              itemsInOrderFromServerMap.forEach((key, value) {
-//ThisWillEnsureWeDontTakeCancelledItemsIntoTheList
-                                if (value['itemCancelled'] == 'false') {
-                                  mapToAddIntoItems = {};
-                                  mapToAddIntoItems['tableorparcel'] =
-                                      tableorparcel;
-                                  mapToAddIntoItems['tableorparcelnumber'] =
-                                      tableorparcelnumber;
-                                  mapToAddIntoItems['timecustomercametoseat'] =
-                                      timecustomercametoseat;
-                                  widget.itemsID.add(key);
-                                  mapToAddIntoItems['eachiteminorderid'] = key;
-                                  widget.itemsName.add(value['itemName']);
-                                  mapToAddIntoItems['item'] = value['itemName'];
-                                  widget.itemsEachPrice.add(value['itemPrice']);
-                                  mapToAddIntoItems['priceofeach'] =
-                                      value['itemPrice'];
-                                  widget.itemsNumber.add(int.parse(
-                                      value['numberOfItem'].toString()));
-                                  mapToAddIntoItems['number'] =
-                                      value['numberOfItem'];
-                                  mapToAddIntoItems['timeoforder'] =
-                                      num.parse(value['orderTakingTime']);
-                                  widget.itemsStatus.add(int.parse(
-                                      value['itemStatus'].toString()));
-                                  mapToAddIntoItems['statusoforder'] =
-                                      value['itemStatus'];
-                                  if (value['itemStatus'] != 3) {
-                                    deliveredStatus = false;
+                                  baseInfoFromServerMap =
+                                      output!['baseInfoMap'];
+                                  itemsInOrderFromServerMap =
+                                      output!['itemsInOrderMap'];
+                                  if (output
+                                      .containsKey('cancelledItemsInOrder')) {
+                                    cancelledItemsInOrderFromServerMap =
+                                        output!['cancelledItemsInOrder'];
                                   }
-
-                                  mapToAddIntoItems['commentsForTheItem'] =
-                                      value['itemComment'];
-                                  mapToAddIntoItems['chefKotStatus'] =
-                                      value['chefKOT'];
-                                  mapToAddIntoItems['itemBelongsToDoc'] =
-                                      widget.itemsFromDoc;
-                                  if (value['itemStatus'] == 11) {
-                                    rejectedItems.add(mapToAddIntoItems);
-                                    rejectedItems.sort((a, b) =>
-                                        (a['timeoforder'])
-                                            .compareTo(b['timeoforder']));
-                                  } else if (value['itemStatus'] == 10) {
-                                    readyItems.add(mapToAddIntoItems);
-                                    readyItems.sort((a, b) => (a['timeoforder'])
-                                        .compareTo(b['timeoforder']));
-                                  } else if (value['itemStatus'] == 9) {
-                                    nonAcceptedItems.add(mapToAddIntoItems);
-
-                                    nonAcceptedItems.sort((a, b) =>
-                                        (a['timeoforder'])
-                                            .compareTo(b['timeoforder']));
-                                  } else if (value['itemStatus'] == 7) {
-                                    acceptedItems.add(mapToAddIntoItems);
-                                    acceptedItems.sort((a, b) =>
-                                        (a['timeoforder'])
-                                            .compareTo(b['timeoforder']));
-                                  } else if (value['itemStatus'] == 3) {
-                                    deliveredItems.add(mapToAddIntoItems);
-                                    deliveredItems.sort((a, b) =>
-                                        (a['timeoforder'])
-                                            .compareTo(b['timeoforder']));
+                                  if (orderIdCheckedWhenEnteringScreen ==
+                                      false) {
+                                    orderIdCheckedWhenEnteringScreen = true;
+                                    firstCheckedOrderId =
+                                        baseInfoFromServerMap['orderID'];
+                                  }
+                                  if (firstCheckedOrderId ==
+                                      baseInfoFromServerMap['orderID']) {
+                                    noItemsInTable = false;
                                   } else {
-                                    otherItems.add(mapToAddIntoItems);
-                                    otherItems.sort((a, b) => (a['timeoforder'])
-                                        .compareTo(b['timeoforder']));
+                                    noItemsInTable = true;
                                   }
-                                }
-                              });
-                              items.addAll(rejectedItems);
-                              items.addAll(readyItems);
-                              items.addAll(nonAcceptedItems);
-                              items.addAll(acceptedItems);
-                              items.addAll(otherItems);
-                              items.addAll(deliveredItems);
+                                  statusFromServerMap = output!['statusMap'];
+                                  ticketsFromServerMap = output!['ticketsMap'];
+                                  partOfTableOrParcelFromMap =
+                                      output!['partOfTableOrParcel'];
+                                  partOfTableOrParcelNumberFromMap =
+                                      output!['partOfTableOrParcelNumber'];
+                                  chefStatusForSplit =
+                                      statusFromServerMap['chefStatus'];
+                                  captainStatusForSplit =
+                                      statusFromServerMap['captainStatus'];
+                                  String tableorparcel =
+                                      baseInfoFromServerMap['tableOrParcel'];
+                                  num tableorparcelnumber = num.parse(
+                                      baseInfoFromServerMap[
+                                          'tableOrParcelNumber']);
+                                  num timecustomercametoseat = num.parse(
+                                      baseInfoFromServerMap['startTime']);
+                                  customername =
+                                      baseInfoFromServerMap['customerName'];
+                                  customermobileNumber = baseInfoFromServerMap[
+                                      'customerMobileNumber'];
+                                  customeraddressline1 =
+                                      baseInfoFromServerMap['customerAddress'];
+                                  parentOrChild =
+                                      baseInfoFromServerMap['parentOrChild'];
 
-                              return Scaffold(
-                                body: Column(
-                                  children: [
-                                    Expanded(
-                                        child: SlidableAutoCloseBehavior(
-                                      closeWhenOpened: true,
-                                      child: ListView.builder(
-                                          itemCount: items.length,
-                                          itemBuilder: (context, index) {
+                                  itemsInOrderFromServerMap
+                                      .forEach((key, value) {
+//ThisWillEnsureWeDontTakeCancelledItemsIntoTheList
+                                    if (value['itemCancelled'] == 'false') {
+                                      mapToAddIntoItems = {};
+                                      mapToAddIntoItems['tableorparcel'] =
+                                          tableorparcel;
+                                      mapToAddIntoItems['tableorparcelnumber'] =
+                                          tableorparcelnumber;
+                                      mapToAddIntoItems[
+                                              'timecustomercametoseat'] =
+                                          timecustomercametoseat;
+                                      widget.itemsID.add(key);
+                                      mapToAddIntoItems['eachiteminorderid'] =
+                                          key;
+                                      widget.itemsName.add(value['itemName']);
+                                      mapToAddIntoItems['item'] =
+                                          value['itemName'];
+                                      widget.itemsEachPrice
+                                          .add(value['itemPrice']);
+                                      mapToAddIntoItems['priceofeach'] =
+                                          value['itemPrice'];
+                                      widget.itemsNumber.add(int.parse(
+                                          value['numberOfItem'].toString()));
+                                      mapToAddIntoItems['number'] =
+                                          value['numberOfItem'];
+                                      mapToAddIntoItems['timeoforder'] =
+                                          num.parse(value['orderTakingTime']);
+                                      widget.itemsStatus.add(int.parse(
+                                          value['itemStatus'].toString()));
+                                      mapToAddIntoItems['statusoforder'] =
+                                          value['itemStatus'];
+                                      if (value['itemStatus'] != 3) {
+                                        deliveredStatus = false;
+                                      }
+
+                                      mapToAddIntoItems['commentsForTheItem'] =
+                                          value['itemComment'];
+                                      mapToAddIntoItems['chefKotStatus'] =
+                                          value['chefKOT'];
+                                      mapToAddIntoItems['itemBelongsToDoc'] =
+                                          widget.itemsFromDoc;
+                                      if (value['itemStatus'] == 11) {
+                                        rejectedItems.add(mapToAddIntoItems);
+                                        rejectedItems.sort((a, b) =>
+                                            (a['timeoforder'])
+                                                .compareTo(b['timeoforder']));
+                                      } else if (value['itemStatus'] == 10) {
+                                        readyItems.add(mapToAddIntoItems);
+                                        readyItems.sort((a, b) =>
+                                            (a['timeoforder'])
+                                                .compareTo(b['timeoforder']));
+                                      } else if (value['itemStatus'] == 9) {
+                                        nonAcceptedItems.add(mapToAddIntoItems);
+
+                                        nonAcceptedItems.sort((a, b) =>
+                                            (a['timeoforder'])
+                                                .compareTo(b['timeoforder']));
+                                      } else if (value['itemStatus'] == 7) {
+                                        acceptedItems.add(mapToAddIntoItems);
+                                        acceptedItems.sort((a, b) =>
+                                            (a['timeoforder'])
+                                                .compareTo(b['timeoforder']));
+                                      } else if (value['itemStatus'] == 3) {
+                                        deliveredItems.add(mapToAddIntoItems);
+                                        deliveredItems.sort((a, b) =>
+                                            (a['timeoforder'])
+                                                .compareTo(b['timeoforder']));
+                                      } else {
+                                        otherItems.add(mapToAddIntoItems);
+                                        otherItems.sort((a, b) =>
+                                            (a['timeoforder'])
+                                                .compareTo(b['timeoforder']));
+                                      }
+                                    }
+                                  });
+                                  items.addAll(rejectedItems);
+                                  items.addAll(readyItems);
+                                  items.addAll(nonAcceptedItems);
+                                  items.addAll(acceptedItems);
+                                  items.addAll(otherItems);
+                                  items.addAll(deliveredItems);
+
+                                  return noItemsInTable == false
+                                      ? Scaffold(
+                                          body: Column(
+                                            children: [
+                                              Expanded(
+                                                  child:
+                                                      SlidableAutoCloseBehavior(
+                                                closeWhenOpened: true,
+                                                child: ListView.builder(
+                                                    itemCount: items.length,
+                                                    itemBuilder:
+                                                        (context, index) {
 //WeGoThroughAllTheItemsAndItemsNumberList
 //IDAndStatusIsForActionsWeCanDoWithSlidableInFireStore
-                                            final itemName =
-                                                items[index]['item'];
-                                            final itemNumber =
-                                                items[index]['number'];
-                                            final itemID = items[index]
-                                                ['eachiteminorderid'];
-                                            final itemStatus =
-                                                items[index]['statusoforder'];
-                                            final itemBelongsToDoc =
-                                                items[index]
-                                                    ['itemBelongsToDoc'];
-                                            final commentsForTheItem =
-                                                items[index]
-                                                    ['commentsForTheItem'];
-                                            return Slidable(
+                                                      final itemName =
+                                                          items[index]['item'];
+                                                      final itemNumber =
+                                                          items[index]
+                                                              ['number'];
+                                                      final itemID = items[
+                                                              index]
+                                                          ['eachiteminorderid'];
+                                                      final itemStatus =
+                                                          items[index]
+                                                              ['statusoforder'];
+                                                      final itemBelongsToDoc =
+                                                          items[index][
+                                                              'itemBelongsToDoc'];
+                                                      final commentsForTheItem =
+                                                          items[index][
+                                                              'commentsForTheItem'];
+                                                      return Slidable(
 //SlidablePackageFromNetHelpsToSlideAndGetOptions
 //AmongTheManyAnimationOptionsForSliding,WeChooseScrollMotion
-                                                endActionPane: ActionPane(
+                                                          endActionPane:
+                                                              ActionPane(
 //StartActionPaneIsForOptionsInLeftSide
-                                                  motion: const ScrollMotion(),
-                                                  children: [
-                                                    SlidableAction(
+                                                            motion:
+                                                                const ScrollMotion(),
+                                                            children: [
+                                                              SlidableAction(
 //IfItemStatusIs11,ItMeansChefHasRejectedTheOrder
 //SoWeDeleteItInFireStoreWithFireStoreServices
-                                                      onPressed: (BuildContext
-                                                          context) {
-                                                        setState(() {
-                                                          if (itemStatus != 3) {
+                                                                onPressed:
+                                                                    (BuildContext
+                                                                        context) {
+                                                                  setState(() {
+                                                                    if (itemStatus !=
+                                                                        3) {
 //IfStatusIsNot3,itMeansTheItemHasNotYetBeenPickedUpByTheWaiter
 //WeGiveHimTheOptionToClickPickedUpByUpdatingStatusTo3
-                                                            Map<String, dynamic>
-                                                                tempMapToUpdateStatus =
-                                                                {
-                                                              'itemStatus': 3
-                                                            };
-                                                            Map<String, dynamic>
-                                                                masterOrderMapToServer =
-                                                                HashMap();
-                                                            masterOrderMapToServer
-                                                                .addAll({
-                                                              'statusMap': {
-                                                                'captainStatus':
-                                                                    3,
-                                                                'chefStatus': 7
-                                                              }
-                                                            });
-                                                            masterOrderMapToServer
-                                                                .addAll({
-                                                              'itemsInOrderMap':
-                                                                  {
-                                                                itemID:
-                                                                    tempMapToUpdateStatus
-                                                              }
-                                                            });
+                                                                      Map<String,
+                                                                              dynamic>
+                                                                          tempMapToUpdateStatus =
+                                                                          {
+                                                                        'itemStatus':
+                                                                            3
+                                                                      };
+                                                                      Map<String,
+                                                                              dynamic>
+                                                                          masterOrderMapToServer =
+                                                                          HashMap();
+                                                                      masterOrderMapToServer
+                                                                          .addAll({
+                                                                        'statusMap':
+                                                                            {
+                                                                          'captainStatus':
+                                                                              3,
+                                                                          'chefStatus':
+                                                                              7
+                                                                        }
+                                                                      });
+                                                                      masterOrderMapToServer
+                                                                          .addAll({
+                                                                        'itemsInOrderMap':
+                                                                            {
+                                                                          itemID:
+                                                                              tempMapToUpdateStatus
+                                                                        }
+                                                                      });
 //MeansThatAnItemIsDelivered
 
-                                                            FireStoreAddOrderInRunningOrderFolder(
-                                                                    hotelName:
-                                                                        widget
-                                                                            .hotelName,
-                                                                    seatingNumber:
-                                                                        itemBelongsToDoc,
-                                                                    ordersMap:
-                                                                        masterOrderMapToServer)
-                                                                .addOrder();
-                                                          }
-                                                        });
-                                                      },
+                                                                      FireStoreAddOrderInRunningOrderFolder(
+                                                                              hotelName: widget.hotelName,
+                                                                              seatingNumber: itemBelongsToDoc,
+                                                                              ordersMap: masterOrderMapToServer)
+                                                                          .addOrder();
+                                                                    }
+                                                                  });
+                                                                },
 //WeKeepBackgroundColorOfSlidableOptionAsPerStatus,
 //ifStatus11(Rejected)-Red,If3(Delivered)-DarkGreen,Else-LightGreen
-                                                      backgroundColor:
-                                                          itemStatus == 11
-                                                              ? Colors.white
-                                                              : itemStatus == 3
-                                                                  ? Colors.green
-                                                                      .shade900
-                                                                  : Colors.green
-                                                                      .shade500,
+                                                                backgroundColor: itemStatus ==
+                                                                        11
+                                                                    ? Colors
+                                                                        .white
+                                                                    : itemStatus ==
+                                                                            3
+                                                                        ? Colors
+                                                                            .green
+                                                                            .shade900
+                                                                        : Colors
+                                                                            .green
+                                                                            .shade500,
 //iconAsPerStatus,11(Rejected)-deleteIcon,
 //if3(AlreadyDelivered)-DoubleTick
 //Else(DeliveredNow)-SingleTick
-                                                      icon: itemStatus == 11
-                                                          ? null
-                                                          : itemStatus == 3
-                                                              ? const IconData(
-                                                                  0xefe5,
-                                                                  fontFamily:
-                                                                      'MaterialIcons')
-                                                              : const IconData(
-                                                                  0xe1f8,
-                                                                  fontFamily:
-                                                                      'MaterialIcons'),
+                                                                icon: itemStatus ==
+                                                                        11
+                                                                    ? null
+                                                                    : itemStatus ==
+                                                                            3
+                                                                        ? const IconData(
+                                                                            0xefe5,
+                                                                            fontFamily:
+                                                                                'MaterialIcons')
+                                                                        : const IconData(
+                                                                            0xe1f8,
+                                                                            fontFamily:
+                                                                                'MaterialIcons'),
 //labelAsPerStatus,11(Rejected)-delete,
 //if3(AlreadyDelivered)-Already Delivered
 //Else(DeliveredNow)-Delivered
-                                                      label: itemStatus == 11
-                                                          ? ' '
-                                                          : itemStatus == 3
-                                                              ? 'Already Served'
-                                                              : 'Served',
-                                                    ),
-                                                  ],
-                                                ),
+                                                                label: itemStatus ==
+                                                                        11
+                                                                    ? ' '
+                                                                    : itemStatus ==
+                                                                            3
+                                                                        ? 'Already Served'
+                                                                        : 'Served',
+                                                              ),
+                                                            ],
+                                                          ),
 //EndActionPaneIsForRightSideSlidableOptions
-                                                startActionPane: ActionPane(
-                                                  motion: const ScrollMotion(),
-                                                  children: [
-                                                    SlidableAction(
-//ifStatusNotEqualTo3(MeansNotAlreadyDelivered),WeAlwaysGiveHereDeleteOption
-//SoWaiterCanDeleteItAnyTimeInCaseTheCustomerSaysTheyDon'tWant
+                                                          startActionPane:
+                                                              ActionPane(
+                                                            motion:
+                                                                const ScrollMotion(),
+                                                            children: [
+                                                              Visibility(
+//OnlyIfUserHasCancellationAccessHeWillBeAbleToCancel
+                                                                visible: json.decode(Provider.of<
+                                                                            PrinterAndOtherDetailsProvider>(
+                                                                        context,
+                                                                        listen:
+                                                                            false)
+                                                                    .allUserProfilesFromClass)[Provider.of<
+                                                                            PrinterAndOtherDetailsProvider>(
+                                                                        context,
+                                                                        listen:
+                                                                            false)
+                                                                    .currentUserPhoneNumberFromClass]['privileges']['11'],
+                                                                child:
+                                                                    SlidableAction(
+//WaiterCanDeleteItAnyTimeInCaseTheCustomerSaysTheyDon'tWant
 //WeRemoveItOutOfTheListsToo
-                                                        onPressed: (BuildContext
-                                                            context) {
-                                                          setState(() {
-                                                            // if (itemStatus == 3 ||
-                                                            //     itemStatus == 9 ||
-                                                            //     itemStatus == 11
-                                                            // ) {
+                                                                        onPressed:
+                                                                            (BuildContext
+                                                                                context) {
+                                                                          setState(
+                                                                              () {
 //IfItemIsAccepted/Ready-WeNeedToIntimateTheChef
-                                                            if (items.length ==
-                                                                1) {
+                                                                            if (items.length ==
+                                                                                1) {
 //IfThereIsOnlyOneItemWeDeleteTheTableItself
-                                                              FireStoreDeleteFinishedOrderInRunningOrders(
-                                                                      hotelName:
-                                                                          widget
-                                                                              .hotelName,
-                                                                      eachTableId:
-                                                                          itemBelongsToDoc)
-                                                                  .deleteFinishedOrder();
-                                                              Navigator.pop(
-                                                                  context);
-                                                            } else if (itemStatus ==
-                                                                    7 ||
-                                                                itemStatus ==
-                                                                    10) {
+                                                                              FireStoreDeleteFinishedOrderInRunningOrders(hotelName: widget.hotelName, eachTableId: itemBelongsToDoc).deleteFinishedOrder();
+                                                                              Navigator.pop(context);
+                                                                            } else if (itemStatus == 7 ||
+                                                                                itemStatus == 10) {
+//ThisIsForMakingCancellationMap
+                                                                              Map<String, dynamic> tempItemMapForCancel = itemsInOrderFromServerMap[itemID];
+                                                                              tempItemMapForCancel['cancellingCaptainName'] = json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['username'];
+                                                                              tempItemMapForCancel['cancellingCaptainPhone'] = Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass;
+
 //ThisMeansTheTheItemHasBeenAccepted/ReadyByCook.WeNeedToInformCookTo...
 // ...stopGettingItReady
 //IfStatusIsNot3,itMeansTheItemHasNotYetBeenPickedUpByTheWaiter
 //WeGiveHimTheOptionToClickPickedUpByUpdatingStatusTo3
 //letTheStatusOfCaptainCancelledItemBe12
-                                                              Map<String,
-                                                                      dynamic>
-                                                                  tempMapToUpdateStatus =
-                                                                  HashMap();
-                                                              if (itemStatus ==
-                                                                  7) {
-                                                                tempMapToUpdateStatus
-                                                                    .addAll({
-                                                                  'itemCancelled':
-                                                                      'acceptedToDelete'
-                                                                });
-                                                              } else if (itemStatus ==
-                                                                  10) {
-                                                                tempMapToUpdateStatus
-                                                                    .addAll({
-                                                                  'itemCancelled':
-                                                                      'readyToDelete'
-                                                                });
-                                                              }
-                                                              tempMapToUpdateStatus
-                                                                  .addAll({
-                                                                'itemStatus': 9
-                                                              });
+                                                                              Map<String, dynamic> tempMapToUpdateStatus = HashMap();
+                                                                              if (itemStatus == 7) {
+                                                                                tempMapToUpdateStatus.addAll({
+                                                                                  'itemCancelled': 'acceptedToDelete'
+                                                                                });
+                                                                              } else if (itemStatus == 10) {
+                                                                                tempMapToUpdateStatus.addAll({
+                                                                                  'itemCancelled': 'readyToDelete'
+                                                                                });
+                                                                              }
+                                                                              tempMapToUpdateStatus.addAll({
+                                                                                'itemStatus': 9
+                                                                              });
 
-                                                              tempMapToUpdateStatus
-                                                                  .addAll({
-                                                                'chefKOT':
-                                                                    'chefkotnotyet'
-                                                              });
+                                                                              tempMapToUpdateStatus.addAll({
+                                                                                'chefKOT': 'chefkotnotyet'
+                                                                              });
 
-                                                              Map<String,
-                                                                      dynamic>
-                                                                  masterOrderMapToServer =
-                                                                  HashMap();
-                                                              masterOrderMapToServer
-                                                                  .addAll({
-                                                                'itemsInOrderMap':
-                                                                    {
-                                                                  itemID:
-                                                                      tempMapToUpdateStatus
-                                                                },
-                                                              });
-                                                              masterOrderMapToServer
-                                                                  .addAll({
-                                                                'statusMap': {
-                                                                  'chefStatus':
-                                                                      9
-                                                                }
-                                                              });
-                                                              FireStoreAddOrderInRunningOrderFolder(
-                                                                      hotelName:
-                                                                          widget
-                                                                              .hotelName,
-                                                                      seatingNumber:
-                                                                          itemBelongsToDoc,
-                                                                      ordersMap:
-                                                                          masterOrderMapToServer)
-                                                                  .addOrder();
-                                                              fcmProvider.sendNotification(
-                                                                  token:
-                                                                      dynamicTokensToStringToken(),
-                                                                  title: widget
-                                                                      .hotelName,
-                                                                  restaurantNameForNotification: json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
-                                                                          context,
-                                                                          listen:
-                                                                              false)
-                                                                      .allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(
-                                                                          context,
-                                                                          listen:
-                                                                              false)
-                                                                      .currentUserPhoneNumberFromClass]['restaurantName'],
-                                                                  body: '*newOrderForCook*');
-                                                            } else {
+                                                                              Map<String, dynamic> masterOrderMapToServer = HashMap();
+                                                                              masterOrderMapToServer.addAll({
+                                                                                'itemsInOrderMap': {
+                                                                                  itemID: tempMapToUpdateStatus
+                                                                                },
+                                                                              });
+                                                                              masterOrderMapToServer.addAll({
+                                                                                'statusMap': {
+                                                                                  'chefStatus': 9
+                                                                                }
+                                                                              });
+                                                                              masterOrderMapToServer.addAll({
+                                                                                'cancelledItemsInOrder': {
+                                                                                  itemID: tempItemMapForCancel
+                                                                                }
+                                                                              });
+                                                                              FireStoreAddOrderInRunningOrderFolder(hotelName: widget.hotelName, seatingNumber: itemBelongsToDoc, ordersMap: masterOrderMapToServer).addOrder();
+                                                                              fcmProvider.sendNotification(token: dynamicTokensToStringToken(), title: widget.hotelName, restaurantNameForNotification: json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['restaurantName'], body: '*newOrderForCook*');
+                                                                            } else {
+                                                                              Map<String, dynamic> tempItemMapForCancel = itemsInOrderFromServerMap[itemID];
+//ifItIs11,It'sAnRejectedItemAndTheChefNameWillBeAlreadyThereInTheRejectedList
+//SoWeDontNeedToChangeCaptain
+                                                                              if (itemStatus != 11) {
+                                                                                tempItemMapForCancel['cancellingCaptainName'] = json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['username'];
+                                                                                tempItemMapForCancel['cancellingCaptainPhone'] = Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass;
+                                                                              }
 //deletingAnNonAccepted/RejectedItemFromTheListOfItems
 
-                                                              Map<String,
-                                                                      dynamic>
-                                                                  masterOrderMapToServer =
-                                                                  HashMap();
+                                                                              Map<String, dynamic> masterOrderMapToServer = HashMap();
 //ToDeleted
-                                                              masterOrderMapToServer
-                                                                  .addAll({
-                                                                'itemsInOrderMap':
-                                                                    {
-                                                                  itemID:
-                                                                      FieldValue
-                                                                          .delete()
-                                                                },
-                                                              });
+                                                                              masterOrderMapToServer.addAll({
+                                                                                'itemsInOrderMap': {
+                                                                                  itemID: FieldValue.delete()
+                                                                                },
+                                                                              });
 //InCaseItIsRejectedItem,WeNeedToRegisterThatTheCaptainHasSeenIt
-                                                              masterOrderMapToServer
-                                                                  .addAll({
-                                                                'statusMap': {
-                                                                  'captainStatus':
-                                                                      7
-                                                                },
-                                                              });
+                                                                              masterOrderMapToServer.addAll({
+                                                                                'statusMap': {
+                                                                                  'captainStatus': 7
+                                                                                },
+                                                                              });
+                                                                              masterOrderMapToServer.addAll({
+                                                                                'cancelledItemsInOrder': {
+                                                                                  itemID: tempItemMapForCancel
+                                                                                }
+                                                                              });
 
-                                                              FireStoreAddOrderInRunningOrderFolder(
-                                                                      hotelName:
-                                                                          widget
-                                                                              .hotelName,
-                                                                      seatingNumber:
-                                                                          itemBelongsToDoc,
-                                                                      ordersMap:
-                                                                          masterOrderMapToServer)
-                                                                  .addOrder();
-                                                            }
-                                                          });
-                                                        },
+                                                                              FireStoreAddOrderInRunningOrderFolder(hotelName: widget.hotelName, seatingNumber: itemBelongsToDoc, ordersMap: masterOrderMapToServer).addOrder();
+                                                                            }
+                                                                          });
+                                                                        },
 //IfAlreadyDelivered(Status 3)-GreenColor,Else-Red
-                                                        backgroundColor:
-                                                            Colors.red.shade500,
+                                                                        backgroundColor: Colors
+                                                                            .red
+                                                                            .shade500,
 //IfAlreadyDelivered(Status 3)-DoubleTick,Else-DeleteIcon
-                                                        icon: Icons.close,
+                                                                        icon: Icons
+                                                                            .close,
 //IfAlreadyDelivered(Status 3)-Already Delivered,Else-Delete as label
-                                                        label: 'Cancel'),
-                                                  ],
-                                                ),
-                                                child: Container(
+                                                                        label:
+                                                                            'Cancel'),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          child: Container(
 //thisContainerWillHaveTheListTile,WithBorderRadius
-                                                  //margin: EdgeInsets.fromLTRB(5, 5, 5, 5),
-                                                  decoration: BoxDecoration(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            5),
-                                                    border: Border.all(
-                                                      color: Colors.black87,
-                                                      width: 1.0,
-                                                    ),
+                                                            //margin: EdgeInsets.fromLTRB(5, 5, 5, 5),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          5),
+                                                              border:
+                                                                  Border.all(
+                                                                color: Colors
+                                                                    .black87,
+                                                                width: 1.0,
+                                                              ),
 //ContainerColor-Status11(Rejected)-Red,10(ReadyWithChef)-Green,
 //3-AlreadyDelivered-LightBlue
-                                                    color: itemStatus == 11
-                                                        ? Colors.red
-                                                        : itemStatus == 10
-                                                            ? Colors.green
-                                                            : itemStatus == 7
-                                                                ? Colors
-                                                                    .orangeAccent
-                                                                : itemStatus ==
-                                                                        3
-                                                                    ? Colors
-                                                                        .lightBlueAccent
-                                                                    : null,
-                                                  ),
-                                                  child: ListTile(
+                                                              color: itemStatus ==
+                                                                      11
+                                                                  ? Colors.red
+                                                                  : itemStatus ==
+                                                                          10
+                                                                      ? Colors
+                                                                          .green
+                                                                      : itemStatus ==
+                                                                              7
+                                                                          ? Colors
+                                                                              .orangeAccent
+                                                                          : itemStatus == 3
+                                                                              ? Colors.lightBlueAccent
+                                                                              : null,
+                                                            ),
+                                                            child: ListTile(
 //ListTileWillHaveItemNameInLeftAndNumberInRight
-                                                    title: Text(itemName,
-                                                        style: TextStyle(
-                                                            fontSize: 28.0)),
-                                                    trailing: Text(
-                                                        itemNumber.toString(),
-                                                        style: TextStyle(
-                                                            fontSize: 28.0)),
-                                                    subtitle:
-                                                        commentsForTheItem ==
-                                                                'noComment'
-                                                            ? null
-                                                            : Text(
-                                                                commentsForTheItem,
-                                                                style: TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w500,
-                                                                    color: Colors
-                                                                        .black),
-                                                              ),
-                                                  ),
-                                                ));
-                                          }),
-                                    )),
-                                    Padding(
-                                      padding: const EdgeInsets.all(10),
-                                      child: BottomButton(
-                                          buttonWidth: double.infinity,
-                                          buttonColor: (deliveredStatus &&
-                                                  !noItemsInTable)
-                                              ? kBottomContainerColour
-                                              : Colors.grey,
-                                          onTap: () {
+                                                              title: Text(
+                                                                  itemName,
+                                                                  style: TextStyle(
+                                                                      fontSize:
+                                                                          28.0)),
+                                                              trailing: Text(
+                                                                  itemNumber
+                                                                      .toString(),
+                                                                  style: TextStyle(
+                                                                      fontSize:
+                                                                          28.0)),
+                                                              subtitle:
+                                                                  commentsForTheItem ==
+                                                                          'noComment'
+                                                                      ? null
+                                                                      : Text(
+                                                                          commentsForTheItem,
+                                                                          style: TextStyle(
+                                                                              fontWeight: FontWeight.w500,
+                                                                              color: Colors.black),
+                                                                        ),
+                                                            ),
+                                                          ));
+                                                    }),
+                                              )),
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.all(10),
+                                                child: BottomButton(
+                                                    buttonWidth:
+                                                        double.infinity,
+                                                    buttonColor: (deliveredStatus &&
+                                                            !noItemsInTable)
+                                                        ? kBottomContainerColour
+                                                        : Colors.grey,
+                                                    onTap: () {
 //OnlyIfAllItemAreDelivered,WeGoForwardWithPrint
-                                            if (deliveredStatus &&
-                                                !noItemsInTable) {
-//WeWantListWhereDuplicateItemsAreRemoved,WeUse toSetWithToListToGetDistinctItems
-//Initially,WeWillHaveTheOtherListsEmpty
-                                              List<String> distinctItems =
-                                                  widget.itemsName
-                                                      .toSet()
-                                                      .toList();
-                                              List<num>
-                                                  priceOfEachDistinctItem = [];
-                                              List<num>
-                                                  priceOfEachDistinctItemWithoutTotal =
-                                                  [];
-                                              List<num>
-                                                  individualPriceOfEachDistinctItem =
-                                                  [];
-                                              List<int>
-                                                  numberOfEachDistinctItem = [];
-                                              List<String>
-                                                  completeItemListToPrint = [];
-                                              Map<String, String>
-                                                  printOrdersMap = HashMap();
-                                              Map<String, num> statisticsMap =
-                                                  HashMap();
-//WeGetTheDateReadyUsingThisInherentFlutterMethod
-                                              DateTime now = DateTime.now();
-//WeEnsureWeTakeTheMonth,Day,Hour,MinuteAsString
-//ifItIsLessThan10,WeSaveItWithZeroInTheFront
-//ThisWillEnsure,ItIsAlwaysIn2Digits,AndWithoutPuttingItInTwoDigits,,
-//ItWon'tComeInAscendingOrder
-                                              String tempMonth = now.month < 10
-                                                  ? '0${now.month.toString()}'
-                                                  : '${now.month.toString()}';
-                                              String tempDay = now.day < 10
-                                                  ? '0${now.day.toString()}'
-                                                  : '${now.day.toString()}';
-                                              String tempHour = now.hour < 10
-                                                  ? '0${now.hour.toString()}'
-                                                  : '${now.hour.toString()}';
-                                              String tempMinute = now.minute <
-                                                      10
-                                                  ? '0${now.minute.toString()}'
-                                                  : '${now.minute.toString()}';
-                                              String tempSecond = now.second <
-                                                      10
-                                                  ? '0${now.second.toString()}'
-                                                  : '${now.second.toString()}';
-//InThePrintOrdersMap(HashMap),FirstWeSaveKeyAs "DateOfOrder"&ValueAs,,
-//year/Month/Day At Hour:Minute
-                                              printOrdersMap.addAll({
-                                                ' Date of Order  :':
-                                                    '${now.year.toString()}/$tempMonth/$tempDay at $tempHour:$tempMinute'
-                                              });
-//IfItIsParcel,WeAddParcelNumbers1&TotalNumberOfOrdersAdd1InStatisticsMap
-                                              if (widget.tableOrParcel ==
-                                                  'Parcel') {
-                                                statisticsMap.addAll(
-                                                    {'numberofparcel': 1});
-                                                statisticsMap.addAll(
-                                                    {'totalnumberoforders': 1});
-                                              } else {
-//ElseIfItIsTable,WeAddParcelNumbers0&TotalNumberOfOrdersAdd1InStatisticsMap
-                                                statisticsMap.addAll(
-                                                    {'numberofparcel': 0});
-                                                statisticsMap.addAll(
-                                                    {'totalnumberoforders': 1});
-                                              }
-
-//WeGoThroughEachItemInDistinctItemsList
-                                              for (String distinctItem
-                                                  in distinctItems) {
-                                                int numberOfItems = 0;
-                                                num priceOfEachItem = 0;
-//WeHaveAnotherForLoop,AndInsideWeCheckEachItemAndIfTwoItemsAreSame,,
-//AndWeSimplyAddTheNumbers
-//SinceTheDistinctItemsHaveNoDuplicates,WeCouldGetTheNumber
-//AndPriceOfEachItemIsNoted
-                                                for (int i = 0;
-                                                    i < widget.itemsName.length;
-                                                    i++) {
-                                                  if (distinctItem ==
-                                                      widget.itemsName[i]) {
-                                                    numberOfItems =
-                                                        numberOfItems +
-                                                            widget
-                                                                .itemsNumber[i];
-                                                    priceOfEachItem = widget
-                                                        .itemsEachPrice[i];
-                                                  }
-                                                }
-//AfterTheForLoop,InPriceOfEachDistinctItemxNumberOfItemsToGetThePrice
-                                                individualPriceOfEachDistinctItem
-                                                    .add(priceOfEachItem);
-                                                priceOfEachDistinctItem.add(
-                                                    priceOfEachItem *
-                                                        numberOfItems);
-//InStatisticsMapWeAdd key-item,value-NumberOfItems
-                                                numberOfEachDistinctItem
-                                                    .add(numberOfItems);
-                                                statisticsMap.addAll({
-                                                  distinctItem: numberOfItems
-                                                });
-                                              }
-//TOGoForTheBillWeLoop
-//CompleteItemListToPrint,WePutItLike- ItemNamexNumber =
-                                              for (int i = 0;
-                                                  i < distinctItems.length;
-                                                  i++) {
-                                                completeItemListToPrint.add(
-                                                    '${distinctItems[i]}*${individualPriceOfEachDistinctItem[i]} * ${numberOfEachDistinctItem[i]} = ');
-//IfNumberLessThan9,InOrderToGetOrderRight,WePut '0'BehindNumber
-//WePrintItLike 01.idlyx5 = 50 02.Chapthix3 = 60
-                                                if (i < 9) {
-                                                  printOrdersMap.addAll({
-                                                    '0${i + 1} . ${distinctItems[i]} x ${individualPriceOfEachDistinctItem[i]} x ${numberOfEachDistinctItem[i]} = ':
-                                                        (priceOfEachDistinctItem[
-                                                                i])
-                                                            .toString()
-                                                  });
-                                                } else {
-//ifNumberMoreThan9,WeDon'tNeedTheAdditionOf 0 at First
-                                                  printOrdersMap.addAll({
-                                                    '${i + 1} . ${distinctItems[i]} x ${individualPriceOfEachDistinctItem[i]} x  ${numberOfEachDistinctItem[i]} = ':
-                                                        (priceOfEachDistinctItem[
-                                                                i])
-                                                            .toString()
-                                                  });
-                                                }
-                                              }
-//ThisWillEnsureIHaveListWithoutTotallingTheFinalSum
-                                              priceOfEachDistinctItemWithoutTotal =
-                                                  priceOfEachDistinctItem;
-//ifItIsTable WeSimplyAddEveryPriceWith reduce(a,b) to a+b
-//ThisIsHowWeGetSum
-                                              if (widget.tableOrParcel ==
-                                                  'Table') {
-                                                completeItemListToPrint
-                                                    .add('Total = ');
-                                                printOrdersMap.addAll({
-                                                  'Total = ':
-                                                      (priceOfEachDistinctItem
-                                                          .reduce((a, b) =>
-                                                              a + b)).toString()
-                                                });
-//InStatisticsMapWeAddThePriceSumTo TotalBillAmountToday
-                                                statisticsMap.addAll({
-                                                  'totalbillamounttoday':
-                                                      priceOfEachDistinctItem
-                                                          .reduce(
-                                                              (a, b) => a + b)
-                                                });
-//CalculatingCGST&SGSTHereWithPercentageDownloadedFromDatabase
-                                                cgstCalculated = (statisticsMap[
-                                                            'totalbillamounttoday']! *
-                                                        (json.decode(Provider.of<
-                                                                        PrinterAndOtherDetailsProvider>(
-                                                                    context,
-                                                                    listen:
-                                                                        false)
-                                                                .restaurantInfoDataFromClass)['cgst'] /
-                                                            100))
-                                                    .roundToDouble();
-                                                sgstCalculated = (statisticsMap[
-                                                            'totalbillamounttoday']! *
-                                                        (json.decode(Provider.of<
-                                                                        PrinterAndOtherDetailsProvider>(
-                                                                    context,
-                                                                    listen:
-                                                                        false)
-                                                                .restaurantInfoDataFromClass)['sgst'] /
-                                                            100))
-                                                    .roundToDouble();
-//WeCalculateTheEntireAmountWithTheTaxes
-                                                totalBillWithTaxes =
-                                                    cgstCalculated +
-                                                        sgstCalculated +
-                                                        statisticsMap[
-                                                            'totalbillamounttoday']!;
-
-//ToSaveTheEntireSumInPriceOfEachDistinctItem,WeAddAllTheSumAnd
-//SaveItInPriceOfEachDistinctItemItself
-                                                priceOfEachDistinctItem.add(
-                                                    priceOfEachDistinctItem
-                                                        .reduce(
-                                                            (a, b) => a + b));
-                                                printOrdersMap.addAll({
-                                                  'Total Bill With Taxes':
-                                                      totalBillWithTaxes
-                                                          .toString()
-                                                });
-                                              } else {
-                                                //ThisMeansItIsParcel
-                                                //WeDoTheSameThingsAsWeHadDoneForTheTable
-                                                //InCase,WeNeedSomeChangeForParcelInTheFuture,ThisLoopCanBeUsed
-                                                completeItemListToPrint
-                                                    .add('Total = ');
-                                                printOrdersMap.addAll({
-                                                  'Total = ':
-                                                      ((priceOfEachDistinctItem
-                                                              .reduce((a, b) =>
-                                                                  a + b))
-                                                          .toString())
-                                                });
-                                                statisticsMap.addAll({
-                                                  'totalbillamounttoday':
-                                                      priceOfEachDistinctItem
-                                                          .reduce(
-                                                              (a, b) => a + b)
-                                                });
-//CalculatingCGST&SGSTHereWithPercentageDownloadedFromDatabase
-                                                cgstCalculated = (statisticsMap[
-                                                            'totalbillamounttoday']! *
-                                                        (json.decode(Provider.of<
-                                                                        PrinterAndOtherDetailsProvider>(
-                                                                    context,
-                                                                    listen:
-                                                                        false)
-                                                                .restaurantInfoDataFromClass)['cgst'] /
-                                                            100))
-                                                    .roundToDouble();
-                                                sgstCalculated = (statisticsMap[
-                                                            'totalbillamounttoday']! *
-                                                        (json.decode(Provider.of<
-                                                                        PrinterAndOtherDetailsProvider>(
-                                                                    context,
-                                                                    listen:
-                                                                        false)
-                                                                .restaurantInfoDataFromClass)['sgst'] /
-                                                            100))
-                                                    .roundToDouble();
-//TotalTaxesCalculatedHere
-                                                totalBillWithTaxes =
-                                                    cgstCalculated +
-                                                        sgstCalculated +
-                                                        statisticsMap[
-                                                            'totalbillamounttoday']!;
-                                                priceOfEachDistinctItem.add(
-                                                    priceOfEachDistinctItem
-                                                        .reduce(
-                                                            (a, b) => a + b));
-                                                printOrdersMap.addAll({
-                                                  'Total Bill With Taxes':
-                                                      totalBillWithTaxes
-                                                          .toString()
-                                                });
-                                              }
-//WeHaveTodayMonthAndDateReadyWithAnAdditionOfZeroIfIt'sLessThan10
-                                              String todayMonth = now.month < 10
-                                                  ? '0${now.month.toString()}'
-                                                  : now.month.toString();
-                                              String today = now.day < 10
-                                                  ? '0${now.day.toString()}'
-                                                  : now.day.toString();
-
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                      builder: (context) =>
-                                                          BillPrintWithEachOrderTime(
-                                                            hotelName: widget
-                                                                .hotelName,
-                                                            addedItemsSet:
-                                                                addedItemsSet,
-                                                            itemsID:
-                                                                widget.itemsID,
-                                                            itemsFromThisDocumentInFirebaseDoc:
-                                                                widget
-                                                                    .itemsFromDoc,
-                                                          )));
+                                                      if (deliveredStatus &&
+                                                          !noItemsInTable) {
+                                                        Navigator.push(
+                                                            context,
+                                                            MaterialPageRoute(
+                                                                builder:
+                                                                    (context) =>
+                                                                        BillPrintWithStatsCheck(
+                                                                          hotelName:
+                                                                              widget.hotelName,
+                                                                          // addedItemsSet:
+                                                                          //     addedItemsSet,
+                                                                          itemsID:
+                                                                              widget.itemsID,
+                                                                          itemsFromThisDocumentInFirebaseDoc:
+                                                                              widget.itemsFromDoc,
+                                                                        )));
 
 //WeGiveThePrintOrdersMap,navigatingToPrintScreen,WhereItWillBeDisplayedAsBill
 //                 Navigator.pushReplacement(
@@ -2135,115 +2050,138 @@ class _ItemsInEachOrderWithTimeState extends State<ItemsInEachOrderWithTime>
 //                         builder: (context) => FinalBillScreen(
 //                               eachOrderMap: printOrdersMap,
 //                             )));
-                                            } else if (noItemsInTable) {
-                                              Navigator.pop(context);
-                                            }
-                                          },
+                                                      } else if (noItemsInTable) {
+                                                        Navigator.pop(context);
+                                                      }
+                                                    },
 //ButtonTitleWillBePrint
-                                          buttonTitle: 'Confirm Bill'),
-                                    )
-                                  ],
-                                ),
-                                //inDownRight,WeHaveFloatingActionButton,
+                                                    buttonTitle:
+                                                        'Confirm Bill'),
+                                              )
+                                            ],
+                                          ),
+                                          //inDownRight,WeHaveFloatingActionButton,
 //ThisWillBeContainerAndWillBeInRoundShape
-                                floatingActionButton: Column(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    Container(
-                                      width: 75.0,
-                                      height: 75.0,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(1),
-                                        // border: Border.all(
-                                        //   color: Colors.black87,
-                                        //   width: 0.2,
-                                        // )
-                                      ),
-                                      child: MaterialButton(
-                                        color: Colors.white70,
-                                        onPressed: () {
-                                          _controller = TextEditingController(
-                                              text: customermobileNumber);
-                                          showModalBottomSheet(
-                                              isScrollControlled: true,
-                                              context: context,
-                                              builder: (context) {
-                                                return buildUserInfoWidget();
-                                              });
-                                        },
-                                        shape: CircleBorder(
+                                          floatingActionButton: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
+                                            children: [
+                                              Container(
+                                                width: 75.0,
+                                                height: 75.0,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(1),
+                                                  // border: Border.all(
+                                                  //   color: Colors.black87,
+                                                  //   width: 0.2,
+                                                  // )
+                                                ),
+                                                child: MaterialButton(
+                                                  color: Colors.white70,
+                                                  onPressed: () {
+                                                    _controller =
+                                                        TextEditingController(
+                                                            text:
+                                                                customermobileNumber);
+                                                    showModalBottomSheet(
+                                                        isScrollControlled:
+                                                            true,
+                                                        context: context,
+                                                        builder: (context) {
+                                                          return buildUserInfoWidget();
+                                                        });
+                                                  },
+                                                  shape: CircleBorder(
 
-                                            // side: BorderSide(
-                                            //     // width: 2,
-                                            //     // color: Colors.red,
-                                            //     // style: BorderStyle.solid,
-                                            //     )
-                                            ),
-                                        child: const Icon(
-                                          IconData(0xe043,
-                                              fontFamily: 'MaterialIcons'),
-                                          size: 35,
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(height: 10),
-                                    Container(
-                                      width: 75.0,
-                                      height: 75.0,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(1),
+                                                      // side: BorderSide(
+                                                      //     // width: 2,
+                                                      //     // color: Colors.red,
+                                                      //     // style: BorderStyle.solid,
+                                                      //     )
+                                                      ),
+                                                  child: const Icon(
+                                                    IconData(0xe043,
+                                                        fontFamily:
+                                                            'MaterialIcons'),
+                                                    size: 35,
+                                                  ),
+                                                ),
+                                              ),
+                                              SizedBox(height: 10),
+                                              Container(
+                                                width: 75.0,
+                                                height: 75.0,
+                                                decoration: BoxDecoration(
+                                                  borderRadius:
+                                                      BorderRadius.circular(1),
 //            border: Border.all(
 //          color: Colors.black87,
 //          width: 0.2,
 //        )
-                                      ),
+                                                ),
 //FloatingActionButtonNameWillBeMenu
-                                      child: FloatingActionButton(
-                                        backgroundColor: Colors.white70,
-                                        child: const Text(
-                                          'Menu',
-                                          style: TextStyle(
-                                              color: Colors.black,
-                                              fontWeight: FontWeight.w900),
-                                        ),
-                                        onPressed: () {
+                                                child: FloatingActionButton(
+                                                  backgroundColor:
+                                                      Colors.white70,
+                                                  child: const Text(
+                                                    'Menu',
+                                                    style: TextStyle(
+                                                        color: Colors.black,
+                                                        fontWeight:
+                                                            FontWeight.w900),
+                                                  ),
+                                                  onPressed: () {
 //onPressedWeAlreadyHaveAllTheBelowInputsAsThisScreenWasCalled
 //WeGiveUnavailableItemsToEnsureWeDon'tShowItAndItemsAddedMap
 //WillHaveTheItemNameAsKeyAndTheNumberAsValue
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  MenuPageWithTimeSelectionOfEachItem(
-                                                hotelName: widget.hotelName,
-                                                tableOrParcel:
-                                                    widget.tableOrParcel,
-                                                tableOrParcelNumber:
-                                                    widget.tableOrParcelNumber,
-                                                parentOrChild: parentOrChild,
-                                                menuItems: widget.menuItems,
-                                                menuPrices: widget.menuPrices,
-                                                menuTitles: widget.menuTitles,
-                                                itemsAddedMapCalled: {},
-                                                itemsAddedCommentCalled: {},
-                                                itemsAddedTimeCalled: {},
-                                                alreadyRunningTicketsMap:
-                                                    ticketsFromServerMap,
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) =>
+                                                            MenuPageWithBackButtonUsage(
+                                                          hotelName:
+                                                              widget.hotelName,
+                                                          tableOrParcel: widget
+                                                              .tableOrParcel,
+                                                          tableOrParcelNumber:
+                                                              widget
+                                                                  .tableOrParcelNumber,
+                                                          parentOrChild:
+                                                              parentOrChild,
+                                                          menuItems:
+                                                              widget.menuItems,
+                                                          menuPrices:
+                                                              widget.menuPrices,
+                                                          menuTitles:
+                                                              widget.menuTitles,
+                                                          itemsAddedMapCalled: {},
+                                                          itemsAddedCommentCalled: {},
+                                                          itemsAddedTimeCalled: {},
+                                                          alreadyRunningTicketsMap:
+                                                              ticketsFromServerMap,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
                                               ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    SizedBox(height: 100),
-                                  ],
-                                ),
-                              );
-                            }
-                          } else {
-                            return CircularProgressIndicator();
-                          }
-                        })),
+                                              SizedBox(height: 100),
+                                            ],
+                                          ),
+                                        )
+                                      : const Center(
+                                          child: Text(
+                                            'Table\nClosed/Split/Moved',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(fontSize: 30),
+                                          ),
+                                        );
+                                }
+                              } else {
+                                return CircularProgressIndicator();
+                              }
+                            })),
           ],
         ),
       ),

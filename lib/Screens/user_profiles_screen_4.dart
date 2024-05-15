@@ -1,3 +1,9 @@
+//OnNewPrinterPackageRelease,WeHaveRemovedIndividualKotPrint
+//ThisWasInitiallyInPrivilege8
+//Currently,IHaveChangedItLike,IfTheyMakeNewUser
+//IfTheyEditAnythingInOldUser,UserPrivilege8WillChangeToTrue
+//StillPeopleWithFalseMightNotTouchItForSometime.SoUsePrivilege8AsTheLast
+
 import 'dart:collection';
 import 'dart:convert';
 
@@ -13,18 +19,19 @@ import 'package:orders_dev/services/firestore_services.dart';
 import 'package:orders_dev/services/notification_service.dart';
 import 'package:provider/provider.dart';
 
-class UserProfilesWithEdit extends StatefulWidget {
+class UserProfilesAccessChanges extends StatefulWidget {
   final String hotelName;
   final Map<String, dynamic> currentUserProfileMap;
-  const UserProfilesWithEdit(
+  const UserProfilesAccessChanges(
       {Key? key, required this.hotelName, required this.currentUserProfileMap})
       : super(key: key);
 
   @override
-  State<UserProfilesWithEdit> createState() => _UserProfilesWithEditState();
+  State<UserProfilesAccessChanges> createState() =>
+      _UserProfilesAccessChangesState();
 }
 
-class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
+class _UserProfilesAccessChangesState extends State<UserProfilesAccessChanges> {
   final _fireStore = FirebaseFirestore.instance;
   List<dynamic> tempListOfRestaurantsOfUser = [];
   List<String> listOfPhoneNumbersWithThatRestaurant = [];
@@ -39,7 +46,9 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
   bool tempChefSpecialitiesAccess = false;
   bool tempItemsAvailabilityAccess = false;
   bool tempRestaurantInfoEdit = false;
-  bool tempIndividualKOTPrintNeededTrueElseFalse = false;
+  bool tempPaymentDoneAccess = false;
+  bool tempBillPrintingAccess = false;
+  bool tempCaptainItemCancellationAccess = false;
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +191,9 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
       tempChefSpecialitiesAccess = true;
       tempItemsAvailabilityAccess = true;
       tempRestaurantInfoEdit = true;
-      tempIndividualKOTPrintNeededTrueElseFalse = false;
+      tempPaymentDoneAccess = true;
+      tempBillPrintingAccess = true;
+      tempCaptainItemCancellationAccess = true;
 
       showModalBottomSheet(
           isScrollControlled: true,
@@ -391,15 +402,40 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                         ),
                       ),
                       ListTile(
-                        title: Text('Individual KOT Print'),
+                        title: Text('Payment Closure Access'),
 //IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
                         trailing: Switch(
                           activeColor: Colors.green,
-                          value: tempIndividualKOTPrintNeededTrueElseFalse,
+                          value: tempPaymentDoneAccess,
                           onChanged: (bool changedValue) {
                             setStateSB(() {
-                              tempIndividualKOTPrintNeededTrueElseFalse =
-                                  changedValue;
+                              tempPaymentDoneAccess = changedValue;
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('Bill Printing Access'),
+//IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
+                        trailing: Switch(
+                          activeColor: Colors.green,
+                          value: tempBillPrintingAccess,
+                          onChanged: (bool changedValue) {
+                            setStateSB(() {
+                              tempBillPrintingAccess = changedValue;
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('Item Cancellation Access For Captain'),
+//IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
+                        trailing: Switch(
+                          activeColor: Colors.green,
+                          value: tempCaptainItemCancellationAccess,
+                          onChanged: (bool changedValue) {
+                            setStateSB(() {
+                              tempCaptainItemCancellationAccess = changedValue;
                             });
                           },
                         ),
@@ -432,6 +468,15 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                       {'restaurantName': tempRestaurantName});
                                   updateUserMap.addAll({'admin': tempAdmin});
                                   updateUserMap.addAll({'wontCook': []});
+                                  updateUserMap
+                                      .addAll({'printerSavingMap': '{}'});
+                                  updateUserMap.addAll(
+                                      {'billingPrinterAssigningMap': '{}'});
+                                  updateUserMap.addAll(
+                                      {'chefPrinterAssigningMap': '{}'});
+                                  updateUserMap
+                                      .addAll({'kotPrinterAssigningMap': '{}'});
+
                                   Map<String, bool> updatePrivilegesMap =
                                       HashMap();
                                   updatePrivilegesMap
@@ -450,13 +495,16 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
 
                                   updatePrivilegesMap
                                       .addAll({'7': tempRestaurantInfoEdit});
+                                  updatePrivilegesMap.addAll({'8': true});
+//ThisWillBeTheOnlyOneWhereTheDefaultWillBeFalse.WeCanUseItForFuture
+//WhereSomeParticularPermissionInDefaultShouldBeFalse
+                                  updatePrivilegesMap
+                                      .addAll({'9': tempPaymentDoneAccess});
+                                  updatePrivilegesMap
+                                      .addAll({'10': tempBillPrintingAccess});
                                   updatePrivilegesMap.addAll({
-                                    '8':
-                                        tempIndividualKOTPrintNeededTrueElseFalse
+                                    '11': tempCaptainItemCancellationAccess
                                   });
-                                  updatePrivilegesMap.addAll({'9': true});
-                                  updatePrivilegesMap.addAll({'10': true});
-                                  updatePrivilegesMap.addAll({'11': true});
                                   updatePrivilegesMap.addAll({'12': true});
                                   updatePrivilegesMap.addAll({'13': true});
                                   updatePrivilegesMap.addAll({'14': true});
@@ -522,7 +570,9 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
       tempChefSpecialitiesAccess = true;
       tempItemsAvailabilityAccess = true;
       tempRestaurantInfoEdit = true;
-      tempIndividualKOTPrintNeededTrueElseFalse = false;
+      tempPaymentDoneAccess = true;
+      tempBillPrintingAccess = true;
+      tempCaptainItemCancellationAccess = true;
 
       showModalBottomSheet(
           isScrollControlled: true,
@@ -707,15 +757,40 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                         ),
                       ),
                       ListTile(
-                        title: Text('Individual KOT Print'),
+                        title: Text('Payment Closure Access'),
 //IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
                         trailing: Switch(
                           activeColor: Colors.green,
-                          value: tempIndividualKOTPrintNeededTrueElseFalse,
+                          value: tempPaymentDoneAccess,
                           onChanged: (bool changedValue) {
                             setStateSB(() {
-                              tempIndividualKOTPrintNeededTrueElseFalse =
-                                  changedValue;
+                              tempPaymentDoneAccess = changedValue;
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('Bill Printing Access'),
+//IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
+                        trailing: Switch(
+                          activeColor: Colors.green,
+                          value: tempBillPrintingAccess,
+                          onChanged: (bool changedValue) {
+                            setStateSB(() {
+                              tempBillPrintingAccess = changedValue;
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('Item Cancellation Access For Captain'),
+//IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
+                        trailing: Switch(
+                          activeColor: Colors.green,
+                          value: tempCaptainItemCancellationAccess,
+                          onChanged: (bool changedValue) {
+                            setStateSB(() {
+                              tempCaptainItemCancellationAccess = changedValue;
                             });
                           },
                         ),
@@ -748,6 +823,14 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                       {'restaurantName': tempRestaurantName});
                                   updateUserMap.addAll({'admin': false});
                                   updateUserMap.addAll({'wontCook': []});
+                                  updateUserMap
+                                      .addAll({'printerSavingMap': '{}'});
+                                  updateUserMap.addAll(
+                                      {'billingPrinterAssigningMap': '{}'});
+                                  updateUserMap.addAll(
+                                      {'chefPrinterAssigningMap': '{}'});
+                                  updateUserMap
+                                      .addAll({'kotPrinterAssigningMap': '{}'});
                                   Map<String, bool> updatePrivilegesMap =
                                       HashMap();
                                   updatePrivilegesMap
@@ -766,13 +849,14 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                       {'6': tempItemsAvailabilityAccess});
                                   updatePrivilegesMap
                                       .addAll({'7': tempRestaurantInfoEdit});
+                                  updatePrivilegesMap.addAll({'8': true});
+                                  updatePrivilegesMap
+                                      .addAll({'9': tempPaymentDoneAccess});
+                                  updatePrivilegesMap
+                                      .addAll({'10': tempBillPrintingAccess});
                                   updatePrivilegesMap.addAll({
-                                    '8':
-                                        tempIndividualKOTPrintNeededTrueElseFalse
+                                    '11': tempCaptainItemCancellationAccess
                                   });
-                                  updatePrivilegesMap.addAll({'9': true});
-                                  updatePrivilegesMap.addAll({'10': true});
-                                  updatePrivilegesMap.addAll({'11': true});
                                   updatePrivilegesMap.addAll({'12': true});
                                   updatePrivilegesMap.addAll({'13': true});
                                   updatePrivilegesMap.addAll({'14': true});
@@ -841,8 +925,9 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
       tempChefSpecialitiesAccess = userProfileMap['privileges']['5'];
       tempItemsAvailabilityAccess = userProfileMap['privileges']['6'];
       tempRestaurantInfoEdit = userProfileMap['privileges']['7'];
-      tempIndividualKOTPrintNeededTrueElseFalse =
-          userProfileMap['privileges']['8'];
+      tempPaymentDoneAccess = userProfileMap['privileges']['9'];
+      tempBillPrintingAccess = userProfileMap['privileges']['10'];
+      tempCaptainItemCancellationAccess = userProfileMap['privileges']['11'];
 
       showModalBottomSheet(
           isScrollControlled: true,
@@ -1033,15 +1118,40 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                         ),
                       ),
                       ListTile(
-                        title: Text('Individual KOT Print'),
+                        title: Text('Payment Closure Access'),
 //IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
                         trailing: Switch(
                           activeColor: Colors.green,
-                          value: tempIndividualKOTPrintNeededTrueElseFalse,
+                          value: tempPaymentDoneAccess,
                           onChanged: (bool changedValue) {
                             setStateSB(() {
-                              tempIndividualKOTPrintNeededTrueElseFalse =
-                                  changedValue;
+                              tempPaymentDoneAccess = changedValue;
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('Bill Printing Access'),
+//IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
+                        trailing: Switch(
+                          activeColor: Colors.green,
+                          value: tempBillPrintingAccess,
+                          onChanged: (bool changedValue) {
+                            setStateSB(() {
+                              tempBillPrintingAccess = changedValue;
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('Item Cancellation Access For Captain'),
+//IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
+                        trailing: Switch(
+                          activeColor: Colors.green,
+                          value: tempCaptainItemCancellationAccess,
+                          onChanged: (bool changedValue) {
+                            setStateSB(() {
+                              tempCaptainItemCancellationAccess = changedValue;
                             });
                           },
                         ),
@@ -1091,9 +1201,13 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                     .addAll({'6': tempItemsAvailabilityAccess});
                                 updatePrivilegesMap
                                     .addAll({'7': tempRestaurantInfoEdit});
-                                updatePrivilegesMap.addAll({
-                                  '8': tempIndividualKOTPrintNeededTrueElseFalse
-                                });
+                                updatePrivilegesMap.addAll({'8': true});
+                                updatePrivilegesMap
+                                    .addAll({'9': tempPaymentDoneAccess});
+                                updatePrivilegesMap
+                                    .addAll({'10': tempBillPrintingAccess});
+                                updatePrivilegesMap.addAll(
+                                    {'11': tempCaptainItemCancellationAccess});
                                 updateUserMap.addAll(
                                     {'privileges': updatePrivilegesMap});
                                 FireStoreUpdateUserProfile(
@@ -1152,8 +1266,9 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
       tempChefSpecialitiesAccess = userProfileMap['privileges']['5'];
       tempItemsAvailabilityAccess = userProfileMap['privileges']['6'];
       tempRestaurantInfoEdit = userProfileMap['privileges']['7'];
-      tempIndividualKOTPrintNeededTrueElseFalse =
-          userProfileMap['privileges']['8'];
+      tempPaymentDoneAccess = userProfileMap['privileges']['9'];
+      tempBillPrintingAccess = userProfileMap['privileges']['10'];
+      tempCaptainItemCancellationAccess = userProfileMap['privileges']['11'];
 
       showModalBottomSheet(
           isScrollControlled: true,
@@ -1334,15 +1449,40 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                         ),
                       ),
                       ListTile(
-                        title: Text('Individual KOT Print'),
+                        title: Text('Payment Closure Access'),
 //IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
                         trailing: Switch(
                           activeColor: Colors.green,
-                          value: tempIndividualKOTPrintNeededTrueElseFalse,
+                          value: tempPaymentDoneAccess,
                           onChanged: (bool changedValue) {
                             setStateSB(() {
-                              tempIndividualKOTPrintNeededTrueElseFalse =
-                                  changedValue;
+                              tempPaymentDoneAccess = changedValue;
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('Bill Printing Access'),
+//IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
+                        trailing: Switch(
+                          activeColor: Colors.green,
+                          value: tempBillPrintingAccess,
+                          onChanged: (bool changedValue) {
+                            setStateSB(() {
+                              tempBillPrintingAccess = changedValue;
+                            });
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: Text('Item Cancellation Access For Captain'),
+//IfTheyDontHaveThisAccess,OnlyKOTCanBeGivenByTheCaptain
+                        trailing: Switch(
+                          activeColor: Colors.green,
+                          value: tempCaptainItemCancellationAccess,
+                          onChanged: (bool changedValue) {
+                            setStateSB(() {
+                              tempCaptainItemCancellationAccess = changedValue;
                             });
                           },
                         ),
@@ -1390,9 +1530,13 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                     .addAll({'6': tempItemsAvailabilityAccess});
                                 updatePrivilegesMap
                                     .addAll({'7': tempRestaurantInfoEdit});
-                                updatePrivilegesMap.addAll({
-                                  '8': tempIndividualKOTPrintNeededTrueElseFalse
-                                });
+                                updatePrivilegesMap.addAll({'8': true});
+                                updatePrivilegesMap
+                                    .addAll({'9': tempPaymentDoneAccess});
+                                updatePrivilegesMap
+                                    .addAll({'10': tempBillPrintingAccess});
+                                updatePrivilegesMap.addAll(
+                                    {'11': tempCaptainItemCancellationAccess});
                                 updateUserMap.addAll(
                                     {'privileges': updatePrivilegesMap});
                                 FireStoreUpdateUserProfile(
@@ -1486,6 +1630,8 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                     });
                     temporaryMapToAdd.addAll(eachDoc[widget.hotelName]);
                     users.add(temporaryMapToAdd);
+                    print('fgfgfg3');
+                    print(users);
                   }
                   return Expanded(
                       child: ListView.builder(
@@ -1521,12 +1667,23 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                 users[index]['privileges']['7'] == true
                                     ? 'Restaurant Info Edit|'
                                     : '';
-                            final individualKOTPrintEdit =
-                                users[index]['privileges']['8'] == true
-                                    ? 'Individual KOT Print|'
+                            final paymentClosureAccess =
+                                users[index]['privileges']['9'] == true
+                                    ? 'Payment Closure|'
+                                    : '';
+                            final printBillAccess =
+                                users[index]['privileges']['10'] == true
+                                    ? 'Bill Printing|'
+                                    : '';
+                            final itemCancellationByCaptainAccess =
+                                users[index]['privileges']['11'] == true
+                                    ? 'Captain Cancel Item|'
                                     : '';
 
                             return Container(
+                              margin: index + 1 == users.length
+                                  ? EdgeInsets.only(bottom: 100)
+                                  : EdgeInsets.only(bottom: 0),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(5),
                                 border: Border.all(
@@ -1547,7 +1704,7 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                     },
                                     icon: Icon(Icons.edit)),
                                 subtitle: Text(
-                                    '$ownerOrNot$statisticsAccess$completeOrderHistory$userProfileManagement$chefSpecialitiesAccess$itemsAvailabilityAccess$restaurantInfoEditAccess$individualKOTPrintEdit',
+                                    '$ownerOrNot$statisticsAccess$completeOrderHistory$userProfileManagement$chefSpecialitiesAccess$itemsAvailabilityAccess$restaurantInfoEditAccess$paymentClosureAccess$printBillAccess$itemCancellationByCaptainAccess',
                                     style: TextStyle(fontSize: 18)),
                               ),
                             );
@@ -1609,6 +1766,8 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                       });
                       temporaryMapToAdd.addAll(eachDoc[widget.hotelName]);
                       users.add(temporaryMapToAdd);
+                      print('fgfgfg2');
+                      print(users);
                     }
                   }
                   return Expanded(
@@ -1641,12 +1800,23 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                 users[index]['privileges']['7'] == true
                                     ? 'Restaurant Info Edit|'
                                     : '';
-                            final individualKOTPrintEdit =
-                                users[index]['privileges']['8'] == true
-                                    ? 'Individual KOT Print|'
+                            final paymentClosureAccess =
+                                users[index]['privileges']['9'] == true
+                                    ? 'Payment Closure|'
+                                    : '';
+                            final printBillAccess =
+                                users[index]['privileges']['10'] == true
+                                    ? 'Bill Printing|'
+                                    : '';
+                            final itemCancellationByCaptainAccess =
+                                users[index]['privileges']['11'] == true
+                                    ? 'Captain Cancel Item|'
                                     : '';
 
                             return Container(
+                              margin: index + 1 == users.length
+                                  ? EdgeInsets.only(bottom: 100)
+                                  : EdgeInsets.only(bottom: 0),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(5),
                                 border: Border.all(
@@ -1667,7 +1837,7 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                     },
                                     icon: Icon(Icons.edit)),
                                 subtitle: Text(
-                                    '$statisticsAccess$completeOrderHistory$userProfileManagement$chefSpecialitiesAccess$itemsAvailabilityAccess$restaurantInfoEditAccess$individualKOTPrintEdit',
+                                    '$statisticsAccess$completeOrderHistory$userProfileManagement$chefSpecialitiesAccess$itemsAvailabilityAccess$restaurantInfoEditAccess$paymentClosureAccess$printBillAccess$itemCancellationByCaptainAccess',
                                     style: TextStyle(fontSize: 18)),
                               ),
                             );
@@ -1730,6 +1900,8 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                       });
                       temporaryMapToAdd.addAll(eachDoc[widget.hotelName]);
                       users.add(temporaryMapToAdd);
+                      print('fgfgfg1');
+                      print(users);
                     }
                   }
                   return Expanded(
@@ -1762,12 +1934,23 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                 users[index]['privileges']['7'] == true
                                     ? 'Restaurant Info Edit|'
                                     : '';
-                            final individualKOTPrintEdit =
-                                users[index]['privileges']['8'] == true
-                                    ? 'Individual KOT Print|'
+                            final paymentClosureAccess =
+                                users[index]['privileges']['9'] == true
+                                    ? 'Payment Closure|'
+                                    : '';
+                            final printBillAccess =
+                                users[index]['privileges']['10'] == true
+                                    ? 'Bill Printing|'
+                                    : '';
+                            final itemCancellationByCaptainAccess =
+                                users[index]['privileges']['11'] == true
+                                    ? 'Captain Cancel Item|'
                                     : '';
 
                             return Container(
+                              margin: index + 1 == users.length
+                                  ? EdgeInsets.only(bottom: 100)
+                                  : EdgeInsets.only(bottom: 0),
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(5),
                                 border: Border.all(
@@ -1788,7 +1971,7 @@ class _UserProfilesWithEditState extends State<UserProfilesWithEdit> {
                                     },
                                     icon: Icon(Icons.edit)),
                                 subtitle: Text(
-                                    '$statisticsAccess$completeOrderHistory$userProfileManagement$chefSpecialitiesAccess$itemsAvailabilityAccess$restaurantInfoEditAccess$individualKOTPrintEdit',
+                                    '$statisticsAccess$completeOrderHistory$userProfileManagement$chefSpecialitiesAccess$itemsAvailabilityAccess$restaurantInfoEditAccess$paymentClosureAccess$printBillAccess$itemCancellationByCaptainAccess',
                                     style: TextStyle(fontSize: 18)),
                               ),
                             );

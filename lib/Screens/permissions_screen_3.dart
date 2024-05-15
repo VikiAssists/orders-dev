@@ -1,40 +1,40 @@
 import 'dart:async';
 
 import 'package:auto_start_flutter/auto_start_flutter.dart';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_background/flutter_background.dart';
 import 'package:app_settings/app_settings.dart';
+import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-class PermissionsWithAutoStart extends StatefulWidget {
+class PermissionsWithNewPrinterPackage extends StatefulWidget {
   final bool fromFirstScreenTrueElseFalse;
 
-  const PermissionsWithAutoStart({
+  const PermissionsWithNewPrinterPackage({
     Key? key,
     required this.fromFirstScreenTrueElseFalse,
   }) : super(key: key);
 
   @override
-  State<PermissionsWithAutoStart> createState() =>
-      _PermissionsWithAutoStartState();
+  State<PermissionsWithNewPrinterPackage> createState() =>
+      _PermissionsWithNewPrinterPackageState();
 }
 
-class _PermissionsWithAutoStartState extends State<PermissionsWithAutoStart> {
-  bool hasBackgroundPermissions = true;
+class _PermissionsWithNewPrinterPackageState
+    extends State<PermissionsWithNewPrinterPackage> {
+  // bool hasBackgroundPermissions = true;
   bool locationPermissionAccepted = false;
   bool isNotificationPermissionGranted = false;
   bool autoStartPermission = false;
 
-  void backgroundPermissionsCheck() async {
-    hasBackgroundPermissions = await FlutterBackground.hasPermissions;
-    setState(() {
-      hasBackgroundPermissions;
-    });
-  }
+  // void backgroundPermissionsCheck() async {
+  //   hasBackgroundPermissions = await FlutterBackground.hasPermissions;
+  //   setState(() {
+  //     hasBackgroundPermissions;
+  //   });
+  // }
 
   void backgroundPermissionsCheckTimer() {
     Timer? _timer;
@@ -45,7 +45,7 @@ class _PermissionsWithAutoStartState extends State<PermissionsWithAutoStart> {
         _everySecForBackground++;
       } else {
         _timer!.cancel();
-        backgroundPermissionsCheck();
+        // backgroundPermissionsCheck();
       }
     });
   }
@@ -168,7 +168,7 @@ class _PermissionsWithAutoStartState extends State<PermissionsWithAutoStart> {
   void initState() {
     // TODO: implement initState
     initAutoStart();
-    backgroundPermissionsCheck();
+    // backgroundPermissionsCheck();
     requestLocationPermissionForBluetooth();
     notificationPermissionChecker();
     notificationPermissionCheckerTimerFourSec();
@@ -265,8 +265,6 @@ class _PermissionsWithAutoStartState extends State<PermissionsWithAutoStart> {
                       ),
                       child: Text('No'),
                       onPressed: () {
-                        // Navigator.pop(context);
-                        // Navigator.pop(context);
                         int count = 0;
                         Navigator.of(context).popUntil((_) => count++ >= 2);
                       },
@@ -279,17 +277,6 @@ class _PermissionsWithAutoStartState extends State<PermissionsWithAutoStart> {
                       child: Text('Yes'),
                       onPressed: () async {
                         Navigator.pop(context);
-                        PermissionStatus? statusNotification =
-                            await Permission.notification.request();
-
-                        bool isGranted =
-                            statusNotification == PermissionStatus.granted;
-                        if (!isGranted) {
-                          NotificationService().showNotification(
-                              title: 'Orders',
-                              body: 'Requesting Your Permission');
-                          notificationPermissionCheckerTimerFourSec();
-                        }
                       },
                     ),
                   ],
@@ -325,32 +312,32 @@ class _PermissionsWithAutoStartState extends State<PermissionsWithAutoStart> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             SizedBox(height: 10),
-            ListTile(
-              // tileColor: hasBackgroundPermissions ? Colors.green : Colors.red,
-              leading: const Icon(Icons.battery_charging_full_rounded),
-              title: Text(
-                'Battery Settings',
-                style: Theme.of(context).textTheme.headline6,
-              ),
-              subtitle: Text(
-                'Please Remove Battery Restrictions to check for new customer orders in background state',
-                style: TextStyle(fontSize: 15),
-              ),
-              trailing: Switch(
-                value: hasBackgroundPermissions,
-                activeColor: Colors.green,
-                onChanged: (bool changedValue) {
-                  if (hasBackgroundPermissions == false) {
-                    setState(() {
-                      hasBackgroundPermissions = changedValue;
-                    });
-                    FlutterBackground.initialize();
-                    backgroundPermissionsCheckTimer();
-                  }
-                },
-              ),
-            ),
-            const Divider(color: Colors.black54),
+            // ListTile(
+            //   // tileColor: hasBackgroundPermissions ? Colors.green : Colors.red,
+            //   leading: const Icon(Icons.battery_charging_full_rounded),
+            //   title: Text(
+            //     'Battery Settings',
+            //     style: Theme.of(context).textTheme.headline6,
+            //   ),
+            //   subtitle: Text(
+            //     'Please Remove Battery Restrictions to check for new customer orders in background state',
+            //     style: TextStyle(fontSize: 15),
+            //   ),
+            //   trailing: Switch(
+            //     value: hasBackgroundPermissions,
+            //     activeColor: Colors.green,
+            //     onChanged: (bool changedValue) {
+            //       if (hasBackgroundPermissions == false) {
+            //         setState(() {
+            //           hasBackgroundPermissions = changedValue;
+            //         });
+            //         FlutterBackground.initialize();
+            //         backgroundPermissionsCheckTimer();
+            //       }
+            //     },
+            //   ),
+            // ),
+            // const Divider(color: Colors.black54),
             ListTile(
               leading: const Icon(Icons.circle_notifications_rounded),
               title: Text(
@@ -374,13 +361,6 @@ class _PermissionsWithAutoStartState extends State<PermissionsWithAutoStart> {
                   }
                 },
               ),
-              // onTap: () {
-              //   if (!isGranted) {
-              //     NotificationService().showNotification(
-              //         title: 'Orders',
-              //         body: 'Requesting Your Permission for Notification');
-              //   }
-              // },
             ),
 
             const Divider(color: Colors.black54),
@@ -420,10 +400,9 @@ class _PermissionsWithAutoStartState extends State<PermissionsWithAutoStart> {
                                 setState(() {
                                   locationPermissionAccepted = true;
                                 });
-                                BlueThermalPrinter bluetooth =
-                                    BlueThermalPrinter.instance;
-                                // await bluetooth.getBondedDevices();
-                                bluetooth.getBondedDevices();
+                                PrinterManager.instance
+                                    .discovery(type: PrinterType.bluetooth)
+                                    .length;
                                 requestLocationPermissionForBluetoothTimer();
                                 print('came till this pop1');
                               },

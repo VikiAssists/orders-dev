@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/edit_menu_items_4.dart';
 import 'package:orders_dev/Screens/edit_menu_items_5.dart';
-import 'package:orders_dev/Screens/edit_restaurant_info.dart';
+import 'package:orders_dev/Screens/edit_restaurant_info_1.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:provider/provider.dart';
@@ -104,8 +104,8 @@ class EditMenuBaseOptions extends StatelessWidget {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (Buildcontext) =>
-                            RestaurantBaseInfo(hotelName: hotelName)));
+                        builder: (Buildcontext) => RestaurantBaseInfoWithFooter(
+                            hotelName: hotelName)));
               },
               child: Text(
                 'Basic Bill Information',

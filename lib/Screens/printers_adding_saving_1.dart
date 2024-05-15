@@ -9,23 +9,25 @@ import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platfor
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/Methods/usb_bluetooth_printer.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
-import 'package:orders_dev/Screens/all_printer_settings.dart';
+import 'package:orders_dev/Screens/printer_roles_assigning.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:flutter_esc_pos_utils/flutter_esc_pos_utils.dart';
 import 'package:flutter_esc_pos_network/flutter_esc_pos_network.dart';
+import 'package:orders_dev/services/firestore_services.dart';
 import 'package:provider/provider.dart';
 
 enum TypesOfPrinters { Bluetooth, LAN, USB }
 
-class PrintersSavingAndEditing extends StatefulWidget {
-  const PrintersSavingAndEditing({Key? key}) : super(key: key);
+class PrintersAddingSavingAndEditing extends StatefulWidget {
+  const PrintersAddingSavingAndEditing({Key? key}) : super(key: key);
 
   @override
-  State<PrintersSavingAndEditing> createState() =>
-      _PrintersSavingAndEditingState();
+  State<PrintersAddingSavingAndEditing> createState() =>
+      _PrintersAddingSavingAndEditingState();
 }
 
-class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
+class _PrintersAddingSavingAndEditingState
+    extends State<PrintersAddingSavingAndEditing> {
   var defaultPrinterType = PrinterType.bluetooth;
   var editPrinterType = PrinterType.bluetooth;
   var _isBle = false;
@@ -60,6 +62,10 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
   String tempSpacesBelowBill = '';
   String tempBillSize = 'Small';
   List<String> billSizes = ['Small', 'Large'];
+  String tempSpacesAboveDeliverySlip = '';
+  String tempSpacesBelowDeliverySlip = '';
+  String tempDeliverySlipSize = 'Small';
+  List<String> deliverySlipSizes = ['Small', 'Large'];
   TextEditingController spacesAboveKotEditingController =
       TextEditingController();
   TextEditingController spacesBelowKotEditingController =
@@ -67,6 +73,10 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
   TextEditingController spacesAboveBillEditingController =
       TextEditingController();
   TextEditingController spacesBelowBillEditingController =
+      TextEditingController();
+  TextEditingController spacesAboveDeliverySlipEditingController =
+      TextEditingController();
+  TextEditingController spacesBelowDeliverySlipEditingController =
       TextEditingController();
   TypesOfPrinters? _character = TypesOfPrinters.Bluetooth;
   String errorMessage = '';
@@ -88,6 +98,9 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
   List<Map<String, dynamic>> printersList = [];
 
   void deleteAlertDialogBox() async {
+    Map<String, dynamic> kotPrinterAssigningMap = HashMap();
+    Map<String, dynamic> billingPrinterAssigningMap = HashMap();
+    Map<String, dynamic> chefPrinterAssigningMap = HashMap();
     showDialog(
       context: context,
       builder: (BuildContext context) => AlertDialog(
@@ -104,9 +117,123 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
               ),
               onPressed: () {
                 printerSavingMap.remove(editPrinterRandomID);
+//savingTheChangeInPrinterSavingMapInServer
+                FireStorePrintersInformation(
+                        userPhoneNumber:
+                            Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                    listen: false)
+                                .currentUserPhoneNumberFromClass,
+                        hotelName: Provider.of<PrinterAndOtherDetailsProvider>(
+                                context,
+                                listen: false)
+                            .chosenRestaurantDatabaseFromClass,
+                        printerMapKey: 'printerSavingMap',
+                        printerMapValue: json.encode(printerSavingMap))
+                    .updatePrinterInfo();
                 Provider.of<PrinterAndOtherDetailsProvider>(context,
                         listen: false)
                     .savingPrintersAddedByTheUser(jsonEncode(printerSavingMap));
+                if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                            listen: false)
+                        .kotAssignedPrintersFromClass !=
+                    '{}') {
+                  kotPrinterAssigningMap = json.decode(
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .kotAssignedPrintersFromClass);
+                  if (kotPrinterAssigningMap.containsKey(editPrinterRandomID)) {
+                    kotPrinterAssigningMap.remove(editPrinterRandomID);
+                    Provider.of<PrinterAndOtherDetailsProvider>(context,
+                            listen: false)
+                        .savingKotAssignedPrinterByTheUser(
+                            json.encode(kotPrinterAssigningMap));
+//WeCanSaveItAgainInServerOnlyIfWeAreRemovingTheKeyFromTheKotAssignedMap
+                    FireStorePrintersInformation(
+                            userPhoneNumber:
+                                Provider.of<PrinterAndOtherDetailsProvider>(
+                                        context,
+                                        listen: false)
+                                    .currentUserPhoneNumberFromClass,
+                            hotelName:
+                                Provider.of<PrinterAndOtherDetailsProvider>(
+                                        context,
+                                        listen: false)
+                                    .chosenRestaurantDatabaseFromClass,
+                            printerMapKey: 'kotPrinterAssigningMap',
+                            printerMapValue:
+                                json.encode(kotPrinterAssigningMap))
+                        .updatePrinterInfo();
+                  }
+                }
+                if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                            listen: false)
+                        .billingAssignedPrinterFromClass !=
+                    '{}') {
+                  billingPrinterAssigningMap = json.decode(
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .billingAssignedPrinterFromClass);
+                  if (billingPrinterAssigningMap
+                      .containsKey(editPrinterRandomID)) {
+                    billingPrinterAssigningMap.remove(editPrinterRandomID);
+                    Provider.of<PrinterAndOtherDetailsProvider>(context,
+                            listen: false)
+                        .savingBillingAssignedPrinterByTheUser(
+                            json.encode(billingPrinterAssigningMap));
+                    //WeCanSaveItAgainInServerOnlyIfWeAreRemovingTheKeyFromTheBillingAssignedMap
+                    FireStorePrintersInformation(
+                            userPhoneNumber:
+                                Provider.of<PrinterAndOtherDetailsProvider>(
+                                        context,
+                                        listen: false)
+                                    .currentUserPhoneNumberFromClass,
+                            hotelName:
+                                Provider.of<PrinterAndOtherDetailsProvider>(
+                                        context,
+                                        listen: false)
+                                    .chosenRestaurantDatabaseFromClass,
+                            printerMapKey: 'billingPrinterAssigningMap',
+                            printerMapValue:
+                                json.encode(billingPrinterAssigningMap))
+                        .updatePrinterInfo();
+                  }
+                }
+
+                if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+                            listen: false)
+                        .chefAssignedPrinterFromClass !=
+                    '{}') {
+                  chefPrinterAssigningMap = json.decode(
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .chefAssignedPrinterFromClass);
+                  if (chefPrinterAssigningMap
+                      .containsKey(editPrinterRandomID)) {
+                    chefPrinterAssigningMap.remove(editPrinterRandomID);
+
+                    Provider.of<PrinterAndOtherDetailsProvider>(context,
+                            listen: false)
+                        .savingChefAssignedPrinterByTheUser(
+                            json.encode(chefPrinterAssigningMap));
+                    //WeCanSaveItAgainInServerOnlyIfWeAreRemovingTheKeyFromTheChefAssignedMap
+                    FireStorePrintersInformation(
+                            userPhoneNumber:
+                                Provider.of<PrinterAndOtherDetailsProvider>(
+                                        context,
+                                        listen: false)
+                                    .currentUserPhoneNumberFromClass,
+                            hotelName:
+                                Provider.of<PrinterAndOtherDetailsProvider>(
+                                        context,
+                                        listen: false)
+                                    .chosenRestaurantDatabaseFromClass,
+                            printerMapKey: 'chefPrinterAssigningMap',
+                            printerMapValue:
+                                json.encode(chefPrinterAssigningMap))
+                        .updatePrinterInfo();
+                  }
+                }
+
 //ToRefreshThePage
                 savedPrintersFromProvider();
                 defaultPrinterType = PrinterType.bluetooth;
@@ -429,7 +556,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
   }
 
   void bluetoothFirstPrint() {
-    print('came inside bluetooth firsrt print');
+    print('came inside bluetooth first print');
     printerManager.send(type: PrinterType.bluetooth, bytes: firstPrintBytes);
     bluetoothFirstConnect = false;
     bluetoothFirstConnectTried = false;
@@ -480,6 +607,33 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
     printAlignmentCheckBytes +=
         generator.text("<KOT End>", styles: PosStyles(align: PosAlign.center));
     printAlignmentCheckBytes += generator.cut();
+    printAlignmentCheckBytes += generator.text("<Delivery Slip Start>",
+        styles: PosStyles(align: PosAlign.center));
+    if (tempSpacesAboveDeliverySlip != '' &&
+        tempSpacesAboveDeliverySlip != '0') {
+      for (int i = 0; i < num.parse(tempSpacesAboveDeliverySlip); i++) {
+        printAlignmentCheckBytes += generator.text(" ");
+      }
+    }
+    printAlignmentCheckBytes += generator.text("Delivery Slip Content",
+        styles: tempDeliverySlipSize == 'Small'
+            ? PosStyles(
+                height: PosTextSize.size1,
+                width: PosTextSize.size1,
+                align: PosAlign.center)
+            : PosStyles(
+                height: PosTextSize.size2,
+                width: PosTextSize.size2,
+                align: PosAlign.center));
+    if (tempSpacesBelowDeliverySlip != '' &&
+        tempSpacesBelowDeliverySlip != '0') {
+      for (int i = 0; i < num.parse(tempSpacesBelowDeliverySlip); i++) {
+        printAlignmentCheckBytes += generator.text(" ");
+      }
+    }
+    printAlignmentCheckBytes += generator.text("<Delivery Slip End>",
+        styles: PosStyles(align: PosAlign.center));
+    printAlignmentCheckBytes += generator.cut();
     printAlignmentCheckBytes += generator.text("<Bill Start>",
         styles: PosStyles(align: PosAlign.center));
     if (tempSpacesAboveBill != '' && tempSpacesAboveBill != '0') {
@@ -510,8 +664,14 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
           PosPrintResult printing = await printer
               .printTicket(Uint8List.fromList(printAlignmentCheckBytes));
           printer.disconnect();
+          setState(() {
+            showSpinner = false;
+          });
         } else {
           showMethodCaller('Unable To Connect. Please Check Printer');
+          setState(() {
+            showSpinner = false;
+          });
         }
       } else {
         printerManager.send(
@@ -522,6 +682,9 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
       usbEditConnectTried = false;
       bluetoothEditConnect = false;
       bluetoothEditConnectTried = false;
+      setState(() {
+        showSpinner = false;
+      });
     } else {
 //ThisIsForNewPrinter
       if (selectedPrinter!.typePrinter == PrinterType.network) {
@@ -531,13 +694,22 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
           PosPrintResult printing = await printer
               .printTicket(Uint8List.fromList(printAlignmentCheckBytes));
           printer.disconnect();
+          setState(() {
+            showSpinner = false;
+          });
         } else {
           showMethodCaller('Unable To Connect. Please Check Printer');
+          setState(() {
+            showSpinner = false;
+          });
         }
       } else {
         printerManager.send(
             type: selectedPrinter!.typePrinter,
             bytes: printAlignmentCheckBytes);
+        setState(() {
+          showSpinner = false;
+        });
       }
     }
   }
@@ -550,7 +722,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
               Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => AllPrinterSettings()));
+                      builder: (context) => PrinterRolesAssigning()));
               return false;
             },
             child: Scaffold(
@@ -562,7 +734,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                     Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => AllPrinterSettings()));
+                            builder: (context) => PrinterRolesAssigning()));
                   },
                 ),
                 title: Text('All Printers', style: kAppBarTextStyle),
@@ -574,53 +746,76 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                           style: TextStyle(fontSize: 20)))
                   : Column(
                       children: printersList
-                          .map((eachPrinter) => ListTile(
-                                leading: IconButton(
-                                    icon: Icon(Icons.edit),
-                                    onPressed: () {
-                                      editPrinterRandomID =
-                                          eachPrinter['printerRandomID'];
-                                      tempPrinterName =
-                                          eachPrinter['printerName'];
-                                      tempDeviceManufacturerName = eachPrinter[
-                                          'printerManufacturerDeviceName'];
-                                      tempSpacesAboveKOT =
-                                          eachPrinter['spacesAboveKOT'];
-                                      spacesAboveKotEditingController =
-                                          TextEditingController(
-                                              text: tempSpacesAboveKOT);
-                                      tempSpacesBelowKOT =
-                                          eachPrinter['spacesBelowKOT'];
-                                      spacesBelowKotEditingController =
-                                          TextEditingController(
-                                              text: tempSpacesBelowKOT);
-                                      tempKotSize = eachPrinter['kotFontSize'];
-                                      tempSpacesBelowBill =
-                                          eachPrinter['spacesBelowBill'];
-                                      spacesBelowBillEditingController =
-                                          TextEditingController(
-                                              text: tempSpacesBelowBill);
-                                      tempSpacesAboveBill =
-                                          eachPrinter['spacesAboveBill'];
-                                      spacesAboveBillEditingController =
-                                          TextEditingController(
-                                              text: tempSpacesAboveBill);
-                                      tempPrinterSizeToSave =
-                                          eachPrinter['printerSize'];
-                                      tempIPAddress =
-                                          eachPrinter['printerIPAddress'];
-                                      tempBluetoothPrinterAddress = eachPrinter[
-                                          'printerBluetoothAddress'];
-                                      tempUsbPrinterProductID =
-                                          eachPrinter['printerUsbProductID'];
-                                      tempUsbPrinterVendorID =
-                                          eachPrinter['printerUsbVendorID'];
-                                      setState(() {
-                                        pageNumber = 4;
-                                      });
-                                    }),
-                                title: Text(eachPrinter['printerName']),
-                                trailing: Text(eachPrinter['printerType']),
+                          .map((eachPrinter) => Container(
+                                margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                                child: ListTile(
+                                  tileColor: Colors.white70,
+                                  leading: IconButton(
+                                      icon:
+                                          Icon(Icons.edit, color: Colors.green),
+                                      onPressed: () {
+                                        editPrinterRandomID =
+                                            eachPrinter['printerRandomID'];
+                                        tempPrinterName =
+                                            eachPrinter['printerName'];
+                                        tempDeviceManufacturerName = eachPrinter[
+                                            'printerManufacturerDeviceName'];
+                                        tempSpacesAboveKOT =
+                                            eachPrinter['spacesAboveKOT'];
+                                        spacesAboveKotEditingController =
+                                            TextEditingController(
+                                                text: tempSpacesAboveKOT);
+                                        tempSpacesBelowKOT =
+                                            eachPrinter['spacesBelowKOT'];
+                                        spacesBelowKotEditingController =
+                                            TextEditingController(
+                                                text: tempSpacesBelowKOT);
+                                        tempKotSize =
+                                            eachPrinter['kotFontSize'];
+                                        tempSpacesBelowBill =
+                                            eachPrinter['spacesBelowBill'];
+                                        spacesBelowBillEditingController =
+                                            TextEditingController(
+                                                text: tempSpacesBelowBill);
+                                        tempSpacesAboveBill =
+                                            eachPrinter['spacesAboveBill'];
+                                        spacesAboveBillEditingController =
+                                            TextEditingController(
+                                                text: tempSpacesAboveBill);
+                                        tempSpacesAboveDeliverySlip =
+                                            eachPrinter[
+                                                'spacesAboveDeliverySlip'];
+                                        spacesAboveDeliverySlipEditingController =
+                                            TextEditingController(
+                                                text:
+                                                    tempSpacesAboveDeliverySlip);
+                                        tempSpacesBelowDeliverySlip =
+                                            eachPrinter[
+                                                'spacesBelowDeliverySlip'];
+                                        spacesBelowDeliverySlipEditingController =
+                                            TextEditingController(
+                                                text:
+                                                    tempSpacesBelowDeliverySlip);
+                                        tempDeliverySlipSize =
+                                            eachPrinter['deliverySlipFontSize'];
+                                        tempPrinterSizeToSave =
+                                            eachPrinter['printerSize'];
+                                        tempIPAddress =
+                                            eachPrinter['printerIPAddress'];
+                                        tempBluetoothPrinterAddress =
+                                            eachPrinter[
+                                                'printerBluetoothAddress'];
+                                        tempUsbPrinterProductID =
+                                            eachPrinter['printerUsbProductID'];
+                                        tempUsbPrinterVendorID =
+                                            eachPrinter['printerUsbVendorID'];
+                                        setState(() {
+                                          pageNumber = 4;
+                                        });
+                                      }),
+                                  title: Text(eachPrinter['printerName']),
+                                  trailing: Text(eachPrinter['printerType']),
+                                ),
                               ))
                           .toList()),
               floatingActionButton: Container(
@@ -656,6 +851,15 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                     tempSpacesAboveBill = '';
                     spacesAboveBillEditingController =
                         TextEditingController(text: tempSpacesAboveBill);
+                    tempSpacesAboveDeliverySlip = '';
+                    spacesAboveDeliverySlipEditingController =
+                        TextEditingController(
+                            text: tempSpacesAboveDeliverySlip);
+                    tempSpacesBelowDeliverySlip = '';
+                    spacesBelowDeliverySlipEditingController =
+                        TextEditingController(
+                            text: tempSpacesBelowDeliverySlip);
+                    tempDeliverySlipSize = 'Small';
                     tempPrinterSizeToSave = '0';
                     tempIPAddress = '';
                     tempBluetoothPrinterAddress = '';
@@ -663,6 +867,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                     tempUsbPrinterVendorID = '';
                     _character = TypesOfPrinters.Bluetooth;
                     defaultPrinterType = PrinterType.bluetooth;
+                    selectedPrinter = null;
                     _scan();
                     setState(() {
                       pageNumber = 2;
@@ -719,7 +924,8 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                               ),
                             ),
                             ListTile(
-                              title: const Text('Bluetooth'),
+                              title:
+                                  const Text('Bluetooth(Only Paired Printers)'),
                               leading: Radio<TypesOfPrinters>(
                                 value: TypesOfPrinters.Bluetooth,
                                 groupValue: _character,
@@ -1044,7 +1250,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                     });
                                   }),
                             ),
-                            SizedBox(height: 20),
+                            Divider(thickness: 2),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
                               child: Text('Spaces Above KOT',
@@ -1161,7 +1367,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                 ),
                               ),
                             ),
-                            SizedBox(height: 20),
+                            Divider(thickness: 2),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
                               child: Text('Spaces Above Bill',
@@ -1238,6 +1444,130 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                                 color: Colors.green))),
                               ),
                             ),
+                            Divider(thickness: 2),
+                            SizedBox(height: 20),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                              child: Text('Spaces Above Delivery Slip',
+                                  style: userInfoTextStyle),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(10),
+                              child: TextField(
+                                maxLength: 2,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly
+                                ],
+                                controller:
+                                    spacesAboveDeliverySlipEditingController,
+//ToUseNumberInputKeyboard,youNeedToDeclareControllerInsideStatefulWidgetItself
+                                onChanged: (value) {
+                                  tempSpacesAboveDeliverySlip =
+                                      value.toString();
+                                },
+                                decoration:
+                                    // kTextFieldInputDecoration,
+                                    InputDecoration(
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        hintText: 'Spaces above Delivery Slip',
+                                        hintStyle:
+                                            TextStyle(color: Colors.grey),
+                                        enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(10)),
+                                            borderSide: BorderSide(
+                                                color: Colors.green)),
+                                        focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(10)),
+                                            borderSide: BorderSide(
+                                                color: Colors.green))),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                              child: Text('Spaces Below Delivery Slip',
+                                  style: userInfoTextStyle),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(10),
+                              child: TextField(
+                                maxLength: 2,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly
+                                ],
+                                controller:
+                                    spacesBelowDeliverySlipEditingController,
+//ToUseNumberInputKeyboard,youNeedToDeclareControllerInsideStatefulWidgetItself
+                                onChanged: (value) {
+                                  tempSpacesBelowDeliverySlip =
+                                      value.toString();
+                                },
+                                decoration:
+                                    // kTextFieldInputDecoration,
+                                    InputDecoration(
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        hintText: 'Spaces Below Delivery Slip',
+                                        hintStyle:
+                                            TextStyle(color: Colors.grey),
+                                        enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(10)),
+                                            borderSide: BorderSide(
+                                                color: Colors.green)),
+                                        focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(10)),
+                                            borderSide: BorderSide(
+                                                color: Colors.green))),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                              child: Text('Delivery Slip Font Size',
+                                  style: userInfoTextStyle),
+                            ),
+                            Center(
+                              child: Container(
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    borderRadius: BorderRadius.circular(30)),
+                                width: 200,
+                                height: 50,
+                                // height: 200,
+                                child: DropdownButtonFormField(
+                                  decoration:
+                                      InputDecoration.collapsed(hintText: ''),
+                                  isExpanded: true,
+                                  // underline: Container(),
+                                  dropdownColor: Colors.green,
+                                  value: tempDeliverySlipSize,
+                                  onChanged: (value) {
+                                    tempDeliverySlipSize = value.toString();
+                                  },
+                                  items:
+                                      deliverySlipSizes.map((deliverySlipSize) {
+//DropDownMenuItemWillHaveOneByOneItems,WePutThatAsList
+//ValueWillBeEachTitle
+                                    return DropdownMenuItem(
+                                      alignment: Alignment.center,
+                                      child: Text(deliverySlipSize,
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold)),
+                                      value: deliverySlipSize,
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                            Divider(thickness: 2),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
@@ -1330,8 +1660,20 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                                   ? '0'
                                                   : tempSpacesBelowBill,
                                           'billFontSize': tempBillSize,
+                                          'spacesAboveDeliverySlip':
+                                              tempSpacesAboveDeliverySlip == ''
+                                                  ? '0'
+                                                  : tempSpacesAboveDeliverySlip,
+                                          'spacesBelowDeliverySlip':
+                                              tempSpacesBelowDeliverySlip == ''
+                                                  ? '0'
+                                                  : tempSpacesBelowDeliverySlip,
+                                          'deliverySlipFontSize':
+                                              tempDeliverySlipSize,
                                           'singleUserPrinter': false,
-                                          'autoCutAfterPrint': true,
+                                          'autoCutAfterKotPrint': true,
+                                          'autoCutAfterChefPrint': true,
+                                          'autoCutAfterBillPrint': true,
                                           'extraBool1': true,
                                           'extraBool2': true,
                                           'extraBool3': true,
@@ -1361,6 +1703,23 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                                 listen: false)
                                             .savingPrintersAddedByTheUser(
                                                 jsonEncode(printerSavingMap));
+                                        //savingTheChangeInPrinterSavingMapInServer
+                                        FireStorePrintersInformation(
+                                                userPhoneNumber: Provider.of<
+                                                            PrinterAndOtherDetailsProvider>(
+                                                        context,
+                                                        listen: false)
+                                                    .currentUserPhoneNumberFromClass,
+                                                hotelName: Provider.of<
+                                                            PrinterAndOtherDetailsProvider>(
+                                                        context,
+                                                        listen: false)
+                                                    .chosenRestaurantDatabaseFromClass,
+                                                printerMapKey:
+                                                    'printerSavingMap',
+                                                printerMapValue: json
+                                                    .encode(printerSavingMap))
+                                            .updatePrinterInfo();
 //ToRefreshThePage
                                         savedPrintersFromProvider();
                                         if (selectedPrinter!.typePrinter ==
@@ -1379,7 +1738,8 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                         setState(() {});
                                       }
                                     },
-                                    child: Text('Save')),
+                                    child: Text('Save',
+                                        style: TextStyle(fontSize: 20))),
                                 ElevatedButton(
                                     style: ButtonStyle(
                                         backgroundColor:
@@ -1395,7 +1755,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                                 .currentContext!);
                                       }
                                     },
-                                    child: Text('Print Check'))
+                                    child: Text('Check'))
                               ],
                             )
                           ],
@@ -1567,7 +1927,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                     });
                                   }),
                             ),
-                            SizedBox(height: 20),
+                            Divider(thickness: 2),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
                               child: Text('Spaces Above KOT',
@@ -1684,7 +2044,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                 ),
                               ),
                             ),
-                            SizedBox(height: 20),
+                            Divider(thickness: 2),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
                               child: Text('Spaces Above Bill',
@@ -1761,6 +2121,124 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                                 color: Colors.green))),
                               ),
                             ),
+                            Divider(thickness: 2),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                              child: Text('Spaces Above Delivery Slip',
+                                  style: userInfoTextStyle),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(10),
+                              child: TextField(
+                                maxLength: 2,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly
+                                ],
+                                controller:
+                                    spacesAboveDeliverySlipEditingController,
+//ToUseNumberInputKeyboard,youNeedToDeclareControllerInsideStatefulWidgetItself
+                                onChanged: (value) {
+                                  tempSpacesAboveDeliverySlip =
+                                      value.toString();
+                                },
+                                decoration:
+                                    // kTextFieldInputDecoration,
+                                    InputDecoration(
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        hintText: 'Spaces above Delivery Slip',
+                                        hintStyle:
+                                            TextStyle(color: Colors.grey),
+                                        enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(10)),
+                                            borderSide: BorderSide(
+                                                color: Colors.green)),
+                                        focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(10)),
+                                            borderSide: BorderSide(
+                                                color: Colors.green))),
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                              child: Text('Spaces Below Delivery Slip',
+                                  style: userInfoTextStyle),
+                            ),
+                            Container(
+                              padding: EdgeInsets.all(10),
+                              child: TextField(
+                                maxLength: 2,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly
+                                ],
+                                controller:
+                                    spacesBelowDeliverySlipEditingController,
+//ToUseNumberInputKeyboard,youNeedToDeclareControllerInsideStatefulWidgetItself
+                                onChanged: (value) {
+                                  tempSpacesBelowDeliverySlip =
+                                      value.toString();
+                                },
+                                decoration:
+                                    // kTextFieldInputDecoration,
+                                    InputDecoration(
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        hintText: 'Spaces Below Delivery Slip',
+                                        hintStyle:
+                                            TextStyle(color: Colors.grey),
+                                        enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(10)),
+                                            borderSide: BorderSide(
+                                                color: Colors.green)),
+                                        focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.all(
+                                                Radius.circular(10)),
+                                            borderSide: BorderSide(
+                                                color: Colors.green))),
+                              ),
+                            ),
+                            Center(
+                              child: Container(
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    borderRadius: BorderRadius.circular(30)),
+                                width: 200,
+                                height: 50,
+                                // height: 200,
+                                child: DropdownButtonFormField(
+                                  decoration:
+                                      InputDecoration.collapsed(hintText: ''),
+                                  isExpanded: true,
+                                  // underline: Container(),
+                                  dropdownColor: Colors.green,
+                                  value: tempDeliverySlipSize,
+                                  onChanged: (value) {
+                                    tempDeliverySlipSize = value.toString();
+                                  },
+                                  items:
+                                      deliverySlipSizes.map((deliverySlipSize) {
+//DropDownMenuItemWillHaveOneByOneItems,WePutThatAsList
+//ValueWillBeEachTitle
+                                    return DropdownMenuItem(
+                                      alignment: Alignment.center,
+                                      child: Text(deliverySlipSize,
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold)),
+                                      value: deliverySlipSize,
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                            Divider(thickness: 2),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
@@ -1835,8 +2313,20 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                                   ? '0'
                                                   : tempSpacesBelowBill,
                                           'billFontSize': tempBillSize,
+                                          'spacesAboveDeliverySlip':
+                                              tempSpacesAboveDeliverySlip == ''
+                                                  ? '0'
+                                                  : tempSpacesAboveDeliverySlip,
+                                          'spacesBelowDeliverySlip':
+                                              tempSpacesBelowDeliverySlip == ''
+                                                  ? '0'
+                                                  : tempSpacesBelowDeliverySlip,
+                                          'deliverySlipFontSize':
+                                              tempDeliverySlipSize,
                                           'singleUserPrinter': false,
-                                          'autoCutAfterPrint': true,
+                                          'autoCutAfterKotPrint': true,
+                                          'autoCutAfterChefPrint': true,
+                                          'autoCutAfterBillPrint': true,
                                           'extraBool1': true,
                                           'extraBool2': true,
                                           'extraBool3': true,
@@ -1867,6 +2357,23 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                                 listen: false)
                                             .savingPrintersAddedByTheUser(
                                                 jsonEncode(printerSavingMap));
+                                        //savingTheChangeInPrinterSavingMapInServer
+                                        FireStorePrintersInformation(
+                                                userPhoneNumber: Provider.of<
+                                                            PrinterAndOtherDetailsProvider>(
+                                                        context,
+                                                        listen: false)
+                                                    .currentUserPhoneNumberFromClass,
+                                                hotelName: Provider.of<
+                                                            PrinterAndOtherDetailsProvider>(
+                                                        context,
+                                                        listen: false)
+                                                    .chosenRestaurantDatabaseFromClass,
+                                                printerMapKey:
+                                                    'printerSavingMap',
+                                                printerMapValue: json
+                                                    .encode(printerSavingMap))
+                                            .updatePrinterInfo();
 //ToRefreshThePage
                                         savedPrintersFromProvider();
                                         if (editingAlignmentOfSavedPrinterStarted) {
@@ -1890,7 +2397,8 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                         setState(() {});
                                       }
                                     },
-                                    child: Text('Save')),
+                                    child: Text('Save',
+                                        style: TextStyle(fontSize: 20))),
                                 ElevatedButton(
                                     style: ButtonStyle(
                                         backgroundColor:
@@ -1925,7 +2433,7 @@ class _PrintersSavingAndEditingState extends State<PrintersSavingAndEditing> {
                                         show('Please Choose Printer Size');
                                       }
                                     },
-                                    child: Text('Print Check'))
+                                    child: Text('Check'))
                               ],
                             )
                           ],

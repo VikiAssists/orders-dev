@@ -6,13 +6,13 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_background/flutter_background.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:orders_dev/Methods/table_Button.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
-import 'package:orders_dev/Screens/items_each_order_8.dart';
-import 'package:orders_dev/Screens/menu_page_add_items_5.dart';
+import 'package:orders_dev/Screens/items_each_order_10.dart';
+import 'package:orders_dev/Screens/items_each_order_11.dart';
+import 'package:orders_dev/Screens/menu_page_add_items_6.dart';
 import 'package:orders_dev/Screens/tableOrParcelSplit_3.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/background_services.dart';
@@ -90,7 +90,7 @@ class _CaptainScreenEachItemCheckState extends State<CaptainScreenEachItemCheck>
     localEntireMenuPrice = widget.entireMenuPrice;
     showSpinner = false;
     Wakelock.enable();
-    FlutterBackground.initialize();
+    // FlutterBackground.initialize();
     // BackgroundCheck().saveInsideCaptainScreenChangingInBackground(
     //     insideCaptainScreenTrueElseFalse: true);
 
@@ -184,7 +184,7 @@ class _CaptainScreenEachItemCheckState extends State<CaptainScreenEachItemCheck>
         appInBackground = false;
       });
       NotificationService().cancelAllNotifications();
-      FlutterBackground.disableBackgroundExecution();
+      // FlutterBackground.disableBackgroundExecution();
       backgroundTimerCounter = 0;
 //OnceForeGround,PlayerCanBeStopped
 //PlayerPlayingIsChangedToFalse
@@ -579,7 +579,7 @@ class _CaptainScreenEachItemCheckState extends State<CaptainScreenEachItemCheck>
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => ItemsInEachOrderWithTime(
+                            builder: (context) => ItemsWithCancelRegister(
                                   hotelName: widget.hotelName,
                                   menuItems: widget.entireMenuItems,
                                   menuTitles: widget.menuTitles,
@@ -624,7 +624,7 @@ class _CaptainScreenEachItemCheckState extends State<CaptainScreenEachItemCheck>
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => ItemsInEachOrderWithTime(
+                          builder: (context) => ItemsWithCancelRegister(
                                 hotelName: widget.hotelName,
                                 menuItems: widget.entireMenuItems,
                                 menuTitles: widget.menuTitles,
@@ -644,19 +644,18 @@ class _CaptainScreenEachItemCheckState extends State<CaptainScreenEachItemCheck>
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) =>
-                              MenuPageWithTimeSelectionOfEachItem(
-                                  hotelName: widget.hotelName,
-                                  tableOrParcel: 'Table',
-                                  tableOrParcelNumber: tableNumber[index],
-                                  menuItems: localEntireMenuItems,
-                                  menuPrices: localEntireMenuPrice,
-                                  menuTitles: localMenuTitles,
-                                  itemsAddedMapCalled: {},
-                                  itemsAddedCommentCalled: {},
-                                  itemsAddedTimeCalled: {},
-                                  parentOrChild: 'parent',
-                                  alreadyRunningTicketsMap: {})));
+                          builder: (context) => MenuPageWithBackButtonUsage(
+                              hotelName: widget.hotelName,
+                              tableOrParcel: 'Table',
+                              tableOrParcelNumber: tableNumber[index],
+                              menuItems: localEntireMenuItems,
+                              menuPrices: localEntireMenuPrice,
+                              menuTitles: localMenuTitles,
+                              itemsAddedMapCalled: {},
+                              itemsAddedCommentCalled: {},
+                              itemsAddedTimeCalled: {},
+                              parentOrChild: 'parent',
+                              alreadyRunningTicketsMap: {})));
 //CommentedTillNextScreenReady
                   setState(() {
                     showSpinner = false;
@@ -926,7 +925,7 @@ class _CaptainScreenEachItemCheckState extends State<CaptainScreenEachItemCheck>
                     Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => ItemsInEachOrderWithTime(
+                            builder: (context) => ItemsWithCancelRegister(
                                   hotelName: widget.hotelName,
                                   menuItems: widget.entireMenuItems,
                                   menuTitles: widget.menuTitles,
@@ -969,7 +968,7 @@ class _CaptainScreenEachItemCheckState extends State<CaptainScreenEachItemCheck>
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => ItemsInEachOrderWithTime(
+                          builder: (context) => ItemsWithCancelRegister(
                                 hotelName: widget.hotelName,
                                 menuItems: widget.entireMenuItems,
                                 menuTitles: widget.menuTitles,
@@ -988,19 +987,18 @@ class _CaptainScreenEachItemCheckState extends State<CaptainScreenEachItemCheck>
                   Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) =>
-                              MenuPageWithTimeSelectionOfEachItem(
-                                  hotelName: widget.hotelName,
-                                  tableOrParcel: 'Parcel',
-                                  tableOrParcelNumber: tableNumber[index],
-                                  parentOrChild: 'parent',
-                                  menuItems: localEntireMenuItems,
-                                  menuPrices: localEntireMenuPrice,
-                                  menuTitles: localMenuTitles,
-                                  itemsAddedMapCalled: {},
-                                  itemsAddedCommentCalled: {},
-                                  itemsAddedTimeCalled: {},
-                                  alreadyRunningTicketsMap: {})));
+                          builder: (context) => MenuPageWithBackButtonUsage(
+                              hotelName: widget.hotelName,
+                              tableOrParcel: 'Parcel',
+                              tableOrParcelNumber: tableNumber[index],
+                              parentOrChild: 'parent',
+                              menuItems: localEntireMenuItems,
+                              menuPrices: localEntireMenuPrice,
+                              menuTitles: localMenuTitles,
+                              itemsAddedMapCalled: {},
+                              itemsAddedCommentCalled: {},
+                              itemsAddedTimeCalled: {},
+                              alreadyRunningTicketsMap: {})));
 //CommentedTillNextScreenReady
                   setState(() {
                     showSpinner = false;

@@ -50,7 +50,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
     });
     List<num> temporaryOrderingNum = [];
     final menuCategories =
-    await _fireStore.collection(widget.hotelName).doc('menu').get();
+        await _fireStore.collection(widget.hotelName).doc('menu').get();
     //tryingToPutInOrder
     for (num i = 1; i <= menuCategories.data()!.length; i++) {
       temporaryOrderingNum.add(i);
@@ -126,13 +126,17 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
 
     return Padding(
       padding:
-      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(height: 10),
             Text('Edit Item', style: TextStyle(fontSize: 30)),
+            SizedBox(height: 10),
+            Text(
+                '(If Item Name is edited, item will be added to every chef.\nPlease update in Chef Specialities if necessary)',
+                textAlign: TextAlign.center),
             SizedBox(height: 20),
             ListTile(
               leading: Text('Name', style: TextStyle(fontSize: 20)),
@@ -145,20 +149,20 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                     tempItemNameForEdit = value.toString();
                   },
                   decoration:
-                  // kTextFieldInputDecoration,
-                  InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'Enter Item Name',
-                      hintStyle: TextStyle(color: Colors.grey),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green))),
+                      // kTextFieldInputDecoration,
+                      InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Enter Item Name',
+                          hintStyle: TextStyle(color: Colors.grey),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -174,20 +178,20 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                     tempPriceForEditInString = value.toString();
                   },
                   decoration:
-                  // kTextFieldInputDecoration,
-                  InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'Enter Price',
-                      hintStyle: TextStyle(color: Colors.grey),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green))),
+                      // kTextFieldInputDecoration,
+                      InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Enter Price',
+                          hintStyle: TextStyle(color: Colors.grey),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -235,17 +239,17 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                      MaterialStateProperty.all<Color>(Colors.red),
+                          MaterialStateProperty.all<Color>(Colors.red),
                     ),
                     onPressed: () {
-                      deleteAlertDialogBox(index);
                       Navigator.pop(context);
+                      deleteAlertDialogBox(index);
                     },
                     child: Text('Delete')),
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -254,7 +258,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                      MaterialStateProperty.all<Color>(Colors.green),
+                          MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       if (tempItemNameForEdit == '') {
@@ -266,32 +270,32 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                       } else {
                         tempPriceForEdit = num.parse(tempPriceForEditInString);
                         num tempVariety =
-                        categories.indexOf(tempCategoryForEdit);
+                            categories.indexOf(tempCategoryForEdit);
 //HereWePutItInServer
 //IfTheItemNameIsChangedWeCanDeleteTheOldItemFromServerAndThenAdd
 //ElseItWillCreate2InstancesOfTheSameItemInTwoNames
 //So,FirstDeletingItInCaseNameIsDifferent
                         if (items[index]['itemName'] != tempItemNameForEdit) {
                           FireStoreDeleteItemFromMenu(
-                              hotelName: widget.hotelName,
-                              eachItemMenuName: items[index]['itemName'])
+                                  hotelName: widget.hotelName,
+                                  eachItemMenuName: items[index]['itemName'])
                               .deleteItemFromMenu();
                         }
 //AddingItemToServerMenu
                         FireStoreAddOrEditMenuItem(
-                            hotelName: widget.hotelName,
-                            docIdItemName: tempItemNameForEdit,
-                            price: tempPriceForEdit,
-                            variety: tempVariety + 1
+                                hotelName: widget.hotelName,
+                                docIdItemName: tempItemNameForEdit,
+                                price: tempPriceForEdit,
+                                variety: tempVariety + 1
 //PlusOneBecauseVarietyStartsFromNumber 1 InTheServer
-                        )
+                                )
                             .addOrEditMenuItem();
 
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
                         String nextCategory =
-                        categories.last == tempCategoryForEdit
-                            ? 'notAvailable'
-                            : categories[(tempVariety + 1).toInt()];
+                            categories.last == tempCategoryForEdit
+                                ? 'notAvailable'
+                                : categories[(tempVariety + 1).toInt()];
 //ThisIsToGetTheNextCategory
 
                         if (items[index]['category'] == tempCategoryForEdit) {
@@ -347,7 +351,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                         }
 //RegisteringThatSomethingHasBeenUpdated
                         Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
+                                listen: false)
                             .menuOrRestaurantInfoUpdated(true);
 //ThisIsForLocalList.WeNeedToArrangeBasedOnVariety
                         setState(() {
@@ -369,13 +373,17 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
   Widget itemAddBottomBar(BuildContext context) {
     return Padding(
       padding:
-      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(height: 10),
             Text('Add Item', style: TextStyle(fontSize: 30)),
+            SizedBox(height: 10),
+            Text(
+                '(Added item will be added to every chef.\nPlease update in Chef Specialities if necessary)',
+                textAlign: TextAlign.center),
             SizedBox(height: 20),
             ListTile(
               leading: Text('Name', style: TextStyle(fontSize: 20)),
@@ -387,20 +395,20 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                     tempItemNameForEdit = value;
                   },
                   decoration:
-                  // kTextFieldInputDecoration,
-                  InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'Enter Item Name',
-                      hintStyle: TextStyle(color: Colors.grey),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green))),
+                      // kTextFieldInputDecoration,
+                      InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Enter Item Name',
+                          hintStyle: TextStyle(color: Colors.grey),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -416,20 +424,20 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                     tempPriceForEditInString = value;
                   },
                   decoration:
-                  // kTextFieldInputDecoration,
-                  InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'Enter Price',
-                      hintStyle: TextStyle(color: Colors.grey),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green))),
+                      // kTextFieldInputDecoration,
+                      InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Enter Price',
+                          hintStyle: TextStyle(color: Colors.grey),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -463,11 +471,11 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                         child: Text(title,
                             style: title != 'Select Category'
                                 ? const TextStyle(
-                                fontSize: 15, color: Colors.white)
+                                    fontSize: 15, color: Colors.white)
                                 : const TextStyle(
-                                fontSize: 15,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold)),
+                                    fontSize: 15,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
                         value: title,
                       );
                     }).toList(),
@@ -482,7 +490,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
@@ -491,7 +499,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                      MaterialStateProperty.all<Color>(Colors.green),
+                          MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       if (tempItemNameForEdit == '') {
@@ -507,11 +515,11 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                       } else {
                         tempPriceForEdit = num.parse(tempPriceForEditInString);
                         num tempVariety =
-                        categories.indexOf(tempCategoryForEdit);
+                            categories.indexOf(tempCategoryForEdit);
                         String nextCategory =
-                        categories.last == tempCategoryForEdit
-                            ? 'notAvailable'
-                            : categories[(tempVariety + 1).toInt()];
+                            categories.last == tempCategoryForEdit
+                                ? 'notAvailable'
+                                : categories[(tempVariety + 1).toInt()];
                         bool itemsAlreadyExists = false;
                         int newIndex = 0;
                         int counter = 0;
@@ -549,12 +557,12 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                         if (itemsAlreadyExists == false) {
                           //AddingItemToServerMenu
                           FireStoreAddOrEditMenuItem(
-                              hotelName: widget.hotelName,
-                              docIdItemName: tempItemNameForEdit,
-                              price: tempPriceForEdit,
-                              variety: tempVariety + 1
+                                  hotelName: widget.hotelName,
+                                  docIdItemName: tempItemNameForEdit,
+                                  price: tempPriceForEdit,
+                                  variety: tempVariety + 1
 //PlusOneBecauseVarietyStartsFromNumber 1 InTheServer
-                          )
+                                  )
                               .addOrEditMenuItem();
                           if (nextCategory == 'notAvailable') {
                             items.add({
@@ -576,7 +584,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                             });
                           }
                           Provider.of<PrinterAndOtherDetailsProvider>(context,
-                              listen: false)
+                                  listen: false)
                               .menuOrRestaurantInfoUpdated(true);
                         }
 
@@ -601,9 +609,9 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
       builder: (BuildContext context) => AlertDialog(
         title: Center(
             child: Text(
-              'ERROR!',
-              style: TextStyle(color: Colors.red),
-            )),
+          'ERROR!',
+          style: TextStyle(color: Colors.red),
+        )),
         content: Text('${errorMessage}'),
         actions: [
           ElevatedButton(
@@ -626,9 +634,9 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
       builder: (BuildContext context) => AlertDialog(
         title: Center(
             child: Text(
-              'DELETE WARNING!',
-              style: TextStyle(color: Colors.red),
-            )),
+          'DELETE WARNING!',
+          style: TextStyle(color: Colors.red),
+        )),
         content: Text('${items[index]['itemName']} will be deleted'),
         actions: [
           Row(
@@ -637,7 +645,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
               ElevatedButton(
                   style: ButtonStyle(
                     backgroundColor:
-                    MaterialStateProperty.all<Color>(Colors.green),
+                        MaterialStateProperty.all<Color>(Colors.green),
                   ),
                   onPressed: () {
                     Navigator.pop(context);
@@ -646,16 +654,16 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
               ElevatedButton(
                   style: ButtonStyle(
                     backgroundColor:
-                    MaterialStateProperty.all<Color>(Colors.red),
+                        MaterialStateProperty.all<Color>(Colors.red),
                   ),
                   onPressed: () {
 //ThisIsToDeleteFromServer
                     FireStoreDeleteItemFromMenu(
-                        hotelName: widget.hotelName,
-                        eachItemMenuName: items[index]['itemName'])
+                            hotelName: widget.hotelName,
+                            eachItemMenuName: items[index]['itemName'])
                         .deleteItemFromMenu();
                     Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
+                            listen: false)
                         .menuOrRestaurantInfoUpdated(true);
                     setState(() {
 //ThisIsToRemoveFromLocal
@@ -769,7 +777,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
   Widget offsetEnterBottomSheet(BuildContext context) {
     return Padding(
       padding:
-      EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         child: Column(
           // mainAxisSize: MainAxisSize.min,
@@ -786,20 +794,20 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                     bulkOffsetValue = value;
                   },
                   decoration:
-                  // kTextFieldInputDecoration,
-                  InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white,
-                      hintText: 'Enter Offset',
-                      hintStyle: TextStyle(color: Colors.grey),
-                      enabledBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green)),
-                      focusedBorder: OutlineInputBorder(
-                          borderRadius:
-                          BorderRadius.all(Radius.circular(10)),
-                          borderSide: BorderSide(color: Colors.green))),
+                      // kTextFieldInputDecoration,
+                      InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          hintText: 'Enter Offset',
+                          hintStyle: TextStyle(color: Colors.grey),
+                          enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green)),
+                          focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(10)),
+                              borderSide: BorderSide(color: Colors.green))),
                 ),
               ),
             ),
@@ -810,7 +818,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                      MaterialStateProperty.all<Color>(Colors.red),
+                          MaterialStateProperty.all<Color>(Colors.red),
                     ),
                     onPressed: () {
                       if (bulkOffsetValue == '') {
@@ -854,7 +862,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                          MaterialStateProperty.all<Color>(Colors.orangeAccent),
                     ),
                     onPressed: () {
                       bulkOffsetValue = '';
@@ -864,7 +872,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                 ElevatedButton(
                     style: ButtonStyle(
                       backgroundColor:
-                      MaterialStateProperty.all<Color>(Colors.green),
+                          MaterialStateProperty.all<Color>(Colors.green),
                     ),
                     onPressed: () {
                       if (bulkOffsetValue == '') {
@@ -918,9 +926,9 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
       children: [
         Center(
             child: Text(
-              'Confirm Changes',
-              style: TextStyle(fontSize: 30.0),
-            )),
+          'Confirm Changes',
+          style: TextStyle(fontSize: 30.0),
+        )),
         SizedBox(height: 10),
         Expanded(
             child: ListView.builder(
@@ -943,7 +951,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
             ElevatedButton(
                 style: ButtonStyle(
                   backgroundColor:
-                  MaterialStateProperty.all<Color>(Colors.orangeAccent),
+                      MaterialStateProperty.all<Color>(Colors.orangeAccent),
                 ),
                 onPressed: () {
                   Navigator.pop(context);
@@ -952,19 +960,19 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
             ElevatedButton(
                 style: ButtonStyle(
                   backgroundColor:
-                  MaterialStateProperty.all<Color>(Colors.green),
+                      MaterialStateProperty.all<Color>(Colors.green),
                 ),
                 onPressed: () {
                   for (var offset in offsetList) {
 //ThisIsForUpdatingInServer
                     //AddingItemToServerMenu
                     FireStoreAddOrEditMenuItem(
-                        hotelName: widget.hotelName,
-                        docIdItemName: offset['itemName'],
-                        price: offset['newPrice'],
-                        variety: offset['variety']
+                            hotelName: widget.hotelName,
+                            docIdItemName: offset['itemName'],
+                            price: offset['newPrice'],
+                            variety: offset['variety']
 //PlusOneBecauseVarietyStartsFromNumber 1 InTheServer
-                    )
+                            )
                         .addOrEditMenuItem();
 
 //ThisIsForUpdatingInLocalPage
@@ -977,7 +985,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                     };
                   }
                   Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
+                          listen: false)
                       .menuOrRestaurantInfoUpdated(true);
                   setState(() {
                     items;
@@ -1016,12 +1024,12 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
               token: dynamicTokensToStringToken(),
               title: widget.hotelName,
               restaurantNameForNotification: json.decode(
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .allUserProfilesFromClass)[
                   Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                      .allUserProfilesFromClass)[
-              Provider.of<PrinterAndOtherDetailsProvider>(context,
-                  listen: false)
-                  .currentUserPhoneNumberFromClass]['restaurantName'],
+                          listen: false)
+                      .currentUserPhoneNumberFromClass]['restaurantName'],
               body: '*menuUpdated*');
         }
         Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
@@ -1034,7 +1042,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
       child: Theme(
         data: ThemeData().copyWith(
           dividerColor:
-          (bulkPriceEditSelected) ? Colors.transparent : Colors.white,
+              (bulkPriceEditSelected) ? Colors.transparent : Colors.white,
         ),
         child: Scaffold(
           appBar: AppBar(
@@ -1044,25 +1052,25 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
               icon: const Icon(Icons.arrow_back, color: kAppBarBackIconColor),
               onPressed: () {
                 if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
+                        listen: false)
                     .menuOrRestaurantInfoUpdatedFromClass) {
                   fcmProvider.sendNotification(
                       token: dynamicTokensToStringToken(),
                       title: widget.hotelName,
                       restaurantNameForNotification: json.decode(
-                          Provider.of<PrinterAndOtherDetailsProvider>(
-                              context,
-                              listen: false)
-                              .allUserProfilesFromClass)[
-                      Provider.of<PrinterAndOtherDetailsProvider>(
-                          context,
-                          listen: false)
-                          .currentUserPhoneNumberFromClass]
-                      ['restaurantName'],
+                                  Provider.of<PrinterAndOtherDetailsProvider>(
+                                          context,
+                                          listen: false)
+                                      .allUserProfilesFromClass)[
+                              Provider.of<PrinterAndOtherDetailsProvider>(
+                                      context,
+                                      listen: false)
+                                  .currentUserPhoneNumberFromClass]
+                          ['restaurantName'],
                       body: '*menuUpdated*');
                 }
                 Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
+                        listen: false)
                     .menuOrRestaurantInfoUpdated(false);
                 Navigator.pop(context);
               },
@@ -1102,40 +1110,40 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                 children: [
                   bulkPriceEditSelected
                       ? Container(
-                    //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                    margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
-                    child: ListTile(
-                      tileColor: Colors.white54,
+                          //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
+                          margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                          child: ListTile(
+                            tileColor: Colors.white54,
 //FirstWeCheckWhetherMenuTitlesListContainsItem
 //ThisMeansIt'sAHeading,WeGiveItBiggerFontThen
 //NextWeCheckWhetherUnavailableItemsListHasTheItem,ifYes,WeGiveSlightlyGreyFont
 //IfItIsn'tInEither,TheFoodItemIsNormallyShownInTheList
-                      title: Text(
-                        'Select All',
-                        style: Theme.of(context).textTheme.headline5,
-                      ),
+                            title: Text(
+                              'Select All',
+                              style: Theme.of(context).textTheme.headline5,
+                            ),
 
 //RightSide-WeCheckWhetherItIsHeading,IfYesWeShowNothing,
 //ElseWeGiveTheAddOrCounterButton,TheInputBeingTheItemName
-                      trailing: Checkbox(
-                        value: allItemsSelected,
+                            trailing: Checkbox(
+                              value: allItemsSelected,
 //ifCheckBoxIsTickedOrUnticked,WeChangeAllItemsAvailabilityIndexAccordingly
 //AlsoIfSomethingIsUnticked,ThenWeNeedToRemoveTheItemFromHashmap
 //IfItIsTicked,WeNeedToAddItWithTheValueAsFalse
-                        onChanged: (value) {
-                          setState(() {
-                            if (allItemsSelected) {
-                              allItemsSelected = false;
-                              checkBoxEditForAllItemsAtOnce(false);
-                            } else {
-                              allItemsSelected = true;
-                              checkBoxEditForAllItemsAtOnce(true);
-                            }
-                          });
-                        },
-                      ),
-                    ),
-                  )
+                              onChanged: (value) {
+                                setState(() {
+                                  if (allItemsSelected) {
+                                    allItemsSelected = false;
+                                    checkBoxEditForAllItemsAtOnce(false);
+                                  } else {
+                                    allItemsSelected = true;
+                                    checkBoxEditForAllItemsAtOnce(true);
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                        )
                       : SizedBox.shrink(),
                   Expanded(
                       child: ScrollablePositionedList.builder(
@@ -1147,7 +1155,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                             final itemVariety = items[index]['variety'];
                             final itemCategory = items[index]['category'];
                             final itemBulkEditSelected =
-                            items[index]['bulkEditSelected'];
+                                items[index]['bulkEditSelected'];
 
                             return Container(
                               //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
@@ -1163,35 +1171,35 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
 //IfItIsn'tInEither,TheFoodItemIsNormallyShownInTheList
                                   title: itemCategory == 'title'
                                       ? bulkPriceEditSelected == false
-                                      ? Text(
-                                    itemName,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headline6,
-                                  )
-                                      : Row(
-                                    mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      Text(
-                                        itemName,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .headline6,
-                                      ),
-                                      SizedBox(),
-                                      Checkbox(
-                                        value: itemBulkEditSelected,
+                                          ? Text(
+                                              itemName,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .headline6,
+                                            )
+                                          : Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.spaceEvenly,
+                                              children: [
+                                                Text(
+                                                  itemName,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .headline6,
+                                                ),
+                                                SizedBox(),
+                                                Checkbox(
+                                                  value: itemBulkEditSelected,
 //ifCheckBoxIsTickedOrUnticked,WeChangeAllItemsAvailabilityIndexAccordingly
 //AlsoIfSomethingIsUnticked,ThenWeNeedToRemoveTheItemFromHashmap
 //IfItIsTicked,WeNeedToAddItWithTheValueAsFalse
-                                        onChanged: (value) {
-                                          checkBoxEditForSingleCategory(
-                                              index);
-                                        },
-                                      )
-                                    ],
-                                  )
+                                                  onChanged: (value) {
+                                                    checkBoxEditForSingleCategory(
+                                                        index);
+                                                  },
+                                                )
+                                              ],
+                                            )
                                       : Text(itemName),
 //NoPricesToSayIfIsTitleElseWeCanSayPrice
                                   subtitle: itemCategory == 'title'
@@ -1203,44 +1211,44 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                                   trailing: itemCategory == 'title'
                                       ? null
                                       : bulkPriceEditSelected
-                                      ? Checkbox(
-                                    value: itemBulkEditSelected,
+                                          ? Checkbox(
+                                              value: itemBulkEditSelected,
 //ifCheckBoxIsTickedOrUnticked,WeChangeAllItemsAvailabilityIndexAccordingly
 //AlsoIfSomethingIsUnticked,ThenWeNeedToRemoveTheItemFromHashmap
 //IfItIsTicked,WeNeedToAddItWithTheValueAsFalse
-                                    onChanged: (value) {
-                                      checkBoxEditForSingleItem(
-                                          index);
-                                    },
-                                  )
-                                      : IconButton(
-                                    icon: Icon(Icons.edit,
-                                        size: 20,
-                                        color: Colors.green),
-                                    onPressed: () {
-                                      tempItemNameForEdit = itemName;
-                                      tempPriceForEdit = itemPrice;
-                                      tempPriceForEditInString =
-                                          itemPrice.toString();
-                                      tempCategoryForEdit =
-                                          itemCategory;
-                                      _editNamecontroller =
-                                          TextEditingController(
-                                              text:
-                                              tempItemNameForEdit);
-                                      _controller = TextEditingController(
-                                          text:
-                                          tempPriceForEditInString);
-                                      showModalBottomSheet(
-                                          isScrollControlled: true,
-                                          context: context,
-                                          builder: (context) {
-                                            return itemEditDeleteBottomBar(
-                                                context, index);
-                                            // return commentsSection(context, item);
-                                          });
-                                    },
-                                  )),
+                                              onChanged: (value) {
+                                                checkBoxEditForSingleItem(
+                                                    index);
+                                              },
+                                            )
+                                          : IconButton(
+                                              icon: Icon(Icons.edit,
+                                                  size: 20,
+                                                  color: Colors.green),
+                                              onPressed: () {
+                                                tempItemNameForEdit = itemName;
+                                                tempPriceForEdit = itemPrice;
+                                                tempPriceForEditInString =
+                                                    itemPrice.toString();
+                                                tempCategoryForEdit =
+                                                    itemCategory;
+                                                _editNamecontroller =
+                                                    TextEditingController(
+                                                        text:
+                                                            tempItemNameForEdit);
+                                                _controller = TextEditingController(
+                                                    text:
+                                                        tempPriceForEditInString);
+                                                showModalBottomSheet(
+                                                    isScrollControlled: true,
+                                                    context: context,
+                                                    builder: (context) {
+                                                      return itemEditDeleteBottomBar(
+                                                          context, index);
+                                                      // return commentsSection(context, item);
+                                                    });
+                                              },
+                                            )),
                             );
                           })),
                 ],
@@ -1248,7 +1256,7 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
             ),
           ),
           floatingActionButtonLocation:
-          FloatingActionButtonLocation.centerFloat,
+              FloatingActionButtonLocation.centerFloat,
 //FloatingActionButtonWePutContainerToEnsureWeCanDecorateItWithColor&Curves
           floatingActionButton: Column(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -1290,11 +1298,11 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                                       textAlign: TextAlign.center,
                                       style: title != 'Select Category'
                                           ? const TextStyle(
-                                          fontSize: 15, color: Colors.white)
+                                              fontSize: 15, color: Colors.white)
                                           : const TextStyle(
-                                          fontSize: 15,
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold))),
+                                              fontSize: 15,
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold))),
                               value: title,
                             );
                           }).toList(),
@@ -1305,52 +1313,52 @@ class _EditItemsGapAtBottomState extends State<EditItemsGapAtBottom> {
                   bulkPriceEditSelected
                       ? SizedBox(height: 75, width: 75)
                       : Column(
-                    children: [
-                      Container(
-                        width: 75.0,
-                        height: 75.0,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(1),
-                          // border: Border.all(
-                          //   color: Colors.black87,
-                          //   width: 0.2,
-                          // )
-                        ),
-                        child: MaterialButton(
-                          color: Colors.white70,
-                          onPressed: () {
-                            tempItemNameForEdit = '';
-                            tempPriceForEditInString = '';
-                            _controller = TextEditingController(
-                                text: tempPriceForEditInString);
+                          children: [
+                            Container(
+                              width: 75.0,
+                              height: 75.0,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(1),
+                                // border: Border.all(
+                                //   color: Colors.black87,
+                                //   width: 0.2,
+                                // )
+                              ),
+                              child: MaterialButton(
+                                color: Colors.white70,
+                                onPressed: () {
+                                  tempItemNameForEdit = '';
+                                  tempPriceForEditInString = '';
+                                  _controller = TextEditingController(
+                                      text: tempPriceForEditInString);
 //JustOneNumeralToEnsureThatNewNumberIsPlacedDuringAdd
-                            tempPriceForEdit = -10009999991000;
-                            tempCategoryForEdit = '';
+                                  tempPriceForEdit = -10009999991000;
+                                  tempCategoryForEdit = '';
 
-                            showModalBottomSheet(
-                              // isScrollControlled: true,
-                                context: context,
-                                builder: (context) {
-                                  return itemAddBottomBar(context);
-                                });
-                          },
-                          shape: CircleBorder(
+                                  showModalBottomSheet(
+                                      // isScrollControlled: true,
+                                      context: context,
+                                      builder: (context) {
+                                        return itemAddBottomBar(context);
+                                      });
+                                },
+                                shape: CircleBorder(
 
-                            // side: BorderSide(
-                            //     // width: 2,
-                            //     // color: Colors.red,
-                            //     // style: BorderStyle.solid,
-                            //     )
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            size: 35,
-                          ),
+                                    // side: BorderSide(
+                                    //     // width: 2,
+                                    //     // color: Colors.red,
+                                    //     // style: BorderStyle.solid,
+                                    //     )
+                                    ),
+                                child: const Icon(
+                                  Icons.add,
+                                  size: 35,
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 75, width: 75)
+                          ],
                         ),
-                      ),
-                      SizedBox(height: 75, width: 75)
-                    ],
-                  ),
                 ],
               ),
             ],

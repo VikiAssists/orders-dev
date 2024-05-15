@@ -218,7 +218,7 @@ class _EditCategoriesState extends State<EditCategories> {
                             'existingCategory': false
                           });
                           //AddingToServer
-                          FireStoreAddOrEditCategory(
+                          FireStoreAddOrEditMenuCategory(
                                   hotelName: widget.hotelName,
                                   categoryKey: maxNumberOfCategories.toString(),
                                   categoryName: tempCategoryNameForEdit)
@@ -368,7 +368,7 @@ class _EditCategoriesState extends State<EditCategories> {
                         errorMessage = 'Please enter Category Name';
                         errorAlertDialogBox();
                       } else {
-                        FireStoreAddOrEditCategory(
+                        FireStoreAddOrEditMenuCategory(
                                 hotelName: widget.hotelName,
                                 categoryKey: tempCategoryInitialKey.toString(),
                                 categoryName: tempCategoryNameForEdit)
@@ -487,7 +487,7 @@ class _EditCategoriesState extends State<EditCategories> {
           for (var updatedCategory in updatedCategories) {
             if (updatedCategory['initialKey'] != counter + 1) {
 //ThisMeansTheSequenceHasBeenReordered
-              FireStoreAddOrEditCategory(
+              FireStoreAddOrEditMenuCategory(
                       hotelName: widget.hotelName,
                       categoryKey: (counter + 1).toString(),
                       categoryName: updatedCategory['category'])
@@ -567,7 +567,7 @@ class _EditCategoriesState extends State<EditCategories> {
                 for (var updatedCategory in updatedCategories) {
                   if (updatedCategory['initialKey'] != counter + 1) {
 //ThisMeansTheSequenceHasBeenReordered
-                    FireStoreAddOrEditCategory(
+                    FireStoreAddOrEditMenuCategory(
                             hotelName: widget.hotelName,
                             categoryKey: (counter + 1).toString(),
                             categoryName: updatedCategory['category'])
@@ -666,9 +666,13 @@ class _EditCategoriesState extends State<EditCategories> {
                           final itemCategory = updatedCategories[index];
 
                           return Container(
+//ToEnsureWeHaveGapAtTheBottomForAccessingTheLastItemRegardlessOfFloatingButton
+
                             key: ValueKey(itemCategory['randomID']),
                             //ContainerJustToEnsureWeCouldGiveTheMarginsToListTile
-                            margin: EdgeInsets.fromLTRB(5, 5, 0, 10),
+                            margin: index + 1 == updatedCategories.length
+                                ? EdgeInsets.fromLTRB(5, 5, 0, 100)
+                                : EdgeInsets.fromLTRB(5, 5, 0, 10),
                             child: ListTile(
                                 leading: Icon(Icons.drag_indicator),
                                 tileColor: Colors.white54,

@@ -16,6 +16,9 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
   int spacesBelowKotFromClass = 0;
   String kotFontSizeFromClass = 'Small';
   String savedPrintersFromClass = '';
+  String kotAssignedPrintersFromClass = '{}';
+  String billingAssignedPrinterFromClass = '{}';
+  String chefAssignedPrinterFromClass = '{}';
   bool chefInstructionsVideoPlayedFromClass = false;
   bool captainInsideTableInstructionsVideoPlayedFromClass = false;
   bool menuOrRestaurantInfoUpdatedFromClass =
@@ -27,6 +30,8 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
   String restaurantInfoDataFromClass = '';
   String versionOfAppFromClass = '';
   bool experimentForBluetooth = false;
+  int expensesSegregationDeviceSavedTimestampFromClass = 0;
+  String expensesSegregationMapFromClass = '{}';
 
   PrinterAndOtherDetailsProvider() {
     initialState();
@@ -141,6 +146,42 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
   Future updateSavedPrintersInSharedPreferences() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('addedPrintersSaving', savedPrintersFromClass);
+  }
+
+  void savingKotAssignedPrinterByTheUser(
+      String stringOfMapOfKotAssignedPrinters) {
+    kotAssignedPrintersFromClass = stringOfMapOfKotAssignedPrinters;
+    updateKotAssignedPrintersInSharedPreferences();
+  }
+
+  Future updateKotAssignedPrintersInSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'kotAssignedPrintersSaving', kotAssignedPrintersFromClass);
+  }
+
+  void savingBillingAssignedPrinterByTheUser(
+      String stringOfMapOfBillingAssignedPrinter) {
+    billingAssignedPrinterFromClass = stringOfMapOfBillingAssignedPrinter;
+    updateBillingAssignedPrinterInSharedPreferences();
+  }
+
+  Future updateBillingAssignedPrinterInSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'billingAssignedPrinterSaving', billingAssignedPrinterFromClass);
+  }
+
+  void savingChefAssignedPrinterByTheUser(
+      String stringOfMapOfChefAssignedPrinter) {
+    chefAssignedPrinterFromClass = stringOfMapOfChefAssignedPrinter;
+    updateChefAssignedPrinterInSharedPreferences();
+  }
+
+  Future updateChefAssignedPrinterInSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'chefAssignedPrinterSaving', chefAssignedPrinterFromClass);
   }
 
   void addCaptainPrinter(String connectingPrinterName,
@@ -273,6 +314,27 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // String expensesLastSavedTimestampFromClass = '';
+  // String expensesSegregationMapFromClass = '{}';
+
+  void expensesSegregationTimeStampSaving(
+      int expensesTimeStamp, String expensesSegregation) {
+    expensesSegregationDeviceSavedTimestampFromClass = expensesTimeStamp;
+    expensesSegregationMapFromClass = expensesSegregation;
+
+    updateExpensesSegregationTimeStampInSharedPreferences();
+    notifyListeners();
+  }
+
+  Future updateExpensesSegregationTimeStampInSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    await prefs.setInt('expensesSegregationTimeStampSaving',
+        expensesSegregationDeviceSavedTimestampFromClass);
+    await prefs.setString(
+        'expensesSegregationSaving', expensesSegregationMapFromClass);
+  }
+
   Future syncDataWithProvider() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -282,6 +344,13 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
         prefs.getString('restaurantChosenByUserSaving');
 
     var savedPrintersMapResult = prefs.getString('addedPrintersSaving');
+    var kotAssignedPrinterMapResult =
+        prefs.getString('kotAssignedPrintersSaving');
+
+    var billingAssignedPrinterMapResult =
+        prefs.getString('billingAssignedPrinterSaving');
+    var chefAssignedPrinterMapResult =
+        prefs.getString('chefAssignedPrinterSaving');
 
     var captainResultName = prefs.getString('captainPrinterNameSaving');
     var captainResultAddress = prefs.getString('captainPrinterAddressSaving');
@@ -306,6 +375,10 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
         prefs.getString('currentUserPhoneNumberSaving');
     var restaurantInfoSavingResult = prefs.getString('restaurantInfoSaving');
     var appVersionSavingResult = prefs.getString('appVersionSaving');
+    var expensesSegregationTimeStampResult =
+        prefs.getInt('expensesSegregationTimeStampSaving');
+    var expensesSegregationSavingResult =
+        prefs.getString('expensesSegregationSaving');
 
     if (restaurantChosenResult != null) {
       chosenRestaurantDatabaseFromClass = restaurantChosenResult;
@@ -313,6 +386,17 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
 
     if (savedPrintersMapResult != null) {
       savedPrintersFromClass = savedPrintersMapResult;
+    }
+    if (kotAssignedPrinterMapResult != null) {
+      kotAssignedPrintersFromClass = kotAssignedPrinterMapResult;
+    }
+
+    if (billingAssignedPrinterMapResult != null) {
+      billingAssignedPrinterFromClass = billingAssignedPrinterMapResult;
+    }
+
+    if (chefAssignedPrinterMapResult != null) {
+      chefAssignedPrinterFromClass = chefAssignedPrinterMapResult;
     }
 
     if (captainResultName != null) {
@@ -385,6 +469,15 @@ class PrinterAndOtherDetailsProvider extends ChangeNotifier {
 
     if (bluetoothSaveResult != null) {
       experimentForBluetooth = bluetoothSaveResult;
+    }
+
+    if (expensesSegregationTimeStampResult != null) {
+      expensesSegregationDeviceSavedTimestampFromClass =
+          expensesSegregationTimeStampResult;
+    }
+
+    if (expensesSegregationSavingResult != null) {
+      expensesSegregationMapFromClass = expensesSegregationSavingResult;
     }
 
     notifyListeners();

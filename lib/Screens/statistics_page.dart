@@ -162,10 +162,12 @@ class _StatisticsPageState extends State<StatisticsPage> {
     for (int j = startIndex; j <= endIndex; j++) {
       Map temporaryMap = allDataInList[j];
       temporaryMap.forEach((key, value) {
-        if (allStatsAdded.containsKey(key)) {
-          allStatsAdded[key] = allStatsAdded[key]! + value;
-        } else {
-          allStatsAdded.addAll({key: value});
+        if (key != 'statisticsDocumentIdMap') {
+          if (allStatsAdded.containsKey(key)) {
+            allStatsAdded[key] = allStatsAdded[key]! + value;
+          } else {
+            allStatsAdded.addAll({key: value});
+          }
         }
       });
     }

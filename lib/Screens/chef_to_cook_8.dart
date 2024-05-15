@@ -5,7 +5,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_background/flutter_background.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
@@ -2012,7 +2011,7 @@ class _ChefToCookPrintAlignmentState extends State<ChefToCookPrintAlignment>
     // thisIsChefCallingForBackground = true;
     // hotelNameForBackground = widget.hotelName;
     // chefSpecialitiesForBackground = widget.chefSpecialities;
-    FlutterBackground.initialize();
+    // FlutterBackground.initialize();
     Wakelock.enable();
 
     super.initState();
@@ -2215,7 +2214,7 @@ class _ChefToCookPrintAlignmentState extends State<ChefToCookPrintAlignment>
 
 //IfItIsInBackground
     if (isBackground || isBackground2 || isBackground3) {
-      FlutterBackground.enableBackgroundExecution();
+      // FlutterBackground.enableBackgroundExecution();
       timerRunningForCheckingNewOrdersInBackground = false;
 
       backgroundTimerCounter = 0;
@@ -2257,7 +2256,7 @@ class _ChefToCookPrintAlignmentState extends State<ChefToCookPrintAlignment>
       backgroundTimerCounter = 0;
       // FlutterBackground.initialize();
       NotificationService().cancelAllNotifications();
-      FlutterBackground.disableBackgroundExecution();
+      // FlutterBackground.disableBackgroundExecution();
 
 //ifTheAppHasChangedToForeground,ItMeansTheUserHasOpenedTheAppAnd
 //itHasComeToTheForeground

@@ -13,19 +13,22 @@ import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/about_app_info_screen.dart';
 import 'package:orders_dev/Screens/captain_screen_10.dart';
 
-import 'package:orders_dev/Screens/chef_to_cook_11.dart';
-import 'package:orders_dev/Screens/chef_to_cook_12.dart';
+import 'package:orders_dev/Screens/chef_to_cook_13.dart';
 import 'package:orders_dev/Screens/choosing_chef_specialities_screen_2.dart';
 import 'package:orders_dev/Screens/edit_menu_base_options.dart';
+
+import 'package:orders_dev/Screens/expenses_2.dart';
+import 'package:orders_dev/Screens/expenses_3.dart';
 import 'package:orders_dev/Screens/inventory_chef_specialities.dart';
 import 'package:orders_dev/Screens/inventory_chef_specialities_2.dart';
 import 'package:orders_dev/Screens/main_settings_screen.dart';
-import 'package:orders_dev/Screens/main_settings_screen_2.dart';
 import 'package:orders_dev/Screens/main_settings_screen_3.dart';
 import 'package:orders_dev/Screens/order_history_5.dart';
+import 'package:orders_dev/Screens/order_history_6.dart';
+import 'package:orders_dev/Screens/printer_settings_screen.dart';
 import 'package:orders_dev/Screens/statistics_page.dart';
-
-import 'package:orders_dev/Screens/user_profiles_screen_2.dart';
+import 'package:orders_dev/Screens/statistics_page_2.dart';
+import 'package:orders_dev/Screens/user_profiles_screen_4.dart';
 
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/main.dart';
@@ -259,7 +262,7 @@ class ChefOrCaptainWithSeparateRestaurantInfo extends StatelessWidget {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          ChefToCookPrinterAlign(
+                                          ChefToCookNewPrinterPackage(
                                             hotelName: hotelName,
                                             currentUserProfileMap:
                                             currentUserProfileMap,
@@ -388,7 +391,7 @@ class NavigationDrawer extends StatelessWidget {
           Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (Buildcontext) => OrderHistoryWithExtraItems(
+                  builder: (Buildcontext) => OrderHistoryWithNewPrintPackage(
                       hotelName: hotelName)));
         },
       )
@@ -416,6 +419,30 @@ class NavigationDrawer extends StatelessWidget {
         },
       )
           : SizedBox.shrink(),
+      ListTile(
+        title: Text('Reports'),
+//WeUseFireBaseAuthToSignOut
+//WithNavigatorWeReplaceThePageToLoginPage
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context,
+              MaterialPageRoute(builder: (BuildContext) => StatisticsWithExpenses(
+
+              )));
+        },
+      ),
+      ListTile(
+        title: Text('Expenses'),
+//WeUseFireBaseAuthToSignOut
+//WithNavigatorWeReplaceThePageToLoginPage
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.push(context,
+              MaterialPageRoute(builder: (BuildContext) => ExpensesForCashBalance(
+
+              )));
+        },
+      ),
       (currentUserProfileMap[hotelName]['admin'] ||
           json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
               context,
@@ -537,6 +564,16 @@ class NavigationDrawer extends StatelessWidget {
               .currentUserPhoneNumberFromClass]['privileges']['6'])
           ? Divider(color: Colors.black54)
           : SizedBox.shrink(),
+
+      // ListTile(
+      //   leading: Icon(Icons.settings),
+      //   title: Text('Old Settings'),
+      //   onTap: () {
+      //     Navigator.pop(context);
+      //     Navigator.push(context,
+      //         MaterialPageRoute(builder: (BuildContext) => PrinterSettings(chefOrCaptain: 'Captain')));
+      //   },
+      // ),
       ListTile(
         leading: Icon(Icons.settings),
         title: Text('Settings'),
@@ -563,7 +600,7 @@ class NavigationDrawer extends StatelessWidget {
           Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (BuildContext) => UserProfilesWithEdit(
+                  builder: (BuildContext) => UserProfilesAccessChanges(
                     hotelName: hotelName,
                     currentUserProfileMap: currentUserProfileMap,
                   )));
@@ -580,6 +617,8 @@ class NavigationDrawer extends StatelessWidget {
               .currentUserPhoneNumberFromClass]['privileges']['4'])
           ? Divider(color: Colors.black54)
           : SizedBox.shrink(),
+
+
 
       ListTile(
         leading: const Icon(IconData(0xe043, fontFamily: 'MaterialIcons')),

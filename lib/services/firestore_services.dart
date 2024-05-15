@@ -164,22 +164,16 @@ class FireStoreAddUserProfile {
       required this.updateUserProfileMap});
 
   Future<void> addUserProfile() {
-//WeCanOnlyInputIntoArrayAsList.SoMakingItIntoAList
-    List<String> restaurantAddingList = [hotelName];
 //UpdatingUserForTheParticularRestaurantInTheFolder LoginDetails
-    _fireStore
-        .collection('loginDetails')
-        .doc(userPhoneNumber)
-        .set({hotelName: updateUserProfileMap}, SetOptions(merge: true));
+    _fireStore.collection('loginDetails').doc(userPhoneNumber).set({
+      hotelName: updateUserProfileMap,
+      'restaurantDatabase': {hotelName: true}
+    }, SetOptions(merge: true));
 //thisIsToStoreOneSetOfUserProfileInsideRestaurantTooForOtherUsersToUse
-    _fireStore
+    return _fireStore
         .collection(hotelName)
         .doc('allUserProfiles')
         .set({userPhoneNumber: updateUserProfileMap}, SetOptions(merge: true));
-//UpdatingTheArrayOfRestaurants
-    return _fireStore.collection('loginDetails').doc(userPhoneNumber).set(
-        {'restaurants': FieldValue.arrayUnion(restaurantAddingList)},
-        SetOptions(merge: true));
   }
 }
 
@@ -246,25 +240,20 @@ class FireStoreDeleteUserFromOneRestaurant {
     List<String> tempDeleteRestaurantsList = [restaurantDatabaseName];
 
 //FirstWeDeleteThatRestaurantFromUser
-    _fireStore
-        .collection('loginDetails')
-        .doc(userPhoneNumber)
-        .update({restaurantDatabaseName: FieldValue.delete()});
+    _fireStore.collection('loginDetails').doc(userPhoneNumber).set({
+      restaurantDatabaseName: FieldValue.delete(),
+      'restaurantDatabase': {restaurantDatabaseName: FieldValue.delete()}
+    }, SetOptions(merge: true));
 //ThenWeNeedToDeleteThatUserFromRestaurantDatabaseToo
     _fireStore
         .collection(restaurantDatabaseName)
         .doc('allUserProfiles')
         .update({userPhoneNumber: FieldValue.delete()});
     //deletingTheTokenFromThatRestaurantDatabase
-    _fireStore
+    return _fireStore
         .collection(restaurantDatabaseName)
         .doc('userMessagingTokens')
         .update({userPhoneNumber: FieldValue.delete()});
-
-//ThenWeUpdateTheArrayOfRestaurants
-    return _fireStore.collection('loginDetails').doc(userPhoneNumber).update({
-      'restaurants': FieldValue.arrayRemove(tempDeleteRestaurantsList),
-    });
   }
 }
 
@@ -445,6 +434,31 @@ class FireStoreChefSpecialities {
   }
 }
 
+class FireStorePrintersInformation {
+  final _fireStore = FirebaseFirestore.instance;
+  final String userPhoneNumber;
+  final String hotelName;
+  final String printerMapKey;
+  final String printerMapValue;
+
+  FireStorePrintersInformation(
+      {required this.userPhoneNumber,
+      required this.hotelName,
+      required this.printerMapKey,
+      required this.printerMapValue});
+
+  Future<void> updatePrinterInfo() {
+    _fireStore.collection(hotelName).doc('allUserProfiles').set({
+      userPhoneNumber: {printerMapKey: printerMapValue}
+    }, SetOptions(merge: true));
+
+//ThenUpdatingTheArrayInsideLoginDetails
+    return _fireStore.collection('loginDetails').doc(userPhoneNumber).set({
+      hotelName: {printerMapKey: printerMapValue}
+    }, SetOptions(merge: true));
+  }
+}
+
 class FireStoreChefWontCook {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
@@ -486,6 +500,51 @@ class FireStoreUpdateBill {
         .set(printOrdersMap);
 
     //    .add(printOrdersMap);
+  }
+}
+
+class FireStoreUpdateStatisticsIndividualField {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String docID;
+  double? incrementBy;
+  final String key;
+
+  FireStoreUpdateStatisticsIndividualField(
+      {required this.hotelName,
+      required this.docID,
+      this.incrementBy,
+      required this.key});
+
+  Future<void> updateStatistics() {
+    return _fireStore
+        .collection(hotelName)
+        .doc('statistics')
+        .collection('statistics')
+        .doc(docID)
+        .set(
+            {key: FieldValue.increment(incrementBy!)}, SetOptions(merge: true));
+  }
+}
+
+class FireStoreUpdateStatisticsWithMap {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String docID;
+  Map<String, dynamic> statisticsUpdateMap = HashMap();
+
+  FireStoreUpdateStatisticsWithMap(
+      {required this.hotelName,
+      required this.docID,
+      required this.statisticsUpdateMap});
+
+  Future<void> updateStatistics() {
+    return _fireStore
+        .collection(hotelName)
+        .doc('statistics')
+        .collection('statistics')
+        .doc(docID)
+        .set(statisticsUpdateMap, SetOptions(merge: true));
   }
 }
 
@@ -549,48 +608,113 @@ class FireStoreUpdateAndStatisticsWithBatch {
   }
 }
 
-class FireStoreUpdateStatisticsIndividualField {
+class FireStoreUpdateAndStatisticsWithBatchForAlreadyExistingBill {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
-  final String docID;
-  double? incrementBy;
-  final String key;
+  final String orderHistoryDocID;
+  Map<String, String> printOrdersMap = HashMap();
+  final String statisticsDocID;
+  Map<String, dynamic> statisticsUpdateMap = HashMap();
 
-  FireStoreUpdateStatisticsIndividualField(
-      {required this.hotelName,
-      required this.docID,
-      this.incrementBy,
-      required this.key});
+  FireStoreUpdateAndStatisticsWithBatchForAlreadyExistingBill({
+    required this.hotelName,
+    required this.printOrdersMap,
+    required this.orderHistoryDocID,
+    required this.statisticsDocID,
+    required this.statisticsUpdateMap,
+  });
 
-  Future<void> updateStatistics() {
-    return _fireStore
+  Future<void> updateBillAndStatistics() {
+    // Map<String, dynamic> statisticsAndOrderHistoryMapTogether = HashMap();
+    // statisticsAndOrderHistoryMapTogether.addAll({
+    //   'orderhistoryy': {orderHistoryDocID: printOrdersMap}
+    // });
+    // statisticsAndOrderHistoryMapTogether.addAll({
+    //   'statisticss': {statisticsDocID: statisticsUpdateMap}
+    // });
+    var batch = _fireStore.batch();
+    var orderHistoryRef = _fireStore
+        .collection(hotelName)
+        .doc('orderhistory')
+        .collection('orderhistory')
+        .doc(orderHistoryDocID);
+    var statisticsRef = _fireStore
         .collection(hotelName)
         .doc('statistics')
         .collection('statistics')
-        .doc(docID)
-        .set(
-            {key: FieldValue.increment(incrementBy!)}, SetOptions(merge: true));
+        .doc(statisticsDocID);
+    batch.set(orderHistoryRef, printOrdersMap);
+    batch.set(statisticsRef, statisticsUpdateMap, SetOptions(merge: true));
+
+    return batch.commit();
+
+    return _fireStore.collection(hotelName).add({
+      'orderhistoryy': {orderHistoryDocID: printOrdersMap},
+      'statisticss': {statisticsDocID: statisticsUpdateMap}
+    });
+
+    // _fireStore.collection(hotelName).add({{'statistics':'fgfg'},
+    //   'orderhistory': {orderHistoryDocID: printOrdersMap}}}
+    //     {
+    //   );
+    return _fireStore
+        .collection(hotelName)
+        .doc('orderhistory')
+        .collection('orderhistory')
+        .doc(orderHistoryDocID)
+        .set(printOrdersMap);
+
+    //    .add(printOrdersMap);
   }
 }
 
-class FireStoreUpdateStatisticsWithMap {
+class FireStoreBillAndStatisticsInServer {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
-  final String docID;
-  Map<String, dynamic> statisticsUpdateMap = HashMap();
+  final String orderHistoryDocID;
+  Map<String, String> printOrdersMap = HashMap();
+  Map<String, dynamic> statisticsDayUpdateMap = HashMap();
+  final String year;
+  final String month;
+  final String day;
 
-  FireStoreUpdateStatisticsWithMap(
+  FireStoreBillAndStatisticsInServer(
       {required this.hotelName,
-      required this.docID,
-      required this.statisticsUpdateMap});
+      required this.printOrdersMap,
+      required this.orderHistoryDocID,
+      required this.statisticsDayUpdateMap,
+      required this.year,
+      required this.month,
+      required this.day});
 
-  Future<void> updateStatistics() {
-    return _fireStore
+  Future<void> updateBillAndStatistics() {
+    // Map<String, dynamic> statisticsAndOrderHistoryMapTogether = HashMap();
+    // statisticsAndOrderHistoryMapTogether.addAll({
+    //   'orderhistoryy': {orderHistoryDocID: printOrdersMap}
+    // });
+    // statisticsAndOrderHistoryMapTogether.addAll({
+    //   'statisticss': {statisticsDocID: statisticsUpdateMap}
+    // });
+    var batch = _fireStore.batch();
+    var orderHistoryRef = _fireStore
         .collection(hotelName)
-        .doc('statistics')
-        .collection('statistics')
-        .doc(docID)
-        .set(statisticsUpdateMap, SetOptions(merge: true));
+        .doc('salesBills')
+        .collection(year)
+        .doc(month)
+        .collection(day)
+        .doc(orderHistoryDocID);
+    var statisticsDayRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('dailyReports')
+        .doc(year)
+        .collection(month)
+        .doc(day);
+    batch.set(orderHistoryRef, printOrdersMap, SetOptions(merge: true));
+    batch.set(
+        statisticsDayRef, statisticsDayUpdateMap, SetOptions(merge: true));
+
+    return batch.commit();
   }
 }
 
@@ -709,13 +833,13 @@ class FireStoreDeleteItemFromMenu {
   }
 }
 
-class FireStoreAddOrEditCategory {
+class FireStoreAddOrEditMenuCategory {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
   final String categoryKey;
   final String categoryName;
 
-  FireStoreAddOrEditCategory(
+  FireStoreAddOrEditMenuCategory(
       {required this.hotelName,
       required this.categoryKey,
       required this.categoryName});
@@ -777,5 +901,193 @@ class FireStoreBaseInfoNumSaving {
     return _fireStore.collection(hotelName).doc('basicinfo').update({
       baseInfoKey: baseInfoValue,
     });
+  }
+}
+
+class FireStoreBaseInfoMapSaving {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String baseInfoKey;
+  final Map<String, dynamic> baseInfoValue;
+
+  FireStoreBaseInfoMapSaving(
+      {required this.hotelName,
+      required this.baseInfoKey,
+      required this.baseInfoValue});
+
+  Future<void> addOrEditBaseInfo() {
+    return _fireStore.collection(hotelName).doc('basicinfo').update({
+      baseInfoKey: baseInfoValue,
+    });
+  }
+}
+
+class FireStoreAddNewExpenseWithBatch {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String expenseBillName;
+  final String year;
+  final String month;
+  final String day;
+  Map<String, dynamic> expensesBillMap = HashMap();
+  Map<String, dynamic> statisticsDailyExpensesMap = HashMap();
+  Map<String, dynamic> statisticsMonthlyExpensesMap = HashMap();
+  Map<String, dynamic> expensesSegregationUpdateMap = HashMap();
+  final int expensesUpdateTimeInMilliseconds;
+
+  FireStoreAddNewExpenseWithBatch(
+      {required this.hotelName,
+      required this.expenseBillName,
+      required this.year,
+      required this.month,
+      required this.day,
+      required this.expensesBillMap,
+      required this.statisticsDailyExpensesMap,
+      required this.statisticsMonthlyExpensesMap,
+      required this.expensesSegregationUpdateMap,
+      required this.expensesUpdateTimeInMilliseconds});
+
+  Future<void> addExpense() {
+    var batch = _fireStore.batch();
+
+    var expensesBillsRef = _fireStore
+        .collection(hotelName)
+        .doc('expensesBills')
+        .collection(year)
+        .doc('month')
+        .collection(month)
+        .doc(expenseBillName);
+    var statisticsMonthlyReportForExpensesRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('monthlyReports')
+        .doc('$year*$month');
+    var statisticsDailyReportForExpensesRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('dailyReports')
+        .doc(year)
+        .collection(month)
+        .doc(day);
+    if (expensesSegregationUpdateMap.isNotEmpty) {
+      var expensesSegregationUpdationRef =
+          _fireStore.collection(hotelName).doc('expensesSegregation');
+      var expensesDateUpdationRef =
+          _fireStore.collection(hotelName).doc('basicinfo');
+      batch.set(expensesSegregationUpdationRef, expensesSegregationUpdateMap,
+          SetOptions(merge: true));
+      batch.set(
+          expensesDateUpdationRef,
+          {
+            'updateTimes': {
+              'expensesSegregation': expensesUpdateTimeInMilliseconds
+            }
+          },
+          SetOptions(merge: true));
+    }
+    batch.set(expensesBillsRef, expensesBillMap, SetOptions(merge: true));
+    batch.set(statisticsMonthlyReportForExpensesRef,
+        statisticsMonthlyExpensesMap, SetOptions(merge: true));
+    batch.set(statisticsDailyReportForExpensesRef, statisticsDailyExpensesMap,
+        SetOptions(merge: true));
+
+    return batch.commit();
+  }
+}
+
+class FireStoreEditOrDeleteExpenseCategoryOrVendor {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String categoryOrVendor;
+  var categoryVendorName;
+  final String categoryOrVendorKey;
+  final int expensesUpdateTimeInMilliseconds;
+
+  FireStoreEditOrDeleteExpenseCategoryOrVendor(
+      {required this.hotelName,
+      required this.categoryOrVendor,
+      required this.categoryVendorName,
+      required this.categoryOrVendorKey,
+      required this.expensesUpdateTimeInMilliseconds});
+
+  Future<void> deleteOrEditExpenseCategory() {
+    String folderName = categoryOrVendor == 'category'
+        ? 'expensesCategories'
+        : categoryOrVendor == 'vendor'
+            ? 'expensesVendors'
+            : categoryOrVendor == 'paidByUser'
+                ? 'expensesPaidByUser'
+                : 'paymentMethod';
+    var batch = _fireStore.batch();
+
+    var expensesCategoryRef =
+        _fireStore.collection(hotelName).doc('expensesSegregation');
+    var expensesDateUpdationRef =
+        _fireStore.collection(hotelName).doc('basicinfo');
+    batch.set(
+        expensesCategoryRef,
+        {
+          folderName: {categoryOrVendorKey: categoryVendorName}
+        },
+        SetOptions(merge: true));
+    batch.set(
+        expensesDateUpdationRef,
+        {
+          'updateTimes': {
+            'expensesSegregation': expensesUpdateTimeInMilliseconds
+          }
+        },
+        SetOptions(merge: true));
+    return batch.commit();
+  }
+}
+
+class FireStoreDeleteOldExpenseWithBatch {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String expenseBillName;
+  final String year;
+  final String month;
+  final String day;
+  Map<String, dynamic> statisticsExpensesMap = HashMap();
+
+  FireStoreDeleteOldExpenseWithBatch(
+      {required this.hotelName,
+      required this.expenseBillName,
+      required this.year,
+      required this.month,
+      required this.day,
+      required this.statisticsExpensesMap});
+
+  Future<void> deleteExpense() {
+    var batch = _fireStore.batch();
+
+    var expensesBillsRef = _fireStore
+        .collection(hotelName)
+        .doc('expensesBills')
+        .collection(year)
+        .doc('month')
+        .collection(month)
+        .doc(expenseBillName);
+    var statisticsMonthlyReportForExpensesRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('monthlyReports')
+        .doc('$year*$month');
+    var statisticsDailyReportForExpensesRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('dailyReports')
+        .doc(year)
+        .collection(month)
+        .doc(day);
+
+    batch.delete(expensesBillsRef);
+    batch.set(statisticsMonthlyReportForExpensesRef, statisticsExpensesMap,
+        SetOptions(merge: true));
+    batch.set(statisticsDailyReportForExpensesRef, statisticsExpensesMap,
+        SetOptions(merge: true));
+
+    return batch.commit();
   }
 }

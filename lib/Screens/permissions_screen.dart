@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_background/flutter_background.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/notification_service.dart';
@@ -21,15 +20,15 @@ class PermissionsApproval extends StatefulWidget {
 }
 
 class _PermissionsApprovalState extends State<PermissionsApproval> {
-  bool hasBackgroundPermissions = true;
+  // bool hasBackgroundPermissions = true;
   bool locationPermissionAccepted = false;
   bool isNotificationPermissionGranted = false;
-  void backgroundPermissionsCheck() async {
-    hasBackgroundPermissions = await FlutterBackground.hasPermissions;
-    setState(() {
-      hasBackgroundPermissions;
-    });
-  }
+  // void backgroundPermissionsCheck() async {
+  //   hasBackgroundPermissions = await FlutterBackground.hasPermissions;
+  //   setState(() {
+  //     hasBackgroundPermissions;
+  //   });
+  // }
 
   void backgroundPermissionsCheckTimer() {
     Timer? _timer;
@@ -40,7 +39,7 @@ class _PermissionsApprovalState extends State<PermissionsApproval> {
         _everySecForBackground++;
       } else {
         _timer!.cancel();
-        backgroundPermissionsCheck();
+        // backgroundPermissionsCheck();
       }
     });
   }
@@ -140,7 +139,7 @@ class _PermissionsApprovalState extends State<PermissionsApproval> {
   @override
   void initState() {
     // TODO: implement initState
-    backgroundPermissionsCheck();
+    // backgroundPermissionsCheck();
     requestLocationPermissionForBluetooth();
     notificationPermissionChecker();
     notificationPermissionCheckerTimerFourSec();
@@ -297,36 +296,36 @@ class _PermissionsApprovalState extends State<PermissionsApproval> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             SizedBox(height: 10),
-            ListTile(
-              // tileColor: hasBackgroundPermissions ? Colors.green : Colors.red,
-              leading: const Icon(Icons.battery_charging_full_rounded),
-              title: Text(
-                'Battery Settings',
-                style: Theme.of(context).textTheme.headline6,
-              ),
-              subtitle: Text(
-                'Please Remove Battery Restrictions to check for new customer orders in background state',
-                style: TextStyle(fontSize: 15),
-              ),
-              trailing: Switch(
-                value: hasBackgroundPermissions,
-                activeColor: Colors.green,
-                onChanged: (bool changedValue) {
-                  if (hasBackgroundPermissions == false) {
-                    setState(() {
-                      hasBackgroundPermissions = changedValue;
-                    });
-                    FlutterBackground.initialize();
-                    backgroundPermissionsCheckTimer();
-                  }
-                },
-              ),
-              // onTap: () {
-              //   FlutterBackground.initialize();
-              //   backgroundPermissionsCheck();
-              // },
-            ),
-            const Divider(color: Colors.black54),
+            // ListTile(
+            //   // tileColor: hasBackgroundPermissions ? Colors.green : Colors.red,
+            //   leading: const Icon(Icons.battery_charging_full_rounded),
+            //   title: Text(
+            //     'Battery Settings',
+            //     style: Theme.of(context).textTheme.headline6,
+            //   ),
+            //   subtitle: Text(
+            //     'Please Remove Battery Restrictions to check for new customer orders in background state',
+            //     style: TextStyle(fontSize: 15),
+            //   ),
+            //   trailing: Switch(
+            //     value: hasBackgroundPermissions,
+            //     activeColor: Colors.green,
+            //     onChanged: (bool changedValue) {
+            //       if (hasBackgroundPermissions == false) {
+            //         setState(() {
+            //           hasBackgroundPermissions = changedValue;
+            //         });
+            //         FlutterBackground.initialize();
+            //         backgroundPermissionsCheckTimer();
+            //       }
+            //     },
+            //   ),
+            //   // onTap: () {
+            //   //   FlutterBackground.initialize();
+            //   //   backgroundPermissionsCheck();
+            //   // },
+            // ),
+            // const Divider(color: Colors.black54),
             ListTile(
               leading: const Icon(Icons.circle_notifications_rounded),
               title: Text(

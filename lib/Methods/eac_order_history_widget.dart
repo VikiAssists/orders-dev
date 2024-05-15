@@ -31,6 +31,7 @@ class EachOrderHistory extends StatelessWidget {
       temporaryMap.remove('addressline1ForPrint');
       temporaryMap.remove('addressline2ForPrint');
       temporaryMap.remove('addressline3ForPrint');
+      temporaryMap.remove('gstcodeforprint');
       temporaryMap.remove('customerNameForPrint');
       temporaryMap.remove('customerMobileForPrint');
       temporaryMap.remove('customerAddressForPrint');
@@ -115,8 +116,8 @@ class EachOrderHistory extends StatelessWidget {
 
       child: Column(
         children: [
-          Text('Order Id  : $eachOrderId'),
-          Text('Date:  ${eachOrderMap[' Date of Order  :']}'),
+          Text('Order Id  : ${eachOrderId.substring(0, 14)}'),
+          Text('Date:  ${eachOrderMap['dateForPrint']}'),
           eachOrderMap['serialNumberForPrint'] != null
               ? Text('Sl.No: ${eachOrderMap['serialNumberForPrint']}')
               : SizedBox.shrink(),

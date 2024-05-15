@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_background/flutter_background.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:orders_dev/Methods/table_Button.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -101,7 +100,7 @@ class _CaptainScreenTileChangeState extends State<CaptainScreenTileChange>
     localEntireMenuItems = widget.entireMenuItems;
     localEntireMenuPrice = widget.entireMenuPrice;
     showSpinner = false;
-    FlutterBackground.initialize();
+    // FlutterBackground.initialize();
     Wakelock.enable();
 
     super.initState();
@@ -172,7 +171,7 @@ class _CaptainScreenTileChangeState extends State<CaptainScreenTileChange>
         });
       }
 
-      FlutterBackground.enableBackgroundExecution();
+      // FlutterBackground.enableBackgroundExecution();
 
 //       _timer = Timer.periodic(const Duration(seconds: 10), (_) {
 //         if (_everyTenSeconds < 361) {
@@ -189,7 +188,7 @@ class _CaptainScreenTileChangeState extends State<CaptainScreenTileChange>
         appInBackground = false;
       });
       NotificationService().cancelAllNotifications();
-      FlutterBackground.disableBackgroundExecution();
+      // FlutterBackground.disableBackgroundExecution();
       backgroundTimerCounter = 0;
 //OnceForeGround,PlayerCanBeStopped
 //PlayerPlayingIsChangedToFalse

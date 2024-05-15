@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
-import 'package:orders_dev/Screens/all_printer_settings.dart';
+import 'package:orders_dev/Screens/permissions_screen_3.dart';
+import 'package:orders_dev/Screens/printer_roles_assigning.dart';
 import 'package:orders_dev/Screens/permissions_screen.dart';
-import 'package:orders_dev/Screens/permissions_screen_2.dart';
+
 import 'package:orders_dev/Screens/printer_settings_screen.dart';
 import 'package:orders_dev/Screens/searching_Connecting_Printer_Screen.dart';
 import 'package:orders_dev/constants.dart';
@@ -48,7 +49,7 @@ class MainSettingsForPrinter extends StatelessWidget {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => AllPrinterSettings()));
+                        builder: (context) => PrinterRolesAssigning()));
               },
               child: Text(
                 'Printer Settings',
@@ -106,7 +107,8 @@ class MainSettingsForPrinter extends StatelessWidget {
                 Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (BuildContext) => PermissionsWithAutoStart(
+                        builder: (BuildContext) =>
+                            PermissionsWithNewPrinterPackage(
                               fromFirstScreenTrueElseFalse: false,
                             )));
               },

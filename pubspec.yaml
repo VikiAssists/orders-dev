@@ -53,7 +53,6 @@ dependencies:
   blue_thermal_printer: ^1.2.3
   url_launcher: ^6.1.10
   provider: ^6.0.5
-  flutter_background: ^1.2.0
   flutter_local_notifications: ^14.0.0+1
   wakelock: ^0.6.2
   app_settings: ^4.2.0
@@ -69,6 +68,8 @@ dependencies:
   flutter_esc_pos_utils: ^0.1.8
   flutter_esc_pos_network: ^1.0.2
   flutter_pos_printer_platform_image_3: ^1.1.2
+  intl: ^0.17.0
+  
 
 
 flutter_native_splash:

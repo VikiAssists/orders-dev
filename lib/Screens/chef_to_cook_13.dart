@@ -1,30 +1,32 @@
-//ThisIsThePresentBluetoothScreenWithBlueThermalPrinterPackage_5Feb2023
+//ChefScreenWithAllTypesOfPrinterPackage_9Jan2024
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:math';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_background/flutter_background.dart';
+import 'package:flutter_esc_pos_network/flutter_esc_pos_network.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
+import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platform_image_3.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:orders_dev/Methods/usb_bluetooth_printer.dart';
 import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
-import 'package:orders_dev/Screens/printer_settings_screen.dart';
-import 'package:orders_dev/Screens/searching_Connecting_Printer_Screen.dart';
+import 'package:orders_dev/Screens/printer_roles_assigning.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/background_services.dart';
 import 'package:orders_dev/services/firestore_services.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/services/notification_service.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:orders_dev/Methods/printerenum.dart' as printerenum;
 import 'package:provider/provider.dart';
 import 'package:wakelock/wakelock.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_esc_pos_utils/flutter_esc_pos_utils.dart';
 
 // bool thisIsChefCallingForBackground = true;
 // String hotelNameForBackground = '';
@@ -34,7 +36,7 @@ import 'package:video_player/video_player.dart';
 // String chefPrinterSizeFromClassForBackground = '';
 
 //ThisIsTheScreenWhereTheCookGetsTheItemsToCook
-class ChefToCookTableSnapshotCheck extends StatefulWidget {
+class ChefToCookNewPrinterPackage extends StatefulWidget {
   //TheInputsAreHotelNameAndChefSpecialities
   //ChefSpecialitiesAreTheItemsChefWon'tCook
   //Example:thereAreCooksWhoMakeJuicesAlone.So,
@@ -44,59 +46,39 @@ class ChefToCookTableSnapshotCheck extends StatefulWidget {
   final String hotelName;
   final Map<String, dynamic> currentUserProfileMap;
 
-  ChefToCookTableSnapshotCheck(
+  ChefToCookNewPrinterPackage(
       {Key? key, required this.hotelName, required this.currentUserProfileMap})
       : super(key: key);
 
   @override
-  State<ChefToCookTableSnapshotCheck> createState() =>
-      _ChefToCookTableSnapshotCheckState();
+  State<ChefToCookNewPrinterPackage> createState() =>
+      _ChefToCookNewPrinterPackageState();
 }
 
 //InThisScreen,WeNeedToKnowWhenTheScreenIsOnAndWhenItIsOff
 //OnlyThenWeCanAlertTheChefWhenNewItemComesEvenWhenTheScreenIsOff
 //ToUnderstandThisScreenState,WeUseWidgetsBindingObserver
 
-class _ChefToCookTableSnapshotCheckState
-    extends State<ChefToCookTableSnapshotCheck> with WidgetsBindingObserver {
-//0-InitialStateOfPrinterWhenEnteringScreen
-//1-PrinterIsDisconnectedByTheUser
-//2-SomePrinterConnected
-//3-CheckingForNewPrinter
-  //thisIsTheVariableWeUseTheKeepTrackOfBluetoothPrinterConnection
-  BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
-
-  List<BluetoothDevice> _devices = [];
-  List<BluetoothDevice> additionalDevices = [];
-  BluetoothDevice? _device;
+class _ChefToCookNewPrinterPackageState
+    extends State<ChefToCookNewPrinterPackage> with WidgetsBindingObserver {
   bool _connected = false;
   bool printingOver = true;
   int _everySecondForConnection = 0;
 
   String tips = 'no device connect';
 
-  bool bluetoothConnected = false;
-  bool bluetoothAlreadyConnected = false;
-  //String hotelNameAlone = '';
 //SpinnerOrCircularProgressIndicatorWhenTryingToPrint
   bool showSpinner = false;
   String printerSize = '0';
-//InCase,DeviceNotConnectingInFirstAttempt,WeCanTryThis
-  bool disconnectAndConnectAttempted = false;
-//checkingBluetoothOnOrOff
-  bool bluetoothOnTrueOrOffFalse = true;
-
-  bool bluetoothTurnOnMessageShown = false;
+  bool bluetoothOnTrueOrOffFalse = true; //variableForCheckingBluetoothOnOrOff
+  bool deliverySlipPrinting = false;
   int timeForKot = 1;
   int kotCounter = 0;
   int _everySecondForKot = 0;
   int _everySecondForKotTimer = 0;
   List<String> tempLocalKOTItemNames = [];
-  bool bluetoothJustTurningOn = false;
   bool timerForPrintingKOTRunning = false;
   bool timerForPrintingTenSecKOTRunning = false;
-  bool intermediatePrintingCallKOTRunning = false;
-  bool intermediatePrintingAfterOrderReadyRunning = false;
   bool appInBackground = false;
   bool timerRunningForCheckingNewOrdersInBackground = false;
   late VideoPlayerController _videoController;
@@ -144,6 +126,71 @@ class _ChefToCookTableSnapshotCheckState
   List<String> tempLocalKOTItemsID = [];
   num backgroundTimerCounter = 0;
   List<String> chefWontCookItems = [];
+  List<int> kotBytes = [];
+  List<int> deliverySlipBytes = [];
+//newVariablesNeededForNewPrinterPackageWith3TypesOfPrinting
+  var devices = <BluetoothPrinter>[];
+  var _isBle = false;
+  var _reconnect = false;
+  var _isConnected = false;
+  var printerManager = PrinterManager.instance;
+  StreamSubscription<PrinterDevice>? _subscription;
+  StreamSubscription<BTStatus>? _subscriptionBtStatus;
+  StreamSubscription<USBStatus>? _subscriptionUsbStatus;
+  BTStatus _currentStatus = BTStatus.none;
+  // _currentUsbStatus is only supports on Android
+  // ignore: unused_field
+  USBStatus _currentUsbStatus = USBStatus.none;
+  var chefPrinterType = PrinterType.bluetooth;
+  Map<String, dynamic> chefPrinterAssigningMap = HashMap();
+  String chefPrinterRandomID = '';
+  Map<String, dynamic> printerSavingMap = HashMap();
+  Map<String, dynamic> chefPrinterCharacters = HashMap();
+  bool usbKotConnect = false;
+  bool usbKotConnectTried = false;
+  bool usbDeliverySlipConnect = false;
+  bool usbDeliverySlipConnectTried = false;
+  bool bluetoothKotConnect = false;
+  bool bluetoothKotConnectTried = false;
+  bool bluetoothDeliverySlipConnect = false;
+  bool bluetoothDeliverySlipConnectTried = false;
+  int printerConnectionSuccessCheckRandomNumber = 0;
+  bool serverUpdateAfterKotPrintIsOver = true;
+
+  void showMethodCaller(String showMessage) {
+    show(showMessage);
+  }
+
+  void showMethodCallerWithShowSpinnerOffForBluetooth(String showMessage) {
+    printerManager.disconnect(type: PrinterType.bluetooth);
+    if (!appInBackground) {
+      show(showMessage);
+    }
+
+    playPrinterError();
+
+    if (bluetoothKotConnect || bluetoothKotConnectTried) {
+      if (timerForPrintingKOTRunning == false &&
+          timerForPrintingTenSecKOTRunning == false &&
+          deliverySlipPrinting == false &&
+          serverUpdateAfterKotPrintIsOver) {
+        timerForPrintingKOTTenSeconds();
+      }
+
+      bluetoothKotConnect = false;
+      bluetoothKotConnectTried = false;
+    }
+    if (bluetoothDeliverySlipConnect || bluetoothDeliverySlipConnectTried) {
+      deliverySlipPrinting = false;
+      bluetoothDeliverySlipConnect = false;
+      bluetoothDeliverySlipConnectTried = false;
+    }
+
+    setState(() {
+      showSpinner = false;
+      _isConnected = false;
+    });
+  }
 
   Future show(
     String message, {
@@ -162,42 +209,6 @@ class _ChefToCookTableSnapshotCheckState
     );
   }
 
-  // void methodForChefWontCook() async {
-  //   print('wontCookList');
-  //   print((json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-  //                   listen: false)
-  //               .allUserProfilesFromClass)[
-  //           Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-  //               .currentUserPhoneNumberFromClass]['wontCook'])
-  //       .map((e) => e.toString())
-  //       .toList());
-  //   chefWontCookItems = [];
-  //   chefWontCookItems = (json.decode(
-  //               Provider.of<PrinterAndOtherDetailsProvider>(context,
-  //                       listen: false)
-  //                   .allUserProfilesFromClass)[
-  //           Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-  //               .currentUserPhoneNumberFromClass]['wontCook'])
-  //       .map((e) => e.toString())
-  //       .toList();
-  //
-  //   // print('came inside this methid');
-  //   // String currentUserPhoneNumber =
-  //   //     widget.currentUserProfileMap['currentUserPhoneNumber'].toString();
-  //   // final chefWontCookItemsCheck = await FirebaseFirestore.instance
-  //   //     .collection('loginDetails')
-  //   //     .doc(currentUserPhoneNumber)
-  //   //     .get();
-  //   //
-  //   // List<dynamic> tempChefWontCookItems =
-  //   //     chefWontCookItemsCheck[widget.hotelName]['wontCook'];
-  //   // for (var tempWontCook in tempChefWontCookItems) {
-  //   //   chefWontCookItems.add(tempWontCook.toString());
-  //   // }
-  //   //
-  //   setState(() {});
-  // }
-
   List<String> dynamicTokensToStringToken() {
     List<String> tokensList = [];
     Map<String, dynamic> allUsersTokenMap = json.decode(
@@ -209,1830 +220,1692 @@ class _ChefToCookTableSnapshotCheckState
     return tokensList;
   }
 
-  void getAllPairedDevices() async {
-    print('start of getAllPairedDevices');
-    _devices = await bluetooth.getBondedDevices();
-    if (_devices.isEmpty) {
-      print('at the start paired devices is empty');
-    } else {
-      print('at the start paired devices is not empty');
-    }
-    additionalDevices = [];
-    print('paired devices is not empty');
-    _devices.forEach((printer) {
-      print('address is ${printer.address}');
-      additionalDevices.add(printer);
-    });
-//PuttingSetStateHereBecauseThePairedDevicesListIsComingEmptyAtTheStart
-//SoTryingToUpdatePairedDevicesAsAndWhenItIsAdded
-    setState(() {
-      additionalDevices = _devices;
-    });
-
-    if (_devices.isEmpty) {
-      print('at the end paired devices is empty');
-    } else {
-      print('at the end paired devices is not empty');
-    }
-    print('end of getAllPairedDevices');
-  }
-
-  void bluetoothStateChangeFunction() {
-    bluetooth.onStateChanged().listen((state) {
-      print('inside bluetoothStateChangeFunction');
-      switch (state) {
-        case BlueThermalPrinter.CONNECTED:
-          setState(() {
-            _connected = true;
-            bluetoothOnTrueOrOffFalse = true;
-            bluetoothJustTurningOn = false;
-            print("bluetooth device state: connected");
-          });
-          break;
-        case BlueThermalPrinter.DISCONNECTED:
-          setState(() {
-            _connected = false;
-            bluetoothOnTrueOrOffFalse = true;
-            bluetoothJustTurningOn = false;
-            print("bluetooth device state: disconnected");
-          });
-          break;
-        case BlueThermalPrinter.DISCONNECT_REQUESTED:
-          setState(() {
-            _connected = false;
-            bluetoothOnTrueOrOffFalse = true;
-            bluetoothJustTurningOn = false;
-            print("bluetooth device state: disconnect requested");
-          });
-          break;
-        case BlueThermalPrinter.STATE_TURNING_OFF:
-          setState(() {
-            _connected = false;
-            bluetoothOnTrueOrOffFalse = false;
-            bluetoothJustTurningOn = false;
-            print("bluetooth device state: bluetooth turning off");
-          });
-          break;
-        case BlueThermalPrinter.STATE_OFF:
-          setState(() {
-            _connected = false;
-            bluetoothOnTrueOrOffFalse = false;
-            bluetoothJustTurningOn = false;
-            print("bluetooth device state: bluetooth off");
-          });
-          break;
-        case BlueThermalPrinter.STATE_ON:
-          setState(() {
-            _connected = false;
-            bluetoothOnTrueOrOffFalse = true;
-            bluetoothJustTurningOn = false;
-            print("bluetooth device state: bluetooth on");
-          });
-          break;
-        case BlueThermalPrinter.STATE_TURNING_ON:
-          // _everySecondForKotTimer = -15;
-          setState(() {
-            bluetoothTurnOnMessageShown = false;
-            bluetoothJustTurningOn = true;
-            print('bluetoothTurnOnMessageShown $bluetoothTurnOnMessageShown');
-            print('came into bluetooth state turning on');
-            if (localKOTItemNames.isNotEmpty &&
-                timerForPrintingKOTRunning == false &&
-                timerForPrintingTenSecKOTRunning == false &&
-                intermediatePrintingCallKOTRunning == false &&
-                intermediatePrintingAfterOrderReadyRunning == false) {
-              timerForPrintingKOT();
-            }
-            _connected = false;
-            bluetoothOnTrueOrOffFalse = true;
-            print("bluetooth device state: bluetooth turning on");
-          });
-          break;
-        case BlueThermalPrinter.ERROR:
-          setState(() {
-            _connected = false;
-            bluetoothOnTrueOrOffFalse = true;
-            bluetoothJustTurningOn = false;
-            print("bluetooth device state: error");
-          });
-          break;
-        default:
-          print("bluetooth device state: ${state.toString()}");
-          break;
-      }
-    });
-    // print('isConnected is true');
-  }
-
-  //FunctionToConnectToTheSavedBluetoothPrinter
-  Future<void> printerConnectionToLastSavedPrinterForAfterOrderPrint() async {
-    if (bluetoothOnTrueOrOffFalse == false) {
-      print('cameInsideTheLoopprinterConnectionToLastSavedPrinter');
-//ThisIfLoopWillEnsureWeDontCheckBluetoothOnOrOffAgainAndAgain
-      bluetoothStateChangeFunction();
-    }
-    print('printerConnectionToLastSavedPrinter');
-    // TODO here add a permission request using permission_handler
-    // if (locationPermissionAccepted == false) {
-    //   showDialog(
-    //     context: context,
-    //     builder: (BuildContext context) => AlertDialog(
-    //       elevation: 24.0,
-    //       // backgroundColor: Colors.greenAccent,
-    //       // shape: CircleBorder(),
-    //       title: Text('Permission for Location Use'),
-    //       content: Text(
-    //           'Orders App collects location data only to enable bluetooth printer. This information will not be used when the app is closed or not in use. Kindly allow location access when prompted'),
-    //       actions: [
-    //         TextButton(
-    //             onPressed: () {
-    //               Permission.locationWhenInUse.request();
-    //               // Navigator.of(context, rootNavigator: true)
-    //               //     .pop();
-    //               Navigator.pop(context);
-    //               print('came till this pop1');
-    //               // Navigator.pop(context);
-    //               // print('came till this pop2');
-    //               Timer? _timer;
-    //               int _everySecondInRequestPermissionLoop = 0;
-    //               _timer = Timer.periodic(Duration(seconds: 1),
-    //                       (_) async {
-    //                     if (_everySecondInRequestPermissionLoop < 2) {
-    //                       print(
-    //                           'duration is $_everySecondInRequestPermissionLoop');
-    //                       _everySecondInRequestPermissionLoop++;
-    //                     } else {
-    //                       _timer?.cancel();
-    //                       print('came inside timer cancel loop1111');
-    //                       setState(() {
-    //                         locationPermissionAccepted = true;
-    //                         // Permission.location.request();
-    //                       });
-    //                       // savedBluetoothPrinterConnect();
-    //                       if (connectingPrinterAddressChefScreen !=
-    //                           '') {
-    //                         printerConnectionToLastSavedPrinter();
-    //                       } else {
-    //                         setState(() {
-    //                           noNeedPrinterConnectionScreen = false;
-    //                         });
-    //                       }
-    //                     }
-    //                   });
-    //             },
-    //             child: Text('Ok'))
-    //       ],
-    //     ),
-    //     barrierDismissible: false,
-    //   );
-    // }
-
-    // if permission is not granted, kzaki's thermal print plugin will ask for location permission
-    // which will invariably crash the app even if user agrees so we'd better ask it upfront
-
-    // var statusLocation = Permission.location;
-    // if (await statusLocation.isGranted != true) {
-    //   await Permission.location.request();
-    // }
-    // if (await statusLocation.isGranted) {
-    // ...
-    // } else {
-    // showDialogSayingThatThisPermissionIsRequired());
-    // }
-    if (bluetoothOnTrueOrOffFalse) {
-      getAllPairedDevices();
-      setState(() {
-        showSpinner = true;
-      });
-      bool? isConnected = await bluetooth.isConnected;
-      print(
-          'printerConnectionToLastSavedPrinter start is connected value is $isConnected');
-      bool printerPairedTrueYetToPairFalse = false;
-      int devicesCount = 0;
-      for (var device in _devices) {
-        ++devicesCount;
-        print('checking device addresses');
-        if (device.address ==
-            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-                .chefPrinterAddressFromClass) {
-          printerPairedTrueYetToPairFalse = true;
-          print('checking for printer saved');
-          var nowConnectingPrinter = device;
-          _connectForAfterOrderPrint(nowConnectingPrinter);
-        }
-        if (devicesCount == _devices.length &&
-            printerPairedTrueYetToPairFalse == false) {
-          setState(() {
-            showSpinner = false;
-          });
-          print('here7');
-          if (appInBackground == false) {
-            show('Couldn\'t Connect. Please check Printer');
-          }
-
-          printingOver = true;
-        }
-      }
-    }
-    // else {
-    //   show('Please Turn On Bluetooth');
-    // }
-
-    if (!mounted) return;
-    // setState(() {
-    //   _devices = devices;
-    // });
-
-    // if (isConnected == true) {
-    //   printThroughBluetooth();
-    //   setState(() {
-    //     _connected = true;
-    //   });
-    // }
-  }
-
-  void _connectForAfterOrderPrint(BluetoothDevice nowConnectingPrinter) {
-    bool timerForStartOfPrinting;
-    print('start of _Connect loop');
-    if (nowConnectingPrinter != null) {
-      print('device isnt null');
-
-      bluetooth.isConnected.then((isConnected) {
-        print('came inside bluetooth trying to connect');
-        if (isConnected == false) {
-          bluetooth.connect(nowConnectingPrinter!).catchError((error) {
-            print('did not get connected1 inside _connect- ${_connected}');
-            if (appInBackground == false) {
-              show('Couldn\'t Connect. Please check Printer');
-            }
-
-            printingOver = true;
-            setState(() {
-              _connected = false;
-              showSpinner = false;
-            });
-            print('did not get connected2 inside _connect- ${_connected}');
-          });
-          setState(() => _connected = true);
-          print('we are connected inside _connect- ${_connected}');
-          intermediateFunctionToCallPrintForAfterOrderReady();
-        } else {
-          int _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
-          bluetooth.disconnect();
-          setState(() => _connected = false);
-          _everySecondForConnection = 0;
-
-          if (disconnectAndConnectAttempted) {
-            printingOver = true;
-            setState(() {
-              showSpinner = false;
-            });
-          } else {
-            Timer? _timerInDisconnectAndConnect;
-            _timerInDisconnectAndConnect =
-                Timer.periodic(const Duration(seconds: 1), (_) async {
-              if (_everySecondHelpingToDisconnectBeforeConnectingAgain < 4) {
-                _everySecondHelpingToDisconnectBeforeConnectingAgain++;
-                print(
-                    '_everySecondHelpingToDisconnectBeforeConnectingAgainInChefScreen $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-              } else {
-                _timerInDisconnectAndConnect!.cancel;
-                print('need a dosconnection here4');
-                if (disconnectAndConnectAttempted == false) {
-                  disconnectAndConnectAttempted = true;
-                  printerConnectionToLastSavedPrinterForAfterOrderPrint();
-                } else {
-                  _timerInDisconnectAndConnect!.cancel();
-                }
-                _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
-                printerConnectionToLastSavedPrinterForAfterOrderPrint();
-                print(
-                    'cancelling _everySecondHelpingToDisconnectBeforeConnectingAgain $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-              }
-            });
-          }
-        }
-      });
-    } else {
-      print('No device selected.');
-    }
-    print('end of _Connect loop');
-  }
-
-  void intermediateFunctionToCallPrintForAfterOrderReady() {
+  void bytesGeneratorForKot() async {
     if (showSpinner == false) {
       setState(() {
         showSpinner = true;
       });
     }
-    intermediatePrintingAfterOrderReadyRunning = false;
+    kotBytes = [];
 
-    print('start of intermediateFunctionToCallPrintThroughBluetooth');
-    Timer? _timer;
-    _everySecondForConnection = 0;
+    var kotTextSize = chefPrinterCharacters['kotFontSize'] == 'Small'
+        ? PosTextSize.size1
+        : PosTextSize.size2;
+    final profile = await CapabilityProfile.load();
+    final generator = chefPrinterCharacters['printerSize'] == '80'
+        ? Generator(PaperSize.mm80, profile)
+        : Generator(PaperSize.mm58, profile);
 
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_everySecondForConnection <= 2) {
-        intermediatePrintingAfterOrderReadyRunning = true;
-        print('timer inside connect is $_everySecondForConnection');
-        _everySecondForConnection++;
-        if (localParcelReadyItemNames.isEmpty) {
-          localParcelReadyItemNames.add('Printer Check');
-          localParcelReadyNumberOfItems.add(1);
-          localParcelReadyItemComments.add(' ');
-        }
-      } else {
-        intermediatePrintingAfterOrderReadyRunning = false;
-        if (_connected) {
-          print('Inside intermediate- it is connected');
-          printAfterOrderReadyThroughBluetooth();
-        } else {
-          printingOver = true;
-          setState(() {
-            showSpinner = false;
-          });
-          print('unable to connect');
-          // bluetooth.disconnect();
-          // show('Couldnt Connect. Please check Printer');
-        }
-        _timer!.cancel();
-      }
-    });
-    print('end of intermediateFunctionToCallPrintThroughBluetooth');
-  }
-
-  void printAfterOrderReadyThroughBluetooth() {
-    print('start of inside printThroughBluetooth');
-    if (_connected) {
-      bluetooth.isConnected.then((isConnected) {
-        print('came inside bluetooth isConnected');
-        if (isConnected == true) {
-          print('inside printThroughBluetooth-is connected is true here');
-          bluetooth.printNewLine();
-          bluetooth.printNewLine();
-          bluetooth.printNewLine();
-          bluetooth.printNewLine();
-          if (localParcelReadyItemNames[0] != 'Printer Check') {
-            bluetooth.printCustom("Slot:$localParcelNumber",
-                printerenum.Size.extraLarge.val, printerenum.Align.center.val);
-            bluetooth.printNewLine();
-            bluetooth.printCustom(
-                "Packed:${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year} at ${DateTime.now().hour}:${DateTime.now().minute}",
-                printerenum.Size.medium.val,
-                printerenum.Align.center.val);
-            if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .chefPrinterSizeFromClass ==
-                '80') {
-              bluetooth.printCustom(
-                  "-----------------------------------------------",
-                  printerenum.Size.bold.val,
-                  printerenum.Align.center.val);
-            } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .chefPrinterSizeFromClass ==
-                '58') {
-              bluetooth.printCustom("-------------------------------",
-                  printerenum.Size.medium.val, printerenum.Align.center.val);
-            }
-          }
-          if (localParcelReadyItemNames.length > 1) {
-            for (int i = 0; i < localParcelReadyItemNames.length; i++) {
-              if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .chefPrinterSizeFromClass ==
-                  '80') {
-                if ((' '.allMatches(localParcelReadyItemNames[i]).length >=
-                    2)) {
-                  String firstName = '';
-                  String secondName = '';
-                  final longItemNameSplit =
-                      localParcelReadyItemNames[i].split(' ');
-                  for (int i = 0; i < longItemNameSplit.length; i++) {
-                    if (i == 0) {
-                      firstName = longItemNameSplit[i];
-                    }
-                    if (i == 1) {
-                      firstName += ' ${longItemNameSplit[i]}';
-                    }
-                    if (i == 2) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 2) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                  }
-                  bluetooth.printLeftRight(
-                      "$firstName",
-                      "${localParcelReadyNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                  bluetooth.printLeftRight(
-                      "$secondName", "", printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                } else {
-                  bluetooth.printLeftRight(
-                      "${localParcelReadyItemNames[i]}",
-                      "${localParcelReadyNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                }
-
-                if (localParcelReadyItemComments[i] != 'noComment') {
-                  bluetooth.printCustom(
-                      "     (Comment : ${localParcelReadyItemComments[i]})",
-                      printerenum.Size.medium.val,
-                      printerenum.Align.left.val);
-                }
-                bluetooth.printCustom(
-                    "-----------------------------------------------",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.center.val);
-              } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .chefPrinterSizeFromClass ==
-                  '58') {
-                if ((' '.allMatches(localParcelReadyItemNames[i]).length >=
-                        2) ||
-                    localParcelReadyItemNames[i].length > 14) {
-                  String firstName = '';
-                  String secondName = '';
-                  final longItemNameSplit =
-                      localParcelReadyItemNames[i].split(' ');
-                  for (int i = 0; i < longItemNameSplit.length; i++) {
-                    if (i == 0) {
-                      firstName = longItemNameSplit[i];
-                    }
-
-                    if (i >= 1) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                  }
-                  bluetooth.printLeftRight(
-                      "$firstName",
-                      "${localParcelReadyNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val);
-
-                  bluetooth.printCustom(
-                    "$secondName",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
-                } else {
-                  bluetooth.printLeftRight(
-                      "${localParcelReadyItemNames[i]}",
-                      "${localParcelReadyNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val);
-                }
-
-                if (localParcelReadyItemComments[i] != 'noComment') {
-                  bluetooth.printCustom(
-                      "     (Comment : ${localParcelReadyItemComments[i]})",
-                      printerenum.Size.medium.val,
-                      printerenum.Align.left.val);
-                }
-                bluetooth.printCustom("-------------------------------",
-                    printerenum.Size.medium.val, printerenum.Align.center.val);
-              }
-
-//ToAccessDisconnectWhenWeArePrintingParcel
-              if (i == (localParcelReadyItemNames.length - 1)) {
-                _disconnectForAfterOrderPrint();
-              }
-            }
-            bluetooth.printNewLine();
-            bluetooth.printNewLine();
-            if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .chefPrinterSizeFromClass ==
-                    '80' &&
-                localParcelReadyItemNames[0] != 'Printer Check') {
-              bluetooth.printCustom(
-                "Note:Consume Within Two Hours",
-                printerenum.Size.bold.val,
-                printerenum.Align.center.val,
-              );
-              // bluetooth.printNewLine();
-            } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .chefPrinterSizeFromClass ==
-                    '58' &&
-                localParcelReadyItemNames[0] != 'Printer Check') {
-              bluetooth.printCustom(
-                "Note:Consume Within Two Hours",
-                printerenum.Size.bold.val,
-                printerenum.Align.left.val,
-              );
-              // bluetooth.printNewLine();
-              // bluetooth.printNewLine();
-            }
-          } else {
-            if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .chefPrinterSizeFromClass ==
-                '80') {
-              if ((' '.allMatches(localParcelReadyItemNames[0]).length >= 2)) {
-                String firstName = '';
-                String secondName = '';
-
-                final longItemNameSplit =
-                    localParcelReadyItemNames[0].split(' ');
-                for (int i = 0; i < longItemNameSplit.length; i++) {
-                  if (i == 0) {
-                    firstName = longItemNameSplit[i];
-                  }
-                  if (i == 1) {
-                    firstName += ' ${longItemNameSplit[i]}';
-                  }
-                  if (i == 2) {
-                    secondName += '${longItemNameSplit[i]} ';
-                  }
-                  if (i > 2) {
-                    secondName += '${longItemNameSplit[i]} ';
-                  }
-                }
-                bluetooth.printLeftRight(
-                    "$firstName",
-                    "${localParcelReadyNumberOfItems[0].toString()}",
-                    printerenum.Size.bold.val,
-                    format: "%-30s %10s %n");
-                bluetooth.printLeftRight(
-                    "$secondName", "", printerenum.Size.bold.val,
-                    format: "%-30s %10s %n");
-              } else {
-                bluetooth.printLeftRight(
-                    "${localParcelReadyItemNames[0]}",
-                    "${localParcelReadyNumberOfItems[0].toString()}",
-                    printerenum.Size.bold.val,
-                    format: "%-30s %10s %n");
-              }
-
-              if (localParcelReadyItemComments[0] != 'noComment') {
-                bluetooth.printCustom(
-                    "     (Comment : ${localParcelReadyItemComments[0]})",
-                    printerenum.Size.medium.val,
-                    printerenum.Align.left.val);
-              }
-              bluetooth.printCustom(
-                  "-----------------------------------------------",
-                  printerenum.Size.bold.val,
-                  printerenum.Align.center.val);
-            } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .chefPrinterSizeFromClass ==
-                '58') {
-              if ((' '.allMatches(localParcelReadyItemNames[0]).length >= 2) ||
-                  localParcelReadyItemNames[0].length > 14) {
-                String firstName = '';
-                String secondName = '';
-                final longItemNameSplit =
-                    localParcelReadyItemNames[0].split(' ');
-                for (int i = 0; i < longItemNameSplit.length; i++) {
-                  if (i == 0) {
-                    firstName = longItemNameSplit[i];
-                  }
-                  if (i >= 1) {
-                    secondName += '${longItemNameSplit[i]} ';
-                  }
-                }
-                bluetooth.printLeftRight(
-                    "$firstName",
-                    "${localParcelReadyNumberOfItems[0].toString()}",
-                    printerenum.Size.bold.val);
-
-                bluetooth.printCustom(
-                  "$secondName",
-                  printerenum.Size.bold.val,
-                  printerenum.Align.left.val,
-                );
-              } else {
-                bluetooth.printLeftRight(
-                    "${localParcelReadyItemNames[0]}",
-                    "${localParcelReadyNumberOfItems[0].toString()}",
-                    printerenum.Size.bold.val);
-              }
-              if (localParcelReadyItemComments[0] != 'noComment') {
-                bluetooth.printCustom(
-                    "     (Comment : ${localParcelReadyItemComments[0]})",
-                    printerenum.Size.medium.val,
-                    printerenum.Align.left.val);
-              }
-              bluetooth.printCustom("-------------------------------",
-                  printerenum.Size.medium.val, printerenum.Align.center.val);
-            }
-
-            if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .chefPrinterSizeFromClass ==
-                    '80' &&
-                localParcelReadyItemNames[0] != 'Printer Check') {
-              bluetooth.printNewLine();
-              bluetooth.printNewLine();
-              bluetooth.printCustom(
-                "Note:Consume Within Two Hours",
-                printerenum.Size.bold.val,
-                printerenum.Align.center.val,
-              );
-            } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .chefPrinterSizeFromClass ==
-                    '58' &&
-                localParcelReadyItemNames[0] != 'Printer Check') {
-              bluetooth.printNewLine();
-              bluetooth.printNewLine();
-              bluetooth.printCustom(
-                "Note:Consume Within Two Hours",
-                printerenum.Size.bold.val,
-                printerenum.Align.left.val,
-              );
-            }
-            _fastDisconnectForAfterOrderPrint();
-          }
-
-          bluetooth
-              .paperCut(); //some printer not supported (sometime making image not centered)
-          //bluetooth.drawerPin2(); // or you can use bluetooth.drawerPin5();
-        } else {
-          printingOver = true;
-          setState(() {
-            showSpinner = false;
-          });
-          // show('Couldnt Connect. Please check Printer');
-        }
-      });
-    }
-    // else {
-    //   show('Couldnt Connect. Please check Printer');
-    // }
-    print('end of inside printThroughBluetooth');
-  }
-
-  void _disconnectForAfterOrderPrint() {
-    Timer? _timer;
-    int _everySecondForDisconnecting = 0;
-    _everySecondForConnection = 0;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_everySecondForDisconnecting < 2) {
-        print('timer disconnect is $_everySecondForDisconnecting');
-        _everySecondForDisconnecting++;
-      } else {
-        bluetooth.disconnect();
-        localParcelNumber = '';
-        localParcelReadyItemNames = [];
-        localParcelReadyNumberOfItems = [];
-        localParcelReadyItemComments = [];
-
-        _timer!.cancel();
-        _everySecondForDisconnecting = 0;
-        print('bluetooth is disconnecting');
-        print('came to showspinner false');
-        setState(() {
-          showSpinner = false;
-          _connected = false;
-        });
-        printingOver = true;
-      }
-    });
-  }
-
-  void _fastDisconnectForAfterOrderPrint() {
-    print('fast disconnect');
-    bluetooth.disconnect();
-    localParcelNumber = '';
-    localParcelReadyItemNames = [];
-    localParcelReadyItemComments = [];
-    localParcelReadyNumberOfItems = [];
-    _everySecondForConnection = 0;
-    setState(() {
-      showSpinner = false;
-      _connected = false;
-    });
-    printingOver = true;
-  }
-
-  Future<void> printerConnectionToLastSavedPrinterForKOT() async {
-    // if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-    //         .chefPrinterAddressFromClass !=
-    //     '') {
-    print('kot printer');
-    // printingOver = false;
-    print('123');
-//
-//     if (bluetoothOnTrueOrOffFalse == false) {
-//       setState(() {
-//         showSpinner = false;
-//       });
-//       show('Please Turn on bluetooth1');
-//       printingOver = true;
-//       playPrinterError();
-//       print('cameInsideTheLoopprinterConnectionToLastSavedPrinter');
-// //ThisIfLoopWillEnsureWeDontCheckBluetoothOnOrOffAgainAndAgain
-// //       bluetoothStateChangeFunction();
-//     }
-    print('printerConnectionToLastSavedPrinter');
-    // TODO here add a permission request using permission_handler
-    // if (locationPermissionAccepted == false) {
-    //   showDialog(
-    //     context: context,
-    //     builder: (BuildContext context) => AlertDialog(
-    //       elevation: 24.0,
-    //       // backgroundColor: Colors.greenAccent,
-    //       // shape: CircleBorder(),
-    //       title: Text('Permission for Location Use'),
-    //       content: Text(
-    //           'Orders App collects location data only to enable bluetooth printer. This information will not be used when the app is closed or not in use. Kindly allow location access when prompted'),
-    //       actions: [
-    //         TextButton(
-    //             onPressed: () {
-    //               Permission.locationWhenInUse.request();
-    //               // Navigator.of(context, rootNavigator: true)
-    //               //     .pop();
-    //               Navigator.pop(context);
-    //               print('came till this pop1');
-    //               // Navigator.pop(context);
-    //               // print('came till this pop2');
-    //               Timer? _timer;
-    //               int _everySecondInRequestPermissionLoop = 0;
-    //               _timer = Timer.periodic(Duration(seconds: 1),
-    //                       (_) async {
-    //                     if (_everySecondInRequestPermissionLoop < 2) {
-    //                       print(
-    //                           'duration is $_everySecondInRequestPermissionLoop');
-    //                       _everySecondInRequestPermissionLoop++;
-    //                     } else {
-    //                       _timer?.cancel();
-    //                       print('came inside timer cancel loop1111');
-    //                       setState(() {
-    //                         locationPermissionAccepted = true;
-    //                         // Permission.location.request();
-    //                       });
-    //                       // savedBluetoothPrinterConnect();
-    //                       if (connectingPrinterAddressChefScreen !=
-    //                           '') {
-    //                         printerConnectionToLastSavedPrinter();
-    //                       } else {
-    //                         setState(() {
-    //                           noNeedPrinterConnectionScreen = false;
-    //                         });
-    //                       }
-    //                     }
-    //                   });
-    //             },
-    //             child: Text('Ok'))
-    //       ],
-    //     ),
-    //     barrierDismissible: false,
-    //   );
-    // }
-
-    // if permission is not granted, kzaki's thermal print plugin will ask for location permission
-    // which will invariably crash the app even if user agrees so we'd better ask it upfront
-
-    // var statusLocation = Permission.location;
-    // if (await statusLocation.isGranted != true) {
-    //   await Permission.location.request();
-    // }
-    // if (await statusLocation.isGranted) {
-    // ...
-    // } else {
-    // showDialogSayingThatThisPermissionIsRequired());
-    // }
-    print('kot bluetooth is $bluetoothOnTrueOrOffFalse');
-    if (bluetoothOnTrueOrOffFalse == true) {
-      // playPrinterKOT();
-      getAllPairedDevices();
-      printingOver = false;
-
-      bool? isConnected = await bluetooth.isConnected;
-      print(
-          'kot printerConnectionToLastSavedPrinter start is connected value is $isConnected');
-      bool printerPairedTrueYetToPairFalse = false;
-      int devicesCount = 0;
-      for (var device in _devices) {
-        ++devicesCount;
-        print('checking device addresses');
-        if (device.address ==
-            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-                .chefPrinterAddressFromClass) {
-          printerPairedTrueYetToPairFalse = true;
-          print('checking for printer saved');
-          var nowConnectingPrinter = device;
-          _connectForKOTPrint(nowConnectingPrinter);
-        }
-        if (devicesCount == _devices.length &&
-            printerPairedTrueYetToPairFalse == false) {
-          setState(() {
-            showSpinner = false;
-          });
-          print('here3');
-          if (appInBackground == false) {
-            show('Couldn\'t Connect. Please check Printer');
-          }
-
-          printingOver = true;
-          playPrinterError();
-          timerForPrintingKOTTenSeconds();
-        }
-      }
-    }
-    // }
-    // else {
-    //   if (printerNotAddedForKotMessageNotShown == true) {
-    //     show('Add Printer For KOT');
-    //     playPrinterError();
-    //     timerForPrintingKOTTenSeconds();
-    //     printerNotAddedForKotMessageNotShown = false;
-    //   }
-    // }
-
-    // else if (bluetoothOnTrueOrOffFalse == false &&
-    //     bluetoothTurnOnMessageShown == false) {
-    //   setState(() {
-    //     showSpinner = false;
-    //   });
-    //   printingOver = true;
-    //
-    //   playPrinterError();
-    //   print('cameInsideTheLoopprinterConnectionToLastSavedPrinter');
-    //   show('Please Turn On Bluetooth');
-    // }
-
-    if (!mounted) return;
-    // setState(() {
-    //   _devices = devices;
-    // });
-
-    // if (isConnected == true) {
-    //   printThroughBluetooth();
-    //   setState(() {
-    //     _connected = true;
-    //   });
-    // }
-  }
-
-//   Future<void> printerConnectionToLastSavedPrinterForBackgroundKOT() async {
-//     print('kot printer');
-//     printingOver = false;
-//     print('123');
-// //
-// //     if (bluetoothOnTrueOrOffFalse == false) {
-// //       setState(() {
-// //         showSpinner = false;
-// //       });
-// //       show('Please Turn on bluetooth1');
-// //       printingOver = true;
-// //       playPrinterError();
-// //       print('cameInsideTheLoopprinterConnectionToLastSavedPrinter');
-// // //ThisIfLoopWillEnsureWeDontCheckBluetoothOnOrOffAgainAndAgain
-// // //       bluetoothStateChangeFunction();
-// //     }
-//     print('printerConnectionToLastSavedPrinter');
-//     // TODO here add a permission request using permission_handler
-//     // if (locationPermissionAccepted == false) {
-//     //   showDialog(
-//     //     context: context,
-//     //     builder: (BuildContext context) => AlertDialog(
-//     //       elevation: 24.0,
-//     //       // backgroundColor: Colors.greenAccent,
-//     //       // shape: CircleBorder(),
-//     //       title: Text('Permission for Location Use'),
-//     //       content: Text(
-//     //           'Orders App collects location data only to enable bluetooth printer. This information will not be used when the app is closed or not in use. Kindly allow location access when prompted'),
-//     //       actions: [
-//     //         TextButton(
-//     //             onPressed: () {
-//     //               Permission.locationWhenInUse.request();
-//     //               // Navigator.of(context, rootNavigator: true)
-//     //               //     .pop();
-//     //               Navigator.pop(context);
-//     //               print('came till this pop1');
-//     //               // Navigator.pop(context);
-//     //               // print('came till this pop2');
-//     //               Timer? _timer;
-//     //               int _everySecondInRequestPermissionLoop = 0;
-//     //               _timer = Timer.periodic(Duration(seconds: 1),
-//     //                       (_) async {
-//     //                     if (_everySecondInRequestPermissionLoop < 2) {
-//     //                       print(
-//     //                           'duration is $_everySecondInRequestPermissionLoop');
-//     //                       _everySecondInRequestPermissionLoop++;
-//     //                     } else {
-//     //                       _timer?.cancel();
-//     //                       print('came inside timer cancel loop1111');
-//     //                       setState(() {
-//     //                         locationPermissionAccepted = true;
-//     //                         // Permission.location.request();
-//     //                       });
-//     //                       // savedBluetoothPrinterConnect();
-//     //                       if (connectingPrinterAddressChefScreen !=
-//     //                           '') {
-//     //                         printerConnectionToLastSavedPrinter();
-//     //                       } else {
-//     //                         setState(() {
-//     //                           noNeedPrinterConnectionScreen = false;
-//     //                         });
-//     //                       }
-//     //                     }
-//     //                   });
-//     //             },
-//     //             child: Text('Ok'))
-//     //       ],
-//     //     ),
-//     //     barrierDismissible: false,
-//     //   );
-//     // }
-//
-//     // if permission is not granted, kzaki's thermal print plugin will ask for location permission
-//     // which will invariably crash the app even if user agrees so we'd better ask it upfront
-//
-//     // var statusLocation = Permission.location;
-//     // if (await statusLocation.isGranted != true) {
-//     //   await Permission.location.request();
-//     // }
-//     // if (await statusLocation.isGranted) {
-//     // ...
-//     // } else {
-//     // showDialogSayingThatThisPermissionIsRequired());
-//     // }
-//     print('kot bluetooth is $bluetoothOnTrueOrOffFalse');
-//     if (bluetoothOnTrueOrOffFalse == true) {
-//       playPrinterKOT();
-//       getAllPairedDevices();
-//       printingOver = false;
-//       // if (showSpinner == false) {
-//       //   setState(() {
-//       //     showSpinner = true;
-//       //   });
-//       // }
-//
-//       bool? isConnected = await bluetooth.isConnected;
-//       print(
-//           'kot printerConnectionToLastSavedPrinter start is connected value is $isConnected');
-//       bool printerPairedTrueYetToPairFalse = false;
-//       int devicesCount = 0;
-//       for (var device in _devices) {
-//         ++devicesCount;
-//         print('checking device addresses');
-//         if (device.address ==
-//             Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-//                 .chefPrinterAddressFromClass) {
-//           printerPairedTrueYetToPairFalse = true;
-//           print('checking for printer saved');
-//           var nowConnectingPrinter = device;
-//           _connectForKOTPrint(nowConnectingPrinter);
-//         }
-//         if (devicesCount == _devices.length &&
-//             printerPairedTrueYetToPairFalse == false) {
-//           // _everySecondForKotTimer = -3;
-//           setState(() {
-//             showSpinner = false;
-//           });
-//           print('here2');
-//           show('Couldnt Connect. Please check Printer2');
-//           printingOver = true;
-//           playPrinterError();
-//         }
-//       }
-//     } else {
-//       print('camne insidjsbfshfbsbf');
-//       // _everySecondForKotTimer = -3;
-//       setState(() {
-//         showSpinner = false;
-//       });
-//       printingOver = true;
-//
-//       playPrinterError();
-//       print('cameInsideTheLoopprinterConnectionToLastSavedPrinter');
-//       show('Please Turn On Bluetooth');
-//     }
-//
-//     if (!mounted) return;
-//     // setState(() {
-//     //   _devices = devices;
-//     // });
-//
-//     // if (isConnected == true) {
-//     //   printThroughBluetooth();
-//     //   setState(() {
-//     //     _connected = true;
-//     //   });
-//     // }
-//   }
-
-  void _connectForKOTPrint(BluetoothDevice nowConnectingPrinter) {
-    bool timerForStartOfPrinting;
-    print('start of _Connect loop');
-    if (nowConnectingPrinter != null) {
-      print('device isnt null');
-
-      bluetooth.isConnected.then((isConnected) {
-        print('came inside bluetooth trying to connect for KOT');
-        if (isConnected == false) {
-          bluetooth.connect(nowConnectingPrinter!).catchError((error) {
-            print('did not get connected1 inside KOT _connect- ${_connected}');
-            if (appInBackground == false) {
-              show('Couldn\'t Connect. Please check Printer');
-            }
-
-            if (timerForPrintingKOTRunning == false &&
-                timerForPrintingTenSecKOTRunning == false &&
-                intermediatePrintingCallKOTRunning == false &&
-                intermediatePrintingAfterOrderReadyRunning == false) {
-              timerForPrintingKOTTenSeconds();
-            }
-
-            playPrinterError();
-            printingOver = true;
-            // _everySecondForKotTimer = -3;
-            setState(() {
-              _connected = false;
-              showSpinner = false;
-            });
-            print('did not get connected2 inside _connect- ${_connected}');
-          });
-          setState(() => _connected = true);
-          print('we are connected inside _connect- ${_connected}');
-          intermediateFunctionToCallPrintForKOT();
-        } else {
-          bluetooth.disconnect();
-          setState(() => _connected = false);
-          _everySecondForConnection = 0;
-          playPrinterError();
-          if (timerForPrintingKOTRunning == false &&
-              timerForPrintingTenSecKOTRunning == false &&
-              intermediatePrintingCallKOTRunning == false &&
-              intermediatePrintingAfterOrderReadyRunning == false) {
-            timerForPrintingKOTTenSeconds();
-          }
-
-          print('here1');
-          if (appInBackground == false) {
-            show('Couldn\'t Connect. Please Try Again');
-          }
-
-          playPrinterError();
-          int _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
-          // if (disconnectAndConnectAttempted) {
-          //   printingOver = true;
-          //   setState(() {
-          //     showSpinner = false;
-          //   });
-          // } else {
-          //   Timer? _timerInDisconnectAndConnect;
-          //   _timerInDisconnectAndConnect =
-          //       Timer.periodic(const Duration(seconds: 1), (_) async {
-          //     if (_everySecondHelpingToDisconnectBeforeConnectingAgain < 4) {
-          //       _everySecondHelpingToDisconnectBeforeConnectingAgain++;
-          //       print(
-          //           '_everySecondHelpingToDisconnectBeforeConnectingAgainInChefScreen $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-          //     } else {
-          //       _timerInDisconnectAndConnect!.cancel;
-          //       print('need a dosconnection here4');
-          //       if (disconnectAndConnectAttempted == false) {
-          //         disconnectAndConnectAttempted = true;
-          //         printerConnectionToLastSavedPrinterForKOT();
-          //       } else {
-          //         _timerInDisconnectAndConnect!.cancel();
-          //       }
-          //       _everySecondHelpingToDisconnectBeforeConnectingAgain = 0;
-          //       printerConnectionToLastSavedPrinterForKOT();
-          //       print(
-          //           'cancelling _everySecondHelpingToDisconnectBeforeConnectingAgain $_everySecondHelpingToDisconnectBeforeConnectingAgain');
-          //     }
-          //   });
-          // }
-        }
-      });
-    } else {
-      print('No device selected.');
-    }
-    print('end of _Connect loop');
-  }
-
-  void intermediateFunctionToCallPrintForKOT() {
-    if (showSpinner == false) {
-      setState(() {
-        showSpinner = true;
-      });
-    }
-    intermediatePrintingCallKOTRunning = false;
-
-    print('start of intermediateFunctionToCallPrintThroughBluetooth');
-    Timer? _timer;
-    _everySecondForConnection = 0;
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_everySecondForConnection <= 2) {
-        intermediatePrintingCallKOTRunning = true;
-        print('timer inside KOTconnect is $_everySecondForConnection');
-        _everySecondForConnection++;
-      } else {
-        intermediatePrintingCallKOTRunning = false;
-        if (_connected) {
-          print('Inside intermediate- it is connected');
-          // playPrinterKOT();
-          printKOTThroughBluetooth();
-        } else {
-          printingOver = true;
-          // _everySecondForKotTimer = -3;
-          setState(() {
-            showSpinner = false;
-          });
-          print('unable to connect');
-          // bluetooth.disconnect();
-          if (appInBackground == false) {
-            show('Couldn\'t Connect. Please check Printer');
-          }
-        }
-        _timer!.cancel();
-      }
-    });
-    print('end of intermediateFunctionToCallPrintThroughBluetooth');
-  }
-
-  void printKOTThroughBluetooth() {
     String tempTableOrParcel = '';
     String tempTableOrParcelNumber = '';
     String tempParentOrChild = '';
     String tempTicketNumber = '';
     String tempCancelledItemTrueElseFalse = '';
-    print('start of inside printThroughBluetooth');
-    if (_connected) {
-      bluetooth.isConnected.then((isConnected) {
-        print('came inside bluetooth isConnected');
-        if (isConnected == true) {
-          print('inside printThroughBluetooth-is connected is true here');
-          // bluetooth.printNewLine();
-          for (int i = 0; i < localKOTItemNames.length; i++) {
-            if (localKotCancelledItemTrueElseFalse[i] != 'false') {
+
+    for (int i = 0; i < localKOTItemNames.length; i++) {
+      if (localKotCancelledItemTrueElseFalse[i] != 'false') {
 //CancelledItemsKOTPrinting
-              if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .chefPrinterSizeFromClass ==
-                  '80') {
-                if (tempTableOrParcel != localKotItemsTableOrParcel[i] ||
-                    tempTableOrParcelNumber !=
-                        localKotItemsTableOrParcelNumber[i] ||
-                    tempParentOrChild != localKotItemsParentOrChild[i] ||
-                    tempTicketNumber != localKotItemsTicketNumber[i] ||
-                    tempCancelledItemTrueElseFalse !=
-                        localKotCancelledItemTrueElseFalse[i]) {
-                  bluetooth.paperCut();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  if (localKotItemsParentOrChild[i] == 'parent') {
-                    bluetooth.printCustom(
-                      "xxxxx CANCELLED xxxxx",
-                      printerenum.Size.extraLarge.val,
-                      printerenum.Align.center.val,
-                    );
-                    bluetooth.printCustom(
-                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
-                      printerenum.Size.boldMedium.val,
-                      printerenum.Align.center.val,
-                    );
-                  } else {
-                    bluetooth.printCustom(
-                      "xxxxx CANCELLED xxxxx",
-                      printerenum.Size.extraLarge.val,
-                      printerenum.Align.center.val,
-                    );
-                    bluetooth.printCustom(
-                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
-                      printerenum.Size.boldMedium.val,
-                      printerenum.Align.center.val,
-                    );
-                  }
-
-                  bluetooth.printCustom(
-                    "Ticket Number : ${localKotItemsTicketNumber[i]}",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.center.val,
-                  );
-                  bluetooth.printCustom(
-                      "-----------------------------------------------",
-                      printerenum.Size.bold.val,
-                      printerenum.Align.center.val);
-                  tempTableOrParcel = localKotItemsTableOrParcel[i];
-                  tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
-                  tempTicketNumber = localKotItemsTicketNumber[i];
-                  tempParentOrChild = localKotItemsParentOrChild[i];
-                  tempCancelledItemTrueElseFalse =
-                      localKotCancelledItemTrueElseFalse[i];
-                }
-                if ((' '.allMatches(localKOTItemNames[i]).length >= 2)) {
-                  String firstName = '';
-                  String secondName = '';
-                  final longItemNameSplit = localKOTItemNames[i].split(' ');
-                  for (int i = 0; i < longItemNameSplit.length; i++) {
-                    if (i == 0) {
-                      firstName = longItemNameSplit[i];
-                    }
-                    if (i == 1) {
-                      firstName += ' ${longItemNameSplit[i]}';
-                    }
-                    if (i == 2) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 2) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                  }
-                  bluetooth.printLeftRight(
-                      "$firstName",
-                      "${localKOTNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                  bluetooth.printLeftRight(
-                      "$secondName", "", printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                } else {
-                  bluetooth.printLeftRight(
-                      "${localKOTItemNames[i]}",
-                      "${localKOTNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                }
-
-                if (localKOTItemComments[i] != 'noComment') {
-                  bluetooth.printCustom(
-                      "     (Comment : ${localKOTItemComments[i]})",
-                      printerenum.Size.bold.val,
-                      printerenum.Align.left.val);
-                }
-                bluetooth.printCustom(
-                    "-----------------------------------------------",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.center.val);
-              } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .chefPrinterSizeFromClass ==
-                  '58') {
-                if (tempTableOrParcel != localKotItemsTableOrParcel[i] ||
-                    tempTableOrParcelNumber !=
-                        localKotItemsTableOrParcelNumber[i] ||
-                    tempParentOrChild != localKotItemsParentOrChild[i] ||
-                    tempTicketNumber != localKotItemsTicketNumber[i] ||
-                    tempCancelledItemTrueElseFalse !=
-                        localKotCancelledItemTrueElseFalse[i]) {
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  if (localKotItemsParentOrChild[i] == 'parent') {
-                    bluetooth.printCustom(
-                      "xx CANCELLED xx",
-                      printerenum.Size.extraLarge.val,
-                      printerenum.Align.center.val,
-                    );
-                    bluetooth.printCustom(
-                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
-                      printerenum.Size.boldMedium.val,
-                      printerenum.Align.center.val,
-                    );
-                  } else {
-                    bluetooth.printCustom(
-                      "xx CANCELLED xx",
-                      printerenum.Size.extraLarge.val,
-                      printerenum.Align.center.val,
-                    );
-                    bluetooth.printCustom(
-                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
-                      printerenum.Size.boldMedium.val,
-                      printerenum.Align.center.val,
-                    );
-                  }
-
-                  bluetooth.printCustom(
-                    "Ticket Number : ${localKotItemsTicketNumber[i]}",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.center.val,
-                  );
-                  bluetooth.printCustom(
-                      "-------------------------------",
-                      printerenum.Size.medium.val,
-                      printerenum.Align.center.val);
-                  tempTableOrParcel = localKotItemsTableOrParcel[i];
-                  tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
-                  tempTicketNumber = localKotItemsTicketNumber[i];
-                  tempParentOrChild = localKotItemsParentOrChild[i];
-
-                  tempCancelledItemTrueElseFalse =
-                      localKotCancelledItemTrueElseFalse[i];
-                }
-                if ((' '.allMatches(localKOTItemNames[i]).length >= 2) ||
-                    localKOTItemNames[i].length > 14) {
-                  String firstName = '';
-                  String secondName = '';
-                  final longItemNameSplit = localKOTItemNames[i].split(' ');
-                  for (int i = 0; i < longItemNameSplit.length; i++) {
-                    if (i == 0) {
-                      firstName = longItemNameSplit[i];
-                    }
-                    if (i >= 1) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                  }
-                  bluetooth.printLeftRight(
-                      "$firstName",
-                      "${localKOTNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val);
-                  bluetooth.printCustom(
-                    "$secondName",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
-                } else {
-                  bluetooth.printLeftRight(
-                      "${localKOTItemNames[i]}",
-                      "${localKOTNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val);
-                }
-                if (localKOTItemComments[i] != 'noComment') {
-                  bluetooth.printCustom(
-                      "     (Comment : ${localKOTItemComments[i]})",
-                      printerenum.Size.bold.val,
-                      printerenum.Align.left.val);
-                }
-                bluetooth.printCustom("-------------------------------",
-                    printerenum.Size.medium.val, printerenum.Align.center.val);
-              }
-
-//ToAccessDisconnectWhenWeArePrintingParcel
-              if (i == (localKOTItemNames.length - 1)) {
-                playPrinterKOT();
-                _disconnectForKOTPrint();
-              }
-            } else {
-////NewlyOrderedItemsKOTPrinting
-              if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .chefPrinterSizeFromClass ==
-                  '80') {
-                if (tempTableOrParcel != localKotItemsTableOrParcel[i] ||
-                    tempTableOrParcelNumber !=
-                        localKotItemsTableOrParcelNumber[i] ||
-                    tempParentOrChild != localKotItemsParentOrChild[i] ||
-                    tempTicketNumber != localKotItemsTicketNumber[i] ||
-                    tempCancelledItemTrueElseFalse !=
-                        localKotCancelledItemTrueElseFalse[i]) {
-                  bluetooth.paperCut();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  if (localKotItemsParentOrChild[i] == 'parent') {
-                    bluetooth.printCustom(
-                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
-                      printerenum.Size.boldMedium.val,
-                      printerenum.Align.center.val,
-                    );
-                  } else {
-                    bluetooth.printCustom(
-                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
-                      printerenum.Size.boldMedium.val,
-                      printerenum.Align.center.val,
-                    );
-                  }
-
-                  bluetooth.printCustom(
-                    "Ticket Number : ${localKotItemsTicketNumber[i]}",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.center.val,
-                  );
-                  bluetooth.printCustom(
-                      "-----------------------------------------------",
-                      printerenum.Size.bold.val,
-                      printerenum.Align.center.val);
-                  tempTableOrParcel = localKotItemsTableOrParcel[i];
-                  tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
-                  tempTicketNumber = localKotItemsTicketNumber[i];
-                  tempParentOrChild = localKotItemsParentOrChild[i];
-                  tempCancelledItemTrueElseFalse =
-                      localKotCancelledItemTrueElseFalse[i];
-                }
-                if ((' '.allMatches(localKOTItemNames[i]).length >= 3)) {
-                  String firstName = '';
-                  String secondName = '';
-                  final longItemNameSplit = localKOTItemNames[i].split(' ');
-                  for (int i = 0; i < longItemNameSplit.length; i++) {
-                    if (i == 0) {
-                      firstName = longItemNameSplit[i];
-                    }
-                    if (i == 1) {
-                      firstName += ' ${longItemNameSplit[i]}';
-                    }
-                    if (i == 2) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                    if (i > 2) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                  }
-                  bluetooth.printLeftRight(
-                      "$firstName",
-                      "${localKOTNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                  bluetooth.printLeftRight(
-                      "$secondName", "", printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                } else {
-                  bluetooth.printLeftRight(
-                      "${localKOTItemNames[i]}",
-                      "${localKOTNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val,
-                      format: "%-30s %10s %n");
-                }
-
-                if (localKOTItemComments[i] != 'noComment') {
-                  bluetooth.printCustom(
-                      "     (Comment : ${localKOTItemComments[i]})",
-                      printerenum.Size.bold.val,
-                      printerenum.Align.left.val);
-                }
-                bluetooth.printCustom(
-                    "-----------------------------------------------",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.center.val);
-              } else if (Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .chefPrinterSizeFromClass ==
-                  '58') {
-                if (tempTableOrParcel != localKotItemsTableOrParcel[i] ||
-                    tempTableOrParcelNumber !=
-                        localKotItemsTableOrParcelNumber[i] ||
-                    tempParentOrChild != localKotItemsParentOrChild[i] ||
-                    tempTicketNumber != localKotItemsTicketNumber[i] ||
-                    tempCancelledItemTrueElseFalse !=
-                        localKotCancelledItemTrueElseFalse[i]) {
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  bluetooth.printNewLine();
-                  if (localKotItemsParentOrChild[i] == 'parent') {
-                    bluetooth.printCustom(
-                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
-                      printerenum.Size.boldMedium.val,
-                      printerenum.Align.center.val,
-                    );
-                  } else {
-                    bluetooth.printCustom(
-                      "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
-                      printerenum.Size.boldMedium.val,
-                      printerenum.Align.center.val,
-                    );
-                  }
-
-                  bluetooth.printCustom(
-                    "Ticket Number : ${localKotItemsTicketNumber[i]}",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.center.val,
-                  );
-                  bluetooth.printCustom(
-                      "-------------------------------",
-                      printerenum.Size.medium.val,
-                      printerenum.Align.center.val);
-                  tempTableOrParcel = localKotItemsTableOrParcel[i];
-                  tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
-                  tempTicketNumber = localKotItemsTicketNumber[i];
-                  tempParentOrChild = localKotItemsParentOrChild[i];
-                  tempCancelledItemTrueElseFalse =
-                      localKotCancelledItemTrueElseFalse[i];
-                }
-                if ((' '.allMatches(localKOTItemNames[i]).length >= 2) ||
-                    localKOTItemNames[i].length > 14) {
-                  String firstName = '';
-                  String secondName = '';
-                  final longItemNameSplit = localKOTItemNames[i].split(' ');
-                  for (int i = 0; i < longItemNameSplit.length; i++) {
-                    if (i == 0) {
-                      firstName = longItemNameSplit[i];
-                    }
-                    if (i >= 1) {
-                      secondName += '${longItemNameSplit[i]} ';
-                    }
-                  }
-                  bluetooth.printLeftRight(
-                      "$firstName",
-                      "${localKOTNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val);
-                  bluetooth.printCustom(
-                    "$secondName",
-                    printerenum.Size.bold.val,
-                    printerenum.Align.left.val,
-                  );
-                } else {
-                  bluetooth.printLeftRight(
-                      "${localKOTItemNames[i]}",
-                      "${localKOTNumberOfItems[i].toString()}",
-                      printerenum.Size.bold.val);
-                }
-                if (localKOTItemComments[i] != 'noComment') {
-                  bluetooth.printCustom(
-                      "     (Comment : ${localKOTItemComments[i]})",
-                      printerenum.Size.bold.val,
-                      printerenum.Align.left.val);
-                }
-                bluetooth.printCustom("-------------------------------",
-                    printerenum.Size.medium.val, printerenum.Align.center.val);
-              }
-
-//ToAccessDisconnectWhenWeArePrintingParcel
-              if (i == (localKOTItemNames.length - 1)) {
-                playPrinterKOT();
-                _disconnectForKOTPrint();
+        if (chefPrinterCharacters['printerSize'] == '80') {
+          if (tempTableOrParcel != localKotItemsTableOrParcel[i] ||
+              tempTableOrParcelNumber != localKotItemsTableOrParcelNumber[i] ||
+              tempParentOrChild != localKotItemsParentOrChild[i] ||
+              tempTicketNumber != localKotItemsTicketNumber[i] ||
+              tempCancelledItemTrueElseFalse !=
+                  localKotCancelledItemTrueElseFalse[i]) {
+            // bluetooth.paperCut();
+            if (chefPrinterCharacters['spacesAboveKOT'] != '0') {
+              for (int i = 0;
+                  i < num.parse(chefPrinterCharacters['spacesAboveKOT']);
+                  i++) {
+                kotBytes += generator.text(" ");
               }
             }
+
+            if (localKotItemsParentOrChild[i] == 'parent') {
+              kotBytes += generator.text("xxxxx CANCELLED xxxxx",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+
+              kotBytes += generator.text(
+                  "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+            } else {
+              kotBytes += generator.text("xxxxx CANCELLED xxxxx",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+              kotBytes += generator.text(
+                  "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+            }
+            kotBytes += generator.text(
+                "Ticket Number : ${localKotItemsTicketNumber[i]}",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+            kotBytes += generator.text(
+                "-----------------------------------------------",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+
+            tempTableOrParcel = localKotItemsTableOrParcel[i];
+            tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
+            tempTicketNumber = localKotItemsTicketNumber[i];
+            tempParentOrChild = localKotItemsParentOrChild[i];
+            tempCancelledItemTrueElseFalse =
+                localKotCancelledItemTrueElseFalse[i];
           }
-          bluetooth.printNewLine();
-          bluetooth.printNewLine();
-          bluetooth.printNewLine();
-          bluetooth
-              .paperCut(); //some printer not supported (sometime making image not centered)
-          //bluetooth.drawerPin2(); // or you can use bluetooth.drawerPin5();
-        } else {
-          // _everySecondForKotTimer = -3;
-          setState(() {
-            printingOver = true;
-            showSpinner = false;
-          });
-          // show('Couldnt Connect. Please check Printer');
+          if ((' '.allMatches(localKOTItemNames[i]).length >= 2)) {
+            String firstName = '';
+            String secondName = '';
+            final longItemNameSplit = localKOTItemNames[i].split(' ');
+            for (int i = 0; i < longItemNameSplit.length; i++) {
+              if (i == 0) {
+                firstName = longItemNameSplit[i];
+              }
+              if (i == 1) {
+                firstName += ' ${longItemNameSplit[i]}';
+              }
+              if (i == 2) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+              if (i > 2) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+            }
+            kotBytes += generator.row([
+              PosColumn(
+                text: "$firstName",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: "${localKOTNumberOfItems[i].toString()}",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+
+            kotBytes += generator.row([
+              PosColumn(
+                text: "$secondName",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: " ",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+          } else {
+            kotBytes += generator.row([
+              PosColumn(
+                text: "${localKOTItemNames[i]}",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: "${localKOTNumberOfItems[i].toString()}",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+          }
+
+          if (localKOTItemComments[i] != 'noComment') {
+            kotBytes += generator.text(
+                "     (Comment : ${localKOTItemComments[i]})",
+                styles: PosStyles(
+                    height: kotTextSize,
+                    width: kotTextSize,
+                    align: PosAlign.left));
+          }
+          kotBytes += generator.text(
+              "-----------------------------------------------",
+              styles: PosStyles(
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1,
+                  align: PosAlign.center));
+          if ((i + 1) != localKOTItemNames.length) {
+//MakingLoopForSpacesBelowKOT&Cut
+            if (tempTableOrParcel != localKotItemsTableOrParcel[i + 1] ||
+                tempTableOrParcelNumber !=
+                    localKotItemsTableOrParcelNumber[i + 1] ||
+                tempParentOrChild != localKotItemsParentOrChild[i + 1] ||
+                tempTicketNumber != localKotItemsTicketNumber[i + 1] ||
+                tempCancelledItemTrueElseFalse !=
+                    localKotCancelledItemTrueElseFalse[i + 1]) {
+              if (chefPrinterCharacters['spacesBelowKOT'] != '0') {
+                for (int i = 0;
+                    i < num.parse(chefPrinterCharacters['spacesBelowKOT']);
+                    i++) {
+                  kotBytes += generator.text(" ");
+                }
+              }
+              kotBytes += generator.cut();
+            }
+          }
+        } else if (chefPrinterCharacters['printerSize'] == '58') {
+          if (tempTableOrParcel != localKotItemsTableOrParcel[i] ||
+              tempTableOrParcelNumber != localKotItemsTableOrParcelNumber[i] ||
+              tempParentOrChild != localKotItemsParentOrChild[i] ||
+              tempTicketNumber != localKotItemsTicketNumber[i] ||
+              tempCancelledItemTrueElseFalse !=
+                  localKotCancelledItemTrueElseFalse[i]) {
+            if (chefPrinterCharacters['spacesAboveKOT'] != '0') {
+              for (int i = 0;
+                  i < num.parse(chefPrinterCharacters['spacesAboveKOT']);
+                  i++) {
+                kotBytes += generator.text(" ");
+              }
+            }
+
+            if (localKotItemsParentOrChild[i] == 'parent') {
+              kotBytes += generator.text("xx CANCELLED xx",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+
+              kotBytes += generator.text(
+                  "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+            } else {
+              kotBytes += generator.text("xx CANCELLED xx",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+
+              kotBytes += generator.text(
+                  "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+            }
+            kotBytes += generator.text(
+                "Ticket Number : ${localKotItemsTicketNumber[i]}",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+
+            kotBytes += generator.text("-------------------------------",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+
+            tempTableOrParcel = localKotItemsTableOrParcel[i];
+            tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
+            tempTicketNumber = localKotItemsTicketNumber[i];
+            tempParentOrChild = localKotItemsParentOrChild[i];
+
+            tempCancelledItemTrueElseFalse =
+                localKotCancelledItemTrueElseFalse[i];
+          }
+          if ((' '.allMatches(localKOTItemNames[i]).length >= 2) ||
+              localKOTItemNames[i].length > 14) {
+            String firstName = '';
+            String secondName = '';
+            final longItemNameSplit = localKOTItemNames[i].split(' ');
+            for (int i = 0; i < longItemNameSplit.length; i++) {
+              if (i == 0) {
+                firstName = longItemNameSplit[i];
+              }
+              if (i >= 1) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+            }
+            kotBytes += generator.row([
+              PosColumn(
+                text: "$firstName",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: "${localKOTNumberOfItems[i].toString()}",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+
+            kotBytes += generator.text("$secondName",
+                styles: PosStyles(
+                    height: kotTextSize,
+                    width: kotTextSize,
+                    align: PosAlign.left));
+          } else {
+            kotBytes += generator.row([
+              PosColumn(
+                text: "${localKOTItemNames[i]}",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: "${localKOTNumberOfItems[i].toString()}",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+          }
+          if (localKOTItemComments[i] != 'noComment') {
+            kotBytes += generator.text(
+                "     (Comment : ${localKOTItemComments[i]})",
+                styles: PosStyles(
+                    height: kotTextSize,
+                    width: kotTextSize,
+                    align: PosAlign.left));
+          }
+          kotBytes += generator.text("-------------------------------",
+              styles: PosStyles(
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1,
+                  align: PosAlign.center));
+          if ((i + 1) != localKOTItemNames.length) {
+//MakingLoopForSpacesBelowKOT&Cut
+            if (tempTableOrParcel != localKotItemsTableOrParcel[i + 1] ||
+                tempTableOrParcelNumber !=
+                    localKotItemsTableOrParcelNumber[i + 1] ||
+                tempParentOrChild != localKotItemsParentOrChild[i + 1] ||
+                tempTicketNumber != localKotItemsTicketNumber[i + 1] ||
+                tempCancelledItemTrueElseFalse !=
+                    localKotCancelledItemTrueElseFalse[i + 1]) {
+              if (chefPrinterCharacters['spacesBelowKOT'] != '0') {
+                for (int i = 0;
+                    i < num.parse(chefPrinterCharacters['spacesBelowKOT']);
+                    i++) {
+                  kotBytes += generator.text(" ");
+                }
+              }
+              kotBytes += generator.cut();
+            }
+          }
         }
-      });
+      } else {
+////NewlyOrderedItemsKOTPrinting
+        if (chefPrinterCharacters['printerSize'] == '80') {
+          if (tempTableOrParcel != localKotItemsTableOrParcel[i] ||
+              tempTableOrParcelNumber != localKotItemsTableOrParcelNumber[i] ||
+              tempParentOrChild != localKotItemsParentOrChild[i] ||
+              tempTicketNumber != localKotItemsTicketNumber[i] ||
+              tempCancelledItemTrueElseFalse !=
+                  localKotCancelledItemTrueElseFalse[i]) {
+            if (chefPrinterCharacters['spacesAboveKOT'] != '0') {
+              for (int i = 0;
+                  i < num.parse(chefPrinterCharacters['spacesAboveKOT']);
+                  i++) {
+                kotBytes += generator.text(" ");
+              }
+            }
+            if (localKotItemsParentOrChild[i] == 'parent') {
+              kotBytes += generator.text(
+                  "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+            } else {
+              kotBytes += generator.text(
+                  "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+            }
+
+            kotBytes += generator.text(
+                "Ticket Number : ${localKotItemsTicketNumber[i]}",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+
+            kotBytes += generator.text(
+                "-----------------------------------------------",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+
+            tempTableOrParcel = localKotItemsTableOrParcel[i];
+            tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
+            tempTicketNumber = localKotItemsTicketNumber[i];
+            tempParentOrChild = localKotItemsParentOrChild[i];
+            tempCancelledItemTrueElseFalse =
+                localKotCancelledItemTrueElseFalse[i];
+          }
+          if ((' '.allMatches(localKOTItemNames[i]).length >= 3)) {
+            String firstName = '';
+            String secondName = '';
+            final longItemNameSplit = localKOTItemNames[i].split(' ');
+            for (int i = 0; i < longItemNameSplit.length; i++) {
+              if (i == 0) {
+                firstName = longItemNameSplit[i];
+              }
+              if (i == 1) {
+                firstName += ' ${longItemNameSplit[i]}';
+              }
+              if (i == 2) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+              if (i > 2) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+            }
+            kotBytes += generator.row([
+              PosColumn(
+                text: "$firstName",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: "${localKOTNumberOfItems[i].toString()}",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+
+            kotBytes += generator.row([
+              PosColumn(
+                text: "$secondName",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: " ",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+          } else {
+            kotBytes += generator.row([
+              PosColumn(
+                text: "${localKOTItemNames[i]}",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: "${localKOTNumberOfItems[i].toString()}",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+          }
+
+          if (localKOTItemComments[i] != 'noComment') {
+            kotBytes += generator.text(
+                "     (Comment : ${localKOTItemComments[i]})",
+                styles: PosStyles(
+                    height: kotTextSize,
+                    width: kotTextSize,
+                    align: PosAlign.left));
+          }
+          kotBytes += generator.text(
+              "-----------------------------------------------",
+              styles: PosStyles(
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1,
+                  align: PosAlign.center));
+
+          if ((i + 1) != localKOTItemNames.length) {
+//MakingLoopForSpacesBelowKOT&Cut
+            if (tempTableOrParcel != localKotItemsTableOrParcel[i + 1] ||
+                tempTableOrParcelNumber !=
+                    localKotItemsTableOrParcelNumber[i + 1] ||
+                tempParentOrChild != localKotItemsParentOrChild[i + 1] ||
+                tempTicketNumber != localKotItemsTicketNumber[i + 1] ||
+                tempCancelledItemTrueElseFalse !=
+                    localKotCancelledItemTrueElseFalse[i + 1]) {
+              if (chefPrinterCharacters['spacesBelowKOT'] != '0') {
+                for (int i = 0;
+                    i < num.parse(chefPrinterCharacters['spacesBelowKOT']);
+                    i++) {
+                  kotBytes += generator.text(" ");
+                }
+              }
+              kotBytes += generator.cut();
+            }
+          }
+        } else if (chefPrinterCharacters['printerSize'] == '58') {
+          if (tempTableOrParcel != localKotItemsTableOrParcel[i] ||
+              tempTableOrParcelNumber != localKotItemsTableOrParcelNumber[i] ||
+              tempParentOrChild != localKotItemsParentOrChild[i] ||
+              tempTicketNumber != localKotItemsTicketNumber[i] ||
+              tempCancelledItemTrueElseFalse !=
+                  localKotCancelledItemTrueElseFalse[i]) {
+            if (chefPrinterCharacters['spacesAboveKOT'] != '0') {
+              for (int i = 0;
+                  i < num.parse(chefPrinterCharacters['spacesAboveKOT']);
+                  i++) {
+                kotBytes += generator.text(" ");
+              }
+            }
+
+            if (localKotItemsParentOrChild[i] == 'parent') {
+              kotBytes += generator.text(
+                  "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+            } else {
+              kotBytes += generator.text(
+                  "KOT : ${localKotItemsTableOrParcel[i]}:${localKotItemsTableOrParcelNumber[i]}${localKotItemsParentOrChild[i]}",
+                  styles: PosStyles(
+                      height: PosTextSize.size2,
+                      width: PosTextSize.size2,
+                      align: PosAlign.center));
+            }
+            kotBytes += generator.text(
+                "Ticket Number : ${localKotItemsTicketNumber[i]}",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+
+            kotBytes += generator.text("-------------------------------",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+
+            tempTableOrParcel = localKotItemsTableOrParcel[i];
+            tempTableOrParcelNumber = localKotItemsTableOrParcelNumber[i];
+            tempTicketNumber = localKotItemsTicketNumber[i];
+            tempParentOrChild = localKotItemsParentOrChild[i];
+            tempCancelledItemTrueElseFalse =
+                localKotCancelledItemTrueElseFalse[i];
+          }
+          if ((' '.allMatches(localKOTItemNames[i]).length >= 2) ||
+              localKOTItemNames[i].length > 14) {
+            String firstName = '';
+            String secondName = '';
+            final longItemNameSplit = localKOTItemNames[i].split(' ');
+            for (int i = 0; i < longItemNameSplit.length; i++) {
+              if (i == 0) {
+                firstName = longItemNameSplit[i];
+              }
+              if (i >= 1) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+            }
+            kotBytes += generator.row([
+              PosColumn(
+                text: "$firstName",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: "${localKOTNumberOfItems[i].toString()}",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+
+            kotBytes += generator.text("$secondName",
+                styles: PosStyles(
+                    height: kotTextSize,
+                    width: kotTextSize,
+                    align: PosAlign.left));
+          } else {
+            kotBytes += generator.row([
+              PosColumn(
+                text: "${localKOTItemNames[i]}",
+                width: 10,
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+              PosColumn(
+                text: "${localKOTNumberOfItems[i].toString()}",
+                width: 2,
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: kotTextSize,
+                    width: kotTextSize),
+              ),
+            ]);
+          }
+          if (localKOTItemComments[i] != 'noComment') {
+            kotBytes += generator.text(
+                "     (Comment : ${localKOTItemComments[i]})",
+                styles: PosStyles(
+                    height: kotTextSize,
+                    width: kotTextSize,
+                    align: PosAlign.left));
+          }
+          kotBytes += generator.text("-------------------------------",
+              styles: PosStyles(
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1,
+                  align: PosAlign.center));
+
+          if ((i + 1) != localKOTItemNames.length) {
+//MakingLoopForSpacesBelowKOT&Cut
+            if (tempTableOrParcel != localKotItemsTableOrParcel[i + 1] ||
+                tempTableOrParcelNumber !=
+                    localKotItemsTableOrParcelNumber[i + 1] ||
+                tempParentOrChild != localKotItemsParentOrChild[i + 1] ||
+                tempTicketNumber != localKotItemsTicketNumber[i + 1] ||
+                tempCancelledItemTrueElseFalse !=
+                    localKotCancelledItemTrueElseFalse[i + 1]) {
+              if (chefPrinterCharacters['spacesBelowKOT'] != '0') {
+                for (int i = 0;
+                    i < num.parse(chefPrinterCharacters['spacesBelowKOT']);
+                    i++) {
+                  kotBytes += generator.text(" ");
+                }
+              }
+              kotBytes += generator.cut();
+            }
+          }
+        }
+      }
     }
-    // else {
-    //   show('Couldnt Connect. Please check Printer');
-    // }
-    print('end of inside printThroughBluetooth');
+    if (chefPrinterCharacters['spacesBelowKOT'] != '0') {
+      for (int i = 0;
+          i < num.parse(chefPrinterCharacters['spacesBelowKOT']);
+          i++) {
+        kotBytes += generator.text(" ");
+      }
+    }
+    kotBytes += generator.cut();
+
+    if (chefPrinterCharacters['printerBluetoothAddress'] != 'NA' ||
+        chefPrinterCharacters['printerIPAddress'] != 'NA') {
+      _connectDevice();
+    } else {
+//InCaseUsbPrinterIsNotConnected,WeDontHaveWayToScan.Hence,WeScanAndThenGoIn
+      _scanForUsb();
+    }
+
+    print('end of inside kotBytesGenerator');
   }
 
-  void _disconnectForKOTPrint() {
-    Timer? _timer;
-    int _everySecondForDisconnecting = 0;
-    _everySecondForConnection = 0;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_everySecondForDisconnecting < 2) {
-        print('timer disconnect is $_everySecondForDisconnecting');
-        _everySecondForDisconnecting++;
-      } else {
-        bluetooth.disconnect();
-
-        kotCounter = 0;
-
-//ItMeansThereIsOnlyOneItemForKOT
-        if (localKOTItemNames.length <= 1) {
-          if (localKotCancelledItemTrueElseFalse[0] != 'false') {
-//CancelledItemAndThereIsOnlyOneCancelledItem
-
-            Map<String, dynamic> tempItemUpdater = HashMap();
-            tempItemUpdater.addAll({localKOTItemsID[0]: FieldValue.delete()});
-            Map<String, dynamic> masterUpdaterMap = HashMap();
-            masterUpdaterMap.addAll({'itemsInOrderMap': tempItemUpdater});
-            masterUpdaterMap.addAll({
-              'statusMap': {'chefStatus': 7}
-            });
-
-            FireStoreAddOrderInRunningOrderFolder(
-                    hotelName: widget.hotelName,
-                    ordersMap: masterUpdaterMap,
-                    seatingNumber: localKotItemsBelongsToDoc[0])
-                .addOrder();
-          } else {
-//NewlyOrderedItem
-            statusUpdaterInFireStoreForRunningOrders(localKOTItemsID[0],
-                localKotItemsBelongsToDoc[0], 7, 'chefkotprinted');
-          }
-        } else {
-          List<String> tempItemsAcceptedIdList = [];
-          List<String> tempItemsAcceptedDocList = [];
-          List<String> tempItemsCancelledIdList = [];
-          List<String> tempItemsCancelledDocList = [];
-          for (int k = 0; k < localKOTItemNames.length; k++) {
-            if (localKotCancelledItemTrueElseFalse[k] == 'false') {
-//forAcceptedItems
-              tempItemsAcceptedIdList.add(localKOTItemsID[k]);
-              tempItemsAcceptedDocList.add(localKotItemsBelongsToDoc[k]);
-            } else {
-//forCancelledItems
-              tempItemsCancelledIdList.add(localKOTItemsID[k]);
-              tempItemsCancelledDocList.add(localKotItemsBelongsToDoc[k]);
-            }
-          }
-          List<String> tempDistinctItemsAcceptedList =
-              tempItemsAcceptedDocList.toSet().toList();
-          for (var eachDistinctAcceptedDoc in tempDistinctItemsAcceptedList) {
-            Map<String, dynamic> masterUpdaterMapForAcceptedKOT = HashMap();
-            Map<String, dynamic> itemsUpdaterMapForAcceptedKOT = HashMap();
-            int counter = 0;
-            for (String acceptedItemDoc in tempItemsAcceptedDocList) {
-              if (eachDistinctAcceptedDoc == acceptedItemDoc) {
-                Map<String, dynamic> tempTempItemsUpdater = HashMap();
-                tempTempItemsUpdater.addAll({'itemStatus': 7});
-                tempTempItemsUpdater.addAll({'chefKOT': 'chefkotprinted'});
-                itemsUpdaterMapForAcceptedKOT.addAll(
-                    {tempItemsAcceptedIdList[counter]: tempTempItemsUpdater});
-              }
-              counter++;
-            }
-            masterUpdaterMapForAcceptedKOT
-                .addAll({'itemsInOrderMap': itemsUpdaterMapForAcceptedKOT});
-            masterUpdaterMapForAcceptedKOT.addAll({
-              'statusMap': {'chefStatus': 7}
-            });
-            FireStoreAddOrderInRunningOrderFolder(
-                    hotelName: widget.hotelName,
-                    ordersMap: masterUpdaterMapForAcceptedKOT,
-                    seatingNumber: eachDistinctAcceptedDoc)
-                .addOrder();
-          }
-          List<String> tempDistinctItemsCancelledList =
-              tempItemsCancelledDocList.toSet().toList();
-          for (var eachDistinctCancelledDoc in tempDistinctItemsCancelledList) {
-            Map<String, dynamic> masterUpdaterMapForCancelledKOT = HashMap();
-            Map<String, dynamic> itemsUpdaterMapForCancelledKOT = HashMap();
-            int counter = 0;
-            for (String cancelledItemDoc in tempItemsCancelledDocList) {
-              if (eachDistinctCancelledDoc == cancelledItemDoc) {
-                itemsUpdaterMapForCancelledKOT.addAll(
-                    {tempItemsCancelledIdList[counter]: FieldValue.delete()});
-                cancelledItemsKey.remove(tempItemsCancelledIdList[counter]);
-              }
-              counter++;
-            }
-            masterUpdaterMapForCancelledKOT
-                .addAll({'itemsInOrderMap': itemsUpdaterMapForCancelledKOT});
-            masterUpdaterMapForCancelledKOT.addAll({
-              'statusMap': {'chefStatus': 7}
-            });
-            FireStoreAddOrderInRunningOrderFolder(
-                    hotelName: widget.hotelName,
-                    ordersMap: masterUpdaterMapForCancelledKOT,
-                    seatingNumber: eachDistinctCancelledDoc)
-                .addOrder();
-          }
-
-//           Map<String, String> kotStatusUpdaterMap = HashMap();
-//           List<String> deletingListCancelledItemsAfterKot = [];
-//           List<String> deletingListCancelledItemsDocAfterKot = [];
-//           for (int k = 0; k < localKOTItemNames.length; k++) {
-//             if (localKotCancelledItemTrueElseFalse[k] == 'false') {
-// //ForNewlyOrderedItems
-//
-//               final eachItemFromEntireItemsStringSplit =
-//                   localKotItemsEachItemFromEntireItemsString[k].split('*');
-//               eachItemFromEntireItemsStringSplit[5] = '7';
-//               eachItemFromEntireItemsStringSplit[7] = 'chefkotprinted';
-//               String tempKOTUpdaterString = '';
-//               for (int i = 0;
-//                   i < eachItemFromEntireItemsStringSplit.length - 1;
-//                   i++) {
-//                 tempKOTUpdaterString +=
-//                     '${eachItemFromEntireItemsStringSplit[i]}*';
-//               }
-//               String entireStringBeforeSplittingForUpdating = '';
-//               if (kotStatusUpdaterMap
-//                   .containsKey(localKotItemsBelongsToDoc[k])) {
-// //ThisIsForThe
-//                 entireStringBeforeSplittingForUpdating =
-//                     kotStatusUpdaterMap[localKotItemsBelongsToDoc[k]]!;
-//               } else {
-//                 entireStringBeforeSplittingForUpdating =
-//                     localKotItemsEntireItemListBeforeSplitting[k];
-//               }
-//               String stringUsedForUpdatingKOT =
-//                   entireStringBeforeSplittingForUpdating.replaceAll(
-//                       localKotItemsEachItemFromEntireItemsString[k],
-//                       tempKOTUpdaterString);
-//               kotStatusUpdaterMap[localKotItemsBelongsToDoc[k]] =
-//                   stringUsedForUpdatingKOT;
-//               // kotStatusUpdaterMap.update(localKotItemsBelongsToDoc[k],
-//               //     (value) => stringUsedForUpdatingKOT);
-//
-//             } else {
-// //ForCancelledItems
-//               deletingListCancelledItemsAfterKot.add(localKOTItemsID[k]);
-//               deletingListCancelledItemsDocAfterKot
-//                   .add(localKotItemsBelongsToDoc[k]);
-//             }
-//
-//             if ((k + 1) == localKotItemsEachItemFromEntireItemsString.length) {
-//               if (deletingListCancelledItemsAfterKot.isNotEmpty) {
-//                 if (deletingListCancelledItemsAfterKot.length == 1) {
-//                   FireStoreDeleteFinishedOrderInPresentOrders(
-//                           hotelName: widget.hotelName,
-//                           eachItemId: deletingListCancelledItemsDocAfterKot[0])
-//                       .deleteFinishedOrder();
-//                 } else {
-//                   for (int i = 0;
-//                       i < deletingListCancelledItemsAfterKot.length;
-//                       i++) {
-//                     if (i + 1 != deletingListCancelledItemsAfterKot.length) {
-// //WeHaven'tReachedTheLastItemInTheList
-//                       FireStoreClearCancelledItemFromPresentOrders(
-//                         hotelName: widget.hotelName,
-//                         cancelledItemId: deletingListCancelledItemsAfterKot[i],
-//                         cancelledItemsDoc:
-//                             deletingListCancelledItemsDocAfterKot[i],
-//                       ).deleteCancelledItem();
-//                     } else {
-// //ClearingTheDocBecauseCancelledItemsAreAllCleared
-//                       FireStoreDeleteFinishedOrderInPresentOrders(
-//                               hotelName: widget.hotelName,
-//                               eachItemId:
-//                                   deletingListCancelledItemsDocAfterKot[i])
-//                           .deleteFinishedOrder();
-//                     }
-//
-//                     cancelledItemsKey
-//                         .remove(deletingListCancelledItemsAfterKot[i]);
-//                   }
-//                 }
-//               }
-//
-//               if (kotStatusUpdaterMap.isNotEmpty) {
-// //ThisWillEnsureAllTheNewlyOrderedItemsStatusIsUpdatedInServer
-//                 kotStatusUpdaterMap.forEach((key, value) {
-//                   final statusUpdatedStringCheck = value.split('*');
-//
-//                   String partOfTableOrParcel = statusUpdatedStringCheck[0];
-//                   String partOfTableOrParcelNumber =
-//                       statusUpdatedStringCheck[1];
-//
-// //keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
-//                   num chefStatus = 7;
-//                   num captainStatus = 7;
-//
-//                   for (int j = 1;
-//                       j < ((statusUpdatedStringCheck.length - 1) / 15);
-//                       j++) {
-// //ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
-//                     if (((statusUpdatedStringCheck[(j * 15) + 5]) == '11')) {
-//                       captainStatus = 11;
-//                     } else if (((statusUpdatedStringCheck[(j * 15) + 5]) ==
-//                             '10') &&
-//                         captainStatus != 11) {
-//                       captainStatus = 10;
-//                     }
-//                     if (((statusUpdatedStringCheck[(j * 15) + 5]) == '9')) {
-//                       chefStatus = 9;
-//                     }
-//                   }
-//
-//                   FireStoreAddOrderServiceWithSplit(
-//                           hotelName: widget.hotelName,
-//                           itemsUpdaterString: value,
-//                           seatingNumber: key,
-//                           captainStatus: captainStatus,
-//                           chefStatus: chefStatus,
-//                           partOfTableOrParcel: partOfTableOrParcel,
-//                           partOfTableOrParcelNumber: partOfTableOrParcelNumber)
-//                       .addOrder();
-//                 });
-//               }
-//             }
-//           }
-        }
-        localKOTNumberOfItems = [];
-        localKOTItemComments = [];
-        localKOTItemNames = [];
-        localKotItemsParentOrChild = [];
-
-        _timer!.cancel();
-        _everySecondForDisconnecting = 0;
-        // _everySecondForKotTimer = -3;
-        print('bluetooth is disconnecting');
-        print('came to showspinner false');
+  _scanForUsb() async {
+    bool addedUSBDeviceNotAvailable = true;
+//UnlikeBluetoothWeDontHavePerfectAvailableOrNotFeedbackForUsb
+//HenceMakingScanForUsbDeviceEveryTimePrintIsCalled
+    devices.clear();
+    _subscription =
+        printerManager.discovery(type: PrinterType.usb).listen((device) {
+      if (device.vendorId.toString() ==
+          chefPrinterCharacters['printerUsbVendorID']) {
+        addedUSBDeviceNotAvailable = false;
+        _connectDevice();
+      }
+    });
+    Timer(Duration(seconds: 2), () {
+      if (addedUSBDeviceNotAvailable) {
+        printerManager.disconnect(type: PrinterType.usb);
         setState(() {
           showSpinner = false;
-          _connected = false;
+          usbKotConnect = false;
+          usbKotConnectTried = false;
+          _isConnected = false;
         });
-        printingOver = true;
+        playPrinterError();
+        showMethodCaller('${chefPrinterCharacters['printerName']} not found');
       }
     });
   }
 
-  void _fastDisconnectForKOTPrint() {
-    print('fast disconnect');
-    bluetooth.disconnect();
-    localKOTItemNames = [];
-    kotCounter = 0;
-    localKOTItemComments = [];
-    localKOTNumberOfItems = [];
-    localKotItemsParentOrChild = [];
-    _everySecondForConnection = 0;
+  _connectDevice() async {
+    chefPrinterType = chefPrinterCharacters['printerUsbProductID'] != 'NA'
+        ? PrinterType.usb
+        : chefPrinterCharacters['printerBluetoothAddress'] != 'NA'
+            ? PrinterType.bluetooth
+            : PrinterType.network;
+    _isConnected = false;
     setState(() {
-      showSpinner = false;
-      _connected = false;
+      showSpinner = true;
     });
-    printingOver = true;
+    switch (chefPrinterType) {
+      case PrinterType.usb:
+        printerManager.disconnect(type: PrinterType.usb);
+        usbKotConnectTried = true;
+        await printerManager.connect(
+            type: chefPrinterType,
+            model: UsbPrinterInput(
+                name: chefPrinterCharacters['printerManufacturerDeviceName'],
+                productId: chefPrinterCharacters['printerUsbProductID'],
+                vendorId: chefPrinterCharacters['printerUsbVendorID']));
+        usbKotConnect = true;
+        _isConnected = true;
+        setState(() {
+          showSpinner = true;
+        });
+        break;
+      case PrinterType.bluetooth:
+        bluetoothKotConnectTried = true;
+        bluetoothKotConnect = false;
+        bluetoothOnTrueOrOffFalse = false;
+        timerToCheckBluetoothOnOrOff();
+        await printerManager.connect(
+            type: chefPrinterType,
+            model: BluetoothPrinterInput(
+                name: chefPrinterCharacters['printerManufacturerDeviceName'],
+                address: chefPrinterCharacters['printerBluetoothAddress'],
+                isBle: false,
+                autoConnect: _reconnect));
+        bluetoothKotConnect = true;
+        break;
+      case PrinterType.network:
+        printWithNetworkPrinter();
+        break;
+      default:
+    }
+
+    setState(() {});
+  }
+
+  void timerToCheckBluetoothOnOrOff() {
+    print('came inside timerToCheckBluetoothOnOrOff');
+//OnceWeAskToConnectThroughBluetoothWithinSecondsItGoesIntoStatus
+//AndSaysBluetoothIsOn
+//InCaseIfItIsn'tSayingHereWeCanShowToCheckBluetooth
+    Timer(Duration(seconds: 1), () {
+      if (!bluetoothOnTrueOrOffFalse) {
+        printerManager.disconnect(type: PrinterType.bluetooth);
+        if (localKOTItemNames.isNotEmpty &&
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chefPrinterKOTFromClass &&
+            serverUpdateAfterKotPrintIsOver) {
+//inCaseThereIsSomethingThereForKot,WeNeedToCallTenSecondsKotPrintTimer
+          timerForPrintingKOTTenSeconds();
+        }
+        playPrinterError();
+        showMethodCaller(
+            'Please Check Bluetooth, Printer & try Printing Again');
+        bluetoothKotConnect = false;
+        bluetoothKotConnectTried = false;
+        bluetoothDeliverySlipConnect = false;
+        bluetoothDeliverySlipConnectTried = false;
+        bluetoothOnTrueOrOffFalse = true;
+//ChangingItToTrueInCaseTheyHaveTurnedOnWhyKeepItTurnedOff
+        setState(() {
+          showSpinner = false;
+          _isConnected = false;
+        });
+      }
+    });
+  }
+
+  void printThroughBluetoothOrUsb() {
+    printerManager.send(type: chefPrinterType, bytes: kotBytes);
+    if (chefPrinterType == PrinterType.bluetooth && !appInBackground) {
+      showMethodCaller('Print SUCCESS...Disconnecting...');
+    }
+
+    Timer(Duration(seconds: 1), () {
+      disconnectBluetoothOrUsb();
+    });
+  }
+
+  void disconnectBluetoothOrUsb() {
+    printerManager.disconnect(type: chefPrinterType);
+    serverUpdateAfterKotPrintIsOver = false;
+    Timer(Duration(seconds: 1), () {
+//ThisTimerWillEnsureWeDontPrintAgainTillTheCurrentSetOfKot'sAreUpdated
+      serverUpdateAfterKotPrintIsOver = true;
+    });
+
+    kotCounter = 0;
+
+//ItMeansThereIsOnlyOneItemForKOT
+    if (localKOTItemNames.length <= 1) {
+      if (localKotCancelledItemTrueElseFalse[0] != 'false') {
+//CancelledItemAndThereIsOnlyOneCancelledItem
+
+        Map<String, dynamic> tempItemUpdater = HashMap();
+        tempItemUpdater.addAll({localKOTItemsID[0]: FieldValue.delete()});
+        Map<String, dynamic> masterUpdaterMap = HashMap();
+        masterUpdaterMap.addAll({'itemsInOrderMap': tempItemUpdater});
+        masterUpdaterMap.addAll({
+          'statusMap': {'chefStatus': 7}
+        });
+
+        FireStoreAddOrderInRunningOrderFolder(
+                hotelName: widget.hotelName,
+                ordersMap: masterUpdaterMap,
+                seatingNumber: localKotItemsBelongsToDoc[0])
+            .addOrder();
+      } else {
+//NewlyOrderedItem
+        statusUpdaterInFireStoreForRunningOrders(localKOTItemsID[0],
+            localKotItemsBelongsToDoc[0], 7, 'chefkotprinted');
+      }
+    } else {
+      List<String> tempItemsAcceptedIdList = [];
+      List<String> tempItemsAcceptedDocList = [];
+      List<String> tempItemsCancelledIdList = [];
+      List<String> tempItemsCancelledDocList = [];
+      for (int k = 0; k < localKOTItemNames.length; k++) {
+        if (localKotCancelledItemTrueElseFalse[k] == 'false') {
+//forAcceptedItems
+          tempItemsAcceptedIdList.add(localKOTItemsID[k]);
+          tempItemsAcceptedDocList.add(localKotItemsBelongsToDoc[k]);
+        } else {
+//forCancelledItems
+          tempItemsCancelledIdList.add(localKOTItemsID[k]);
+          tempItemsCancelledDocList.add(localKotItemsBelongsToDoc[k]);
+        }
+      }
+      List<String> tempDistinctItemsAcceptedList =
+          tempItemsAcceptedDocList.toSet().toList();
+      for (var eachDistinctAcceptedDoc in tempDistinctItemsAcceptedList) {
+        Map<String, dynamic> masterUpdaterMapForAcceptedKOT = HashMap();
+        Map<String, dynamic> itemsUpdaterMapForAcceptedKOT = HashMap();
+        int counter = 0;
+        for (String acceptedItemDoc in tempItemsAcceptedDocList) {
+          if (eachDistinctAcceptedDoc == acceptedItemDoc) {
+            Map<String, dynamic> tempTempItemsUpdater = HashMap();
+            tempTempItemsUpdater.addAll({'itemStatus': 7});
+            tempTempItemsUpdater.addAll({'chefKOT': 'chefkotprinted'});
+            itemsUpdaterMapForAcceptedKOT.addAll(
+                {tempItemsAcceptedIdList[counter]: tempTempItemsUpdater});
+          }
+          counter++;
+        }
+        masterUpdaterMapForAcceptedKOT
+            .addAll({'itemsInOrderMap': itemsUpdaterMapForAcceptedKOT});
+        masterUpdaterMapForAcceptedKOT.addAll({
+          'statusMap': {'chefStatus': 7}
+        });
+        FireStoreAddOrderInRunningOrderFolder(
+                hotelName: widget.hotelName,
+                ordersMap: masterUpdaterMapForAcceptedKOT,
+                seatingNumber: eachDistinctAcceptedDoc)
+            .addOrder();
+      }
+      List<String> tempDistinctItemsCancelledList =
+          tempItemsCancelledDocList.toSet().toList();
+      for (var eachDistinctCancelledDoc in tempDistinctItemsCancelledList) {
+        Map<String, dynamic> masterUpdaterMapForCancelledKOT = HashMap();
+        Map<String, dynamic> itemsUpdaterMapForCancelledKOT = HashMap();
+        int counter = 0;
+        for (String cancelledItemDoc in tempItemsCancelledDocList) {
+          if (eachDistinctCancelledDoc == cancelledItemDoc) {
+            itemsUpdaterMapForCancelledKOT.addAll(
+                {tempItemsCancelledIdList[counter]: FieldValue.delete()});
+            cancelledItemsKey.remove(tempItemsCancelledIdList[counter]);
+          }
+          counter++;
+        }
+        masterUpdaterMapForCancelledKOT
+            .addAll({'itemsInOrderMap': itemsUpdaterMapForCancelledKOT});
+        masterUpdaterMapForCancelledKOT.addAll({
+          'statusMap': {'chefStatus': 7}
+        });
+        FireStoreAddOrderInRunningOrderFolder(
+                hotelName: widget.hotelName,
+                ordersMap: masterUpdaterMapForCancelledKOT,
+                seatingNumber: eachDistinctCancelledDoc)
+            .addOrder();
+      }
+    }
+    localKOTNumberOfItems = [];
+    localKOTItemComments = [];
+    localKOTItemNames = [];
+    localKotItemsParentOrChild = [];
+    chefPrinterType == PrinterType.bluetooth
+        ? Timer(Duration(seconds: 2), () {
+            setState(() {
+              showSpinner = false;
+              usbKotConnect = false;
+              usbKotConnectTried = false;
+              bluetoothKotConnect = false;
+              bluetoothKotConnectTried = false;
+              _isConnected = false;
+              printingOver = true;
+            });
+          })
+        : Timer(Duration(milliseconds: 500), () {
+            setState(() {
+              showSpinner = false;
+              usbKotConnect = false;
+              usbKotConnectTried = false;
+              bluetoothKotConnect = false;
+              bluetoothKotConnectTried = false;
+              _isConnected = false;
+              printingOver = true;
+            });
+          });
+  }
+
+  Future<void> printWithNetworkPrinter() async {
+    final printer =
+        PrinterNetworkManager(chefPrinterCharacters['printerIPAddress']);
+    PosPrintResult connect = await printer.connect();
+    if (connect == PosPrintResult.success) {
+      PosPrintResult printing =
+          await printer.printTicket(Uint8List.fromList(kotBytes));
+      printer.disconnect();
+      serverUpdateAfterKotPrintIsOver = false;
+      Timer(Duration(seconds: 1), () {
+//ThisTimerWillEnsureWeDontPrintAgainTillTheCurrentSetOfKot'sAreUpdated
+        serverUpdateAfterKotPrintIsOver = true;
+      });
+
+      kotCounter = 0;
+
+//ItMeansThereIsOnlyOneItemForKOT
+      if (localKOTItemNames.length <= 1) {
+        if (localKotCancelledItemTrueElseFalse[0] != 'false') {
+//CancelledItemAndThereIsOnlyOneCancelledItem
+
+          Map<String, dynamic> tempItemUpdater = HashMap();
+          tempItemUpdater.addAll({localKOTItemsID[0]: FieldValue.delete()});
+          Map<String, dynamic> masterUpdaterMap = HashMap();
+          masterUpdaterMap.addAll({'itemsInOrderMap': tempItemUpdater});
+          masterUpdaterMap.addAll({
+            'statusMap': {'chefStatus': 7}
+          });
+
+          FireStoreAddOrderInRunningOrderFolder(
+                  hotelName: widget.hotelName,
+                  ordersMap: masterUpdaterMap,
+                  seatingNumber: localKotItemsBelongsToDoc[0])
+              .addOrder();
+        } else {
+//NewlyOrderedItem
+          statusUpdaterInFireStoreForRunningOrders(localKOTItemsID[0],
+              localKotItemsBelongsToDoc[0], 7, 'chefkotprinted');
+        }
+      } else {
+        List<String> tempItemsAcceptedIdList = [];
+        List<String> tempItemsAcceptedDocList = [];
+        List<String> tempItemsCancelledIdList = [];
+        List<String> tempItemsCancelledDocList = [];
+        for (int k = 0; k < localKOTItemNames.length; k++) {
+          if (localKotCancelledItemTrueElseFalse[k] == 'false') {
+//forAcceptedItems
+            tempItemsAcceptedIdList.add(localKOTItemsID[k]);
+            tempItemsAcceptedDocList.add(localKotItemsBelongsToDoc[k]);
+          } else {
+//forCancelledItems
+            tempItemsCancelledIdList.add(localKOTItemsID[k]);
+            tempItemsCancelledDocList.add(localKotItemsBelongsToDoc[k]);
+          }
+        }
+        List<String> tempDistinctItemsAcceptedList =
+            tempItemsAcceptedDocList.toSet().toList();
+        for (var eachDistinctAcceptedDoc in tempDistinctItemsAcceptedList) {
+          Map<String, dynamic> masterUpdaterMapForAcceptedKOT = HashMap();
+          Map<String, dynamic> itemsUpdaterMapForAcceptedKOT = HashMap();
+          int counter = 0;
+          for (String acceptedItemDoc in tempItemsAcceptedDocList) {
+            if (eachDistinctAcceptedDoc == acceptedItemDoc) {
+              Map<String, dynamic> tempTempItemsUpdater = HashMap();
+              tempTempItemsUpdater.addAll({'itemStatus': 7});
+              tempTempItemsUpdater.addAll({'chefKOT': 'chefkotprinted'});
+              itemsUpdaterMapForAcceptedKOT.addAll(
+                  {tempItemsAcceptedIdList[counter]: tempTempItemsUpdater});
+            }
+            counter++;
+          }
+          masterUpdaterMapForAcceptedKOT
+              .addAll({'itemsInOrderMap': itemsUpdaterMapForAcceptedKOT});
+          masterUpdaterMapForAcceptedKOT.addAll({
+            'statusMap': {'chefStatus': 7}
+          });
+          FireStoreAddOrderInRunningOrderFolder(
+                  hotelName: widget.hotelName,
+                  ordersMap: masterUpdaterMapForAcceptedKOT,
+                  seatingNumber: eachDistinctAcceptedDoc)
+              .addOrder();
+        }
+        List<String> tempDistinctItemsCancelledList =
+            tempItemsCancelledDocList.toSet().toList();
+        for (var eachDistinctCancelledDoc in tempDistinctItemsCancelledList) {
+          Map<String, dynamic> masterUpdaterMapForCancelledKOT = HashMap();
+          Map<String, dynamic> itemsUpdaterMapForCancelledKOT = HashMap();
+          int counter = 0;
+          for (String cancelledItemDoc in tempItemsCancelledDocList) {
+            if (eachDistinctCancelledDoc == cancelledItemDoc) {
+              itemsUpdaterMapForCancelledKOT.addAll(
+                  {tempItemsCancelledIdList[counter]: FieldValue.delete()});
+              cancelledItemsKey.remove(tempItemsCancelledIdList[counter]);
+            }
+            counter++;
+          }
+          masterUpdaterMapForCancelledKOT
+              .addAll({'itemsInOrderMap': itemsUpdaterMapForCancelledKOT});
+          masterUpdaterMapForCancelledKOT.addAll({
+            'statusMap': {'chefStatus': 7}
+          });
+          FireStoreAddOrderInRunningOrderFolder(
+                  hotelName: widget.hotelName,
+                  ordersMap: masterUpdaterMapForCancelledKOT,
+                  seatingNumber: eachDistinctCancelledDoc)
+              .addOrder();
+        }
+      }
+      localKOTNumberOfItems = [];
+      localKOTItemComments = [];
+      localKOTItemNames = [];
+      localKotItemsParentOrChild = [];
+      setState(() {
+        showSpinner = false;
+        _isConnected = false;
+        printingOver = true;
+      });
+    } else {
+      playPrinterError();
+      if (timerForPrintingKOTRunning == false &&
+          timerForPrintingTenSecKOTRunning == false &&
+          deliverySlipPrinting == false &&
+          serverUpdateAfterKotPrintIsOver) {
+        timerForPrintingKOTTenSeconds();
+      }
+      setState(() {
+        showSpinner = false;
+        _isConnected = false;
+      });
+      if (!appInBackground) {
+        showMethodCaller('Unable To Connect. Please Check Printer');
+      }
+    }
+  }
+
+  Future<void> deliverySlipPrintBytesGenerator() async {
+    print('start of inside after Order Ready Bytes Generator');
+    if (localParcelReadyItemNames.isEmpty) {
+      localParcelReadyItemNames.add('Printer Check');
+      localParcelReadyNumberOfItems.add(1);
+      localParcelReadyItemComments.add(' ');
+    }
+    if (localParcelReadyItemNames[0] != 'Printer Check') {
+//boolForCheckingWhetherWeAreIntoDeliverySlipPrinting
+      deliverySlipPrinting = true;
+      if (showSpinner == false) {
+        setState(() {
+          showSpinner = true;
+        });
+      }
+      deliverySlipBytes = [];
+
+      var deliverySlipTextSize =
+          chefPrinterCharacters['deliverySlipFontSize'] == 'Small'
+              ? PosTextSize.size1
+              : PosTextSize.size2;
+      final profile = await CapabilityProfile.load();
+      final generator = chefPrinterCharacters['printerSize'] == '80'
+          ? Generator(PaperSize.mm80, profile)
+          : Generator(PaperSize.mm58, profile);
+      if (chefPrinterCharacters['spacesAboveDeliverySlip'] != '0') {
+        for (int i = 0;
+            i < num.parse(chefPrinterCharacters['spacesAboveDeliverySlip']);
+            i++) {
+          deliverySlipBytes += generator.text(" ");
+        }
+      }
+      deliverySlipBytes += generator.text("Slot:$localParcelNumber",
+          styles: PosStyles(
+              height: PosTextSize.size2,
+              width: PosTextSize.size2,
+              align: PosAlign.center));
+      deliverySlipBytes += generator.text(" ");
+      deliverySlipBytes += generator.text(
+          "Packed:${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year} at ${DateTime.now().hour}:${DateTime.now().minute}",
+          styles: PosStyles(
+              height: PosTextSize.size1,
+              width: PosTextSize.size1,
+              align: PosAlign.center));
+      if (chefPrinterCharacters['printerSize'] == '80') {
+        deliverySlipBytes += generator.text(
+            "-----------------------------------------------",
+            styles: PosStyles(
+                height: PosTextSize.size1,
+                width: PosTextSize.size1,
+                align: PosAlign.center));
+      } else if (chefPrinterCharacters['printerSize'] == '58') {
+        deliverySlipBytes += generator.text("-------------------------------",
+            styles: PosStyles(
+                height: PosTextSize.size1,
+                width: PosTextSize.size1,
+                align: PosAlign.center));
+      }
+
+      if (localParcelReadyItemNames.length > 1) {
+        for (int i = 0; i < localParcelReadyItemNames.length; i++) {
+          if (chefPrinterCharacters['printerSize'] == '80') {
+            if ((' '.allMatches(localParcelReadyItemNames[i]).length >= 2)) {
+              String firstName = '';
+              String secondName = '';
+              final longItemNameSplit = localParcelReadyItemNames[i].split(' ');
+              for (int i = 0; i < longItemNameSplit.length; i++) {
+                if (i == 0) {
+                  firstName = longItemNameSplit[i];
+                }
+                if (i == 1) {
+                  firstName += ' ${longItemNameSplit[i]}';
+                }
+                if (i == 2) {
+                  secondName += '${longItemNameSplit[i]} ';
+                }
+                if (i > 2) {
+                  secondName += '${longItemNameSplit[i]} ';
+                }
+              }
+              deliverySlipBytes += generator.row([
+                PosColumn(
+                  text: "$firstName",
+                  styles: PosStyles(
+                      align: PosAlign.left,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 10,
+                ),
+                PosColumn(
+                  text: "${localParcelReadyNumberOfItems[i].toString()}",
+                  styles: PosStyles(
+                      align: PosAlign.right,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 2,
+                ),
+              ]);
+              deliverySlipBytes += generator.row([
+                PosColumn(
+                  text: "$secondName",
+                  styles: PosStyles(
+                      align: PosAlign.left,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 10,
+                ),
+                PosColumn(
+                  text: " ",
+                  styles: PosStyles(
+                      align: PosAlign.right,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 2,
+                ),
+              ]);
+            } else {
+              deliverySlipBytes += generator.row([
+                PosColumn(
+                  text: "${localParcelReadyItemNames[i]}",
+                  styles: PosStyles(
+                      align: PosAlign.left,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 10,
+                ),
+                PosColumn(
+                  text: "${localParcelReadyNumberOfItems[i].toString()}",
+                  styles: PosStyles(
+                      align: PosAlign.right,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 2,
+                ),
+              ]);
+            }
+
+            if (localParcelReadyItemComments[i] != 'noComment') {
+              deliverySlipBytes += generator.text(
+                  "     (Comment : ${localParcelReadyItemComments[i]})",
+                  styles: PosStyles(
+                      height: PosTextSize.size1,
+                      width: PosTextSize.size1,
+                      align: PosAlign.left));
+            }
+            deliverySlipBytes += generator.text(
+                "-----------------------------------------------",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+          } else if (chefPrinterCharacters['printerSize'] == '58') {
+            if ((' '.allMatches(localParcelReadyItemNames[i]).length >= 2) ||
+                localParcelReadyItemNames[i].length > 14) {
+              String firstName = '';
+              String secondName = '';
+              final longItemNameSplit = localParcelReadyItemNames[i].split(' ');
+              for (int i = 0; i < longItemNameSplit.length; i++) {
+                if (i == 0) {
+                  firstName = longItemNameSplit[i];
+                }
+
+                if (i >= 1) {
+                  secondName += '${longItemNameSplit[i]} ';
+                }
+              }
+              deliverySlipBytes += generator.row([
+                PosColumn(
+                  text: "$firstName",
+                  styles: PosStyles(
+                      align: PosAlign.left,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 10,
+                ),
+                PosColumn(
+                  text: "${localParcelReadyNumberOfItems[i].toString()}",
+                  styles: PosStyles(
+                      align: PosAlign.right,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 2,
+                ),
+              ]);
+              deliverySlipBytes += generator.row([
+                PosColumn(
+                  text: "$secondName",
+                  styles: PosStyles(
+                      align: PosAlign.left,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 10,
+                ),
+                PosColumn(
+                  text: " ",
+                  styles: PosStyles(
+                      align: PosAlign.right,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 2,
+                ),
+              ]);
+            } else {
+              deliverySlipBytes += generator.row([
+                PosColumn(
+                  text: "${localParcelReadyItemNames[i]}",
+                  styles: PosStyles(
+                      align: PosAlign.left,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 10,
+                ),
+                PosColumn(
+                  text: "${localParcelReadyNumberOfItems[i].toString()}",
+                  styles: PosStyles(
+                      align: PosAlign.right,
+                      height: deliverySlipTextSize,
+                      width: deliverySlipTextSize),
+                  width: 2,
+                ),
+              ]);
+            }
+
+            if (localParcelReadyItemComments[i] != 'noComment') {
+              deliverySlipBytes += generator.text(
+                  "     (Comment : ${localParcelReadyItemComments[i]})",
+                  styles: PosStyles(
+                      height: PosTextSize.size1,
+                      width: PosTextSize.size1,
+                      align: PosAlign.left));
+            }
+            deliverySlipBytes += generator.text(
+                "-------------------------------",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.center));
+          }
+        }
+        deliverySlipBytes += generator.text(" ");
+        deliverySlipBytes += generator.text(" ");
+
+        if (chefPrinterCharacters['printerSize'] == '80' &&
+            localParcelReadyItemNames[0] != 'Printer Check') {
+          deliverySlipBytes += generator.text("Note:Consume Within Two Hours",
+              styles: PosStyles(
+                  height: PosTextSize.size2,
+                  width: PosTextSize.size2,
+                  align: PosAlign.center));
+        } else if (chefPrinterCharacters['printerSize'] == '58') {
+          deliverySlipBytes += generator.text("Note:Consume Within Two Hours",
+              styles: PosStyles(
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1,
+                  align: PosAlign.left));
+        }
+      } else {
+        if (chefPrinterCharacters['printerSize'] == '80') {
+          if ((' '.allMatches(localParcelReadyItemNames[0]).length >= 2)) {
+            String firstName = '';
+            String secondName = '';
+
+            final longItemNameSplit = localParcelReadyItemNames[0].split(' ');
+            for (int i = 0; i < longItemNameSplit.length; i++) {
+              if (i == 0) {
+                firstName = longItemNameSplit[i];
+              }
+              if (i == 1) {
+                firstName += ' ${longItemNameSplit[i]}';
+              }
+              if (i == 2) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+              if (i > 2) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+            }
+            deliverySlipBytes += generator.row([
+              PosColumn(
+                text: "$firstName",
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 10,
+              ),
+              PosColumn(
+                text: "${localParcelReadyNumberOfItems[0].toString()}",
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 2,
+              ),
+            ]);
+            deliverySlipBytes += generator.row([
+              PosColumn(
+                text: "$secondName",
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 10,
+              ),
+              PosColumn(
+                text: " ",
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 2,
+              ),
+            ]);
+          } else {
+            deliverySlipBytes += generator.row([
+              PosColumn(
+                text: "${localParcelReadyItemNames[0]}",
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 10,
+              ),
+              PosColumn(
+                text: "${localParcelReadyNumberOfItems[0].toString()}",
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 2,
+              ),
+            ]);
+          }
+
+          if (localParcelReadyItemComments[0] != 'noComment') {
+            deliverySlipBytes += generator.text(
+                "     (Comment : ${localParcelReadyItemComments[0]})",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.left));
+          }
+          deliverySlipBytes += generator.text(
+              "-----------------------------------------------",
+              styles: PosStyles(
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1,
+                  align: PosAlign.center));
+        } else if (chefPrinterCharacters['printerSize'] == '58') {
+          if ((' '.allMatches(localParcelReadyItemNames[0]).length >= 2) ||
+              localParcelReadyItemNames[0].length > 14) {
+            String firstName = '';
+            String secondName = '';
+            final longItemNameSplit = localParcelReadyItemNames[0].split(' ');
+            for (int i = 0; i < longItemNameSplit.length; i++) {
+              if (i == 0) {
+                firstName = longItemNameSplit[i];
+              }
+              if (i >= 1) {
+                secondName += '${longItemNameSplit[i]} ';
+              }
+            }
+            deliverySlipBytes += generator.row([
+              PosColumn(
+                text: "$firstName",
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 10,
+              ),
+              PosColumn(
+                text: "${localParcelReadyNumberOfItems[0].toString()}",
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 2,
+              ),
+            ]);
+            deliverySlipBytes += generator.row([
+              PosColumn(
+                text: "$secondName",
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 10,
+              ),
+              PosColumn(
+                text: " ",
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 2,
+              ),
+            ]);
+          } else {
+            deliverySlipBytes += generator.row([
+              PosColumn(
+                text: "${localParcelReadyItemNames[0]}",
+                styles: PosStyles(
+                    align: PosAlign.left,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 10,
+              ),
+              PosColumn(
+                text: "${localParcelReadyNumberOfItems[0].toString()}",
+                styles: PosStyles(
+                    align: PosAlign.right,
+                    height: deliverySlipTextSize,
+                    width: deliverySlipTextSize),
+                width: 2,
+              ),
+            ]);
+          }
+          if (localParcelReadyItemComments[0] != 'noComment') {
+            deliverySlipBytes += generator.text(
+                "     (Comment : ${localParcelReadyItemComments[0]})",
+                styles: PosStyles(
+                    height: PosTextSize.size1,
+                    width: PosTextSize.size1,
+                    align: PosAlign.left));
+          }
+          deliverySlipBytes += generator.text("-------------------------------",
+              styles: PosStyles(
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1,
+                  align: PosAlign.center));
+        }
+
+        if (chefPrinterCharacters['printerSize'] == '80') {
+          deliverySlipBytes += generator.text(" ");
+          deliverySlipBytes += generator.text(" ");
+          deliverySlipBytes += generator.text("Note:Consume Within Two Hours",
+              styles: PosStyles(
+                  height: PosTextSize.size2,
+                  width: PosTextSize.size2,
+                  align: PosAlign.center));
+        } else if (chefPrinterCharacters['printerSize'] == '58') {
+          deliverySlipBytes += generator.text(" ");
+          deliverySlipBytes += generator.text(" ");
+          deliverySlipBytes += generator.text("Note:Consume Within Two Hours",
+              styles: PosStyles(
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1,
+                  align: PosAlign.left));
+        }
+        if (chefPrinterCharacters['spacesBelowDeliverySlip'] != '0') {
+          for (int i = 0;
+              i < num.parse(chefPrinterCharacters['spacesBelowDeliverySlip']);
+              i++) {
+            deliverySlipBytes += generator.text(" ");
+          }
+        }
+      }
+      deliverySlipBytes += generator.cut();
+      if (chefPrinterCharacters['printerBluetoothAddress'] != 'NA' ||
+          chefPrinterCharacters['printerIPAddress'] != 'NA') {
+        _connectDeviceForDeliverySlip();
+      } else {
+//InCaseUsbPrinterIsNotConnected,WeDontHaveWayToScan.Hence,WeScanAndThenGoIn
+        _scanForUsbForDeliverySlipPrint();
+      }
+    }
+
+    print('end of inside after Order Ready Bytes Generator');
+  }
+
+  _scanForUsbForDeliverySlipPrint() async {
+    bool addedUSBDeviceNotAvailable = true;
+//UnlikeBluetoothWeDontHavePerfectAvailableOrNotFeedbackForUsb
+//HenceMakingScanForUsbDeviceEveryTimePrintIsCalled
+    devices.clear();
+    _subscription =
+        printerManager.discovery(type: PrinterType.usb).listen((device) {
+      if (device.vendorId.toString() ==
+          chefPrinterCharacters['printerUsbVendorID']) {
+        addedUSBDeviceNotAvailable = false;
+        _connectDeviceForDeliverySlip();
+      }
+    });
+    Timer(Duration(seconds: 2), () {
+      if (addedUSBDeviceNotAvailable) {
+        printerManager.disconnect(type: PrinterType.usb);
+        setState(() {
+          showSpinner = false;
+          usbDeliverySlipConnect = false;
+          usbDeliverySlipConnectTried = false;
+          _isConnected = false;
+        });
+        playPrinterError();
+        showMethodCaller('${chefPrinterCharacters['printerName']} not found');
+      }
+    });
+  }
+
+  _connectDeviceForDeliverySlip() async {
+    chefPrinterType = chefPrinterCharacters['printerUsbProductID'] != 'NA'
+        ? PrinterType.usb
+        : chefPrinterCharacters['printerBluetoothAddress'] != 'NA'
+            ? PrinterType.bluetooth
+            : PrinterType.network;
+    _isConnected = false;
+    setState(() {
+      showSpinner = true;
+    });
+    switch (chefPrinterType) {
+      case PrinterType.usb:
+        printerManager.disconnect(type: PrinterType.usb);
+        usbDeliverySlipConnectTried = true;
+        await printerManager.connect(
+            type: chefPrinterType,
+            model: UsbPrinterInput(
+                name: chefPrinterCharacters['printerManufacturerDeviceName'],
+                productId: chefPrinterCharacters['printerUsbProductID'],
+                vendorId: chefPrinterCharacters['printerUsbVendorID']));
+        usbDeliverySlipConnect = true;
+        _isConnected = true;
+        setState(() {
+          showSpinner = true;
+        });
+        break;
+      case PrinterType.bluetooth:
+        bluetoothDeliverySlipConnectTried = true;
+        bluetoothDeliverySlipConnect = false;
+        bluetoothOnTrueOrOffFalse = false;
+        timerToCheckBluetoothOnOrOff();
+        await printerManager.connect(
+            type: chefPrinterType,
+            model: BluetoothPrinterInput(
+                name: chefPrinterCharacters['printerManufacturerDeviceName'],
+                address: chefPrinterCharacters['printerBluetoothAddress'],
+                isBle: false,
+                autoConnect: _reconnect));
+        bluetoothDeliverySlipConnect = true;
+        break;
+      case PrinterType.network:
+        printWithNetworkPrinterForDeliverySlip();
+        break;
+      default:
+    }
+
+    setState(() {});
+  }
+
+  void printThroughBluetoothOrUsbForDeliverySlip() {
+    printerManager.send(type: chefPrinterType, bytes: deliverySlipBytes);
+    if (chefPrinterType == PrinterType.bluetooth) {
+      showMethodCaller('Print SUCCESS...Disconnecting...');
+    }
+    Timer(Duration(seconds: 1), () {
+      disconnectBluetoothOrUsbForDeliverySlip();
+    });
+  }
+
+  void disconnectBluetoothOrUsbForDeliverySlip() {
+    printerManager.disconnect(type: chefPrinterType);
+    deliverySlipPrinting = false;
+    localParcelNumber = '';
+    localParcelReadyItemNames = [];
+    localParcelReadyNumberOfItems = [];
+    localParcelReadyItemComments = [];
+
+    chefPrinterType == PrinterType.bluetooth
+        ? Timer(Duration(seconds: 2), () {
+            setState(() {
+              showSpinner = false;
+              usbDeliverySlipConnect = false;
+              usbDeliverySlipConnectTried = false;
+              bluetoothDeliverySlipConnect = false;
+              bluetoothDeliverySlipConnectTried = false;
+              _isConnected = false;
+              printingOver = true;
+            });
+          })
+        : Timer(Duration(milliseconds: 500), () {
+            setState(() {
+              showSpinner = false;
+              usbDeliverySlipConnect = false;
+              usbDeliverySlipConnectTried = false;
+              bluetoothDeliverySlipConnect = false;
+              bluetoothDeliverySlipConnectTried = false;
+              _isConnected = false;
+              printingOver = true;
+            });
+          });
+  }
+
+  Future<void> printWithNetworkPrinterForDeliverySlip() async {
+    final printer =
+        PrinterNetworkManager(chefPrinterCharacters['printerIPAddress']);
+    PosPrintResult connect = await printer.connect();
+    if (connect == PosPrintResult.success) {
+      PosPrintResult printing =
+          await printer.printTicket(Uint8List.fromList(deliverySlipBytes));
+      printer.disconnect();
+      localParcelNumber = '';
+      localParcelReadyItemNames = [];
+      localParcelReadyNumberOfItems = [];
+      localParcelReadyItemComments = [];
+      deliverySlipPrinting = false;
+      setState(() {
+        showSpinner = false;
+        _isConnected = false;
+        printingOver = true;
+      });
+    } else {
+      playPrinterError();
+      deliverySlipPrinting = false;
+
+      setState(() {
+        showSpinner = false;
+        _isConnected = false;
+      });
+      if (!appInBackground) {
+        showMethodCaller('Unable To Connect. Please Check Printer');
+      }
+    }
   }
 
   @override
   void initState() {
-    bluetooth.disconnect();
     print('inside initState');
     //WeAreMakingThisVariableSimplyToGetTheProviderValueOnce.FirstTimeItWillBeInitialValue
 //IfWeDontHaveThisFirstTimeTaking,TheVideoWillPlayAgainAndAgain
@@ -2062,12 +1935,9 @@ class _ChefToCookTableSnapshotCheckState
     internetAvailabilityChecker();
     // methodForChefWontCook();
     requestLocationPermission();
-    bluetoothConnected = false;
-    bluetoothAlreadyConnected = false;
+    deliverySlipPrinting = false;
     showSpinner = false;
     printingOver = true;
-    disconnectAndConnectAttempted = false;
-    bluetoothTurnOnMessageShown = false;
     timeForKot = 1;
     kotCounter = 0;
     localKOTItemNames = [];
@@ -2077,16 +1947,116 @@ class _ChefToCookTableSnapshotCheckState
     _everySecondForKotTimer = 0;
     timerForPrintingKOTRunning = false;
     timerForPrintingTenSecKOTRunning = false;
-    intermediatePrintingCallKOTRunning = false;
-    intermediatePrintingAfterOrderReadyRunning = false;
+    serverUpdateAfterKotPrintIsOver = true;
+
     appInBackground = false;
     timerRunningForCheckingNewOrdersInBackground = false;
     backgroundTimerCounter = 0;
     // thisIsChefCallingForBackground = true;
     // hotelNameForBackground = widget.hotelName;
     // chefSpecialitiesForBackground = widget.chefSpecialities;
-    FlutterBackground.initialize();
+    // FlutterBackground.initialize();
     Wakelock.enable();
+
+    // subscription to listen change status of bluetooth connection
+    _subscriptionBtStatus =
+        PrinterManager.instance.stateBluetooth.listen((status) {
+//OnlyIfBluetoothIsOnWeCanEvenGetIntoThisLoop
+//IfBluetoothIsOffWeCanGiveShowMessageSomewhere
+      bluetoothOnTrueOrOffFalse = true;
+      _currentStatus = status;
+      // print('Bluetooth status $status');
+
+      if (status == BTStatus.connecting &&
+          ((!bluetoothKotConnect && bluetoothKotConnectTried) ||
+              (!bluetoothDeliverySlipConnect &&
+                  bluetoothDeliverySlipConnectTried))) {
+        intermediateTimerBeforeCheckingBluetoothConnectionSuccess();
+      }
+
+      if (status == BTStatus.connected) {
+        printerConnectionSuccessCheckRandomNumber = 0;
+        if (bluetoothKotConnect) {
+          printThroughBluetoothOrUsb();
+        }
+        if (bluetoothDeliverySlipConnect) {
+          printThroughBluetoothOrUsbForDeliverySlip();
+        }
+        setState(() {
+          _isConnected = true;
+        });
+      }
+      if (status == BTStatus.none) {
+        printerConnectionSuccessCheckRandomNumber = 0;
+        if (bluetoothKotConnect || bluetoothKotConnectTried) {
+          printerManager.disconnect(type: PrinterType.bluetooth);
+          if (timerForPrintingKOTRunning == false &&
+              timerForPrintingTenSecKOTRunning == false &&
+              deliverySlipPrinting == false &&
+              serverUpdateAfterKotPrintIsOver) {
+            timerForPrintingKOTTenSeconds();
+          }
+          playPrinterError();
+          if (!appInBackground) {
+            showMethodCaller('Unable To Connect. Please Check Printer');
+          }
+          bluetoothKotConnect = false;
+          bluetoothKotConnectTried = false;
+        }
+        if (bluetoothDeliverySlipConnect || bluetoothDeliverySlipConnectTried) {
+          printerManager.disconnect(type: PrinterType.bluetooth);
+          deliverySlipPrinting = false;
+          playPrinterError();
+          showMethodCaller('Unable To Connect. Please Check Printer');
+          bluetoothDeliverySlipConnect = false;
+          bluetoothDeliverySlipConnectTried = false;
+        }
+        setState(() {
+          showSpinner = false;
+          _isConnected = false;
+        });
+      }
+    });
+    // subscription to listen change status of usb connection
+    _subscriptionUsbStatus = PrinterManager.instance.stateUSB.listen((status) {
+      // log(' ----------------- status usb $status ------------------ ');
+      _currentUsbStatus = status;
+      if (status == USBStatus.connected) {
+        if (usbKotConnect) {
+          printThroughBluetoothOrUsb();
+        }
+        if (usbDeliverySlipConnect) {
+          printThroughBluetoothOrUsbForDeliverySlip();
+        }
+      } else if (status == USBStatus.none) {
+        printerManager.disconnect(type: PrinterType.usb);
+        if (usbKotConnect || usbKotConnectTried) {
+          playPrinterError();
+          if (!appInBackground) {
+            showMethodCaller('Unable To Connect. Please Check Printer');
+          }
+          usbKotConnect = false;
+          usbKotConnectTried = false;
+          if (timerForPrintingKOTRunning == false &&
+              timerForPrintingTenSecKOTRunning == false &&
+              deliverySlipPrinting == false &&
+              serverUpdateAfterKotPrintIsOver) {
+            timerForPrintingKOTTenSeconds();
+          }
+        }
+        if (usbDeliverySlipConnect || usbDeliverySlipConnectTried) {
+          deliverySlipPrinting = false;
+          playPrinterError();
+          showMethodCaller('Unable To Connect. Please Check Printer');
+          usbDeliverySlipConnect = false;
+          usbDeliverySlipConnectTried = false;
+        }
+        setState(() {
+          showSpinner = false;
+          _isConnected = false;
+        });
+      }
+    });
 
     super.initState();
   }
@@ -2133,7 +2103,49 @@ class _ChefToCookTableSnapshotCheckState
     player.stop();
     player.release();
     player.dispose();
+    _subscription?.cancel();
+    _subscriptionBtStatus?.cancel();
+    _subscriptionUsbStatus?.cancel();
     super.dispose();
+  }
+
+  void intermediateTimerBeforeCheckingBluetoothConnectionSuccess() {
+    Timer(Duration(seconds: 2), () {
+//SometimesTheBluetoothStreamTakesSometimeToRegisterWhetherOrNot
+//BluetoothisConnected.OnSuchOccasionThisTimerCallingBecomesNecessity
+//ThisMeansPrinterHasn'tConnectedIn2Seconds.OnlyThenWeCallForCheckingAfter5Seconds
+      if (bluetoothDeliverySlipConnectTried) {
+        if (!bluetoothDeliverySlipConnect) {
+          int randomNumberGenerationForThisAttempt =
+              (1000000 + Random().nextInt(9999999 - 1000000));
+          printerConnectionSuccessCheckRandomNumber =
+              randomNumberGenerationForThisAttempt;
+          timerForCheckingBluetoothConnectionSuccess(
+              randomNumberGenerationForThisAttempt);
+        }
+      } else if (bluetoothKotConnectTried) {
+        if (!bluetoothKotConnect) {
+          int randomNumberGenerationForThisAttempt =
+              (1000000 + Random().nextInt(9999999 - 1000000));
+          printerConnectionSuccessCheckRandomNumber =
+              randomNumberGenerationForThisAttempt;
+          timerForCheckingBluetoothConnectionSuccess(
+              randomNumberGenerationForThisAttempt);
+        }
+      }
+    });
+  }
+
+  void timerForCheckingBluetoothConnectionSuccess(
+      int randomNumberForPrintingConnectionCheck) {
+    Timer(Duration(seconds: 6), () {
+      if (randomNumberForPrintingConnectionCheck ==
+          printerConnectionSuccessCheckRandomNumber) {
+        printerManager.disconnect(type: PrinterType.bluetooth);
+        showMethodCallerWithShowSpinnerOffForBluetooth(
+            'Unable to connect. Please check Printer');
+      }
+    });
   }
 
   void requestLocationPermission() async {
@@ -2164,8 +2176,6 @@ class _ChefToCookTableSnapshotCheckState
                   setState(() {
                     locationPermissionAccepted = true;
                   });
-                  getAllPairedDevices();
-                  bluetoothStateChangeFunction();
 
                   // FlutterBackground.initialize();
                   // Permission.locationWhenInUse.request();
@@ -2247,7 +2257,6 @@ class _ChefToCookTableSnapshotCheckState
       //   barrierDismissible: false,
       // );
     } else {
-      bluetoothStateChangeFunction();
       // getAllPairedDevices();
       print('location permission already accepted');
       setState(() {
@@ -2292,7 +2301,7 @@ class _ChefToCookTableSnapshotCheckState
 
 //IfItIsInBackground
     if (isBackground || isBackground2 || isBackground3) {
-      FlutterBackground.enableBackgroundExecution();
+      // FlutterBackground.enableBackgroundExecution();
       timerRunningForCheckingNewOrdersInBackground = false;
 
       backgroundTimerCounter = 0;
@@ -2333,7 +2342,7 @@ class _ChefToCookTableSnapshotCheckState
       backgroundTimerCounter = 0;
       // FlutterBackground.initialize();
       NotificationService().cancelAllNotifications();
-      FlutterBackground.disableBackgroundExecution();
+      // FlutterBackground.disableBackgroundExecution();
 
 //ifTheAppHasChangedToForeground,ItMeansTheUserHasOpenedTheAppAnd
 //itHasComeToTheForeground
@@ -2392,8 +2401,6 @@ class _ChefToCookTableSnapshotCheckState
               '_everySecondBeforeCallingTimer $_everySecondBeforeCallingTimer');
         } else if (_everySecondBeforeCallingTimer == 10) {
           timerRunningForCheckingNewOrdersInBackground = false;
-          // bluetoothTurnOnMessageShown = false;
-          // print('came inside bluetooth On Point');
           if (appInBackground) {
             currentNewOrdersCheckInBackground();
           }
@@ -2539,13 +2546,13 @@ class _ChefToCookTableSnapshotCheckState
 
                 if (bluetoothOnTrueOrOffFalse == false) {
                   playPrinterError();
-                } else if ((!listEquals(tempLocalKOTItemsID, localKOTItemsID) ||
-                        cancelledItemsKey.isNotEmpty) &&
-                    bluetoothJustTurningOn == false) {
+                } else if (!listEquals(tempLocalKOTItemsID, localKOTItemsID) ||
+                    cancelledItemsKey.isNotEmpty) {
                   if (bluetoothOnTrueOrOffFalse &&
                       timerForPrintingKOTRunning == false &&
                       timerForPrintingTenSecKOTRunning == false &&
-                      intermediatePrintingCallKOTRunning == false) {
+                      serverUpdateAfterKotPrintIsOver) {
+                    print('called print again');
                     timerForPrintingKOT();
                   }
                 } else {
@@ -2579,14 +2586,6 @@ class _ChefToCookTableSnapshotCheckState
       timerForCheckingNewOrdersInBackground();
       timerRunningForCheckingNewOrdersInBackground = true;
     }
-    // bluetoothTurnOnMessageShown = false;
-//ThisIsTheFireStoreCommandWeUseToCheckWhetherThereIsAnyNewOrder
-//IfSomeOrderHasStatusOfOrderAs9,ThatMeansItIsANewOrder
-
-//IfItIsTrue,WeWillPlayTheCookMusic
-//     if (someNewItemsOrdered) {
-//       playCook();
-//     }
   }
 
 // PlayCookIsTheMethodToPlayMusic
@@ -2669,173 +2668,177 @@ class _ChefToCookTableSnapshotCheckState
     }
   }
 
-  void bluetoothForKotNotTurnedOn() {
-    bluetoothTurnOnMessageShown = false;
-    print('came inside this bluetoothForKotNotTurnedOn');
-    print(localKOTItemNames);
-    print(bluetoothTurnOnMessageShown);
-    if (bluetoothTurnOnMessageShown == false &&
-        localKOTItemNames.isNotEmpty &&
-        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-            .chefPrinterKOTFromClass &&
-        bluetoothOnTrueOrOffFalse == false) {
-      bluetoothTurnOnMessageShown = true;
-      print('bluetoothForKotNotTurnedOn2');
-      playPrinterError();
-      if (appInBackground == false) {
-        show('Please Turn On Bluetooth');
-      }
-
-      timerForFlashingBluetoothMessage();
-    }
-
-    // if (bluetoothOnTrueOrOffFalse == false &&
-    //     Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-    //         .chefPrinterKOTFromClass &&
-    //     localKOTItemNames.isNotEmpty &&
-    //     bluetoothTurnOnMessageShown == true) {
-    //   print('bluetoothForKotNotTurnedOn3');
-    //   timerForFlashingBluetoothMessage();
-    // }
-  }
-
-  void timerForFlashingBluetoothMessage() {
-    bluetoothStateChangeFunction();
-    int _everySecondForBluetoothMessage = 0;
-    Timer? _timerToGoForBluetoothMessage;
-    _timerToGoForBluetoothMessage =
-        Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (_everySecondForBluetoothMessage < 10) {
-        _everySecondForBluetoothMessage++;
-        print(
-            '_everySecondForBluetoothMessage $_everySecondForBluetoothMessage');
-      } else if (_everySecondForBluetoothMessage == 10) {
-        // bluetoothTurnOnMessageShown = false;
-        print('came inside bluetooth On Point2');
-        if (bluetoothOnTrueOrOffFalse == false &&
-            localKOTItemNames.isNotEmpty &&
-            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-                .chefPrinterKOTFromClass) {
-          bluetoothForKotNotTurnedOn();
-        } else {
-          print('turned bluetoothmessage turning on');
-          bluetoothTurnOnMessageShown = false;
-        }
-        _everySecondForBluetoothMessage++;
-
-        _timerToGoForBluetoothMessage!.cancel();
-      } else {
-        _timerToGoForBluetoothMessage!.cancel();
-      }
-    });
-  }
-
   void timerForPrintingKOT() {
-    _everySecondForKotTimer = 0;
-    timerForPrintingKOTRunning = false;
-    Timer? _timerToGoForKOt;
-    _timerToGoForKOt = Timer.periodic(const Duration(seconds: 1), (_) async {
-//ThisWillEnsureOnlyWhenNewItemsComeNextTime,itWillBePrinted
+    timerForPrintingKOTRunning = true;
+    Timer(Duration(seconds: 4), () {
       tempLocalKOTItemsID = localKOTItemsID;
-      print('__everySecondForKotTimer inside timer $_everySecondForKotTimer');
-      if (_everySecondForKotTimer < 3) {
-        timerForPrintingKOTRunning = true;
-        _everySecondForKotTimer++;
-        print('_everySecondForKotTimer $_everySecondForKotTimer');
-      } else if (_everySecondForKotTimer == 3) {
-        timerForPrintingKOTRunning = false;
-        print('came inside bluetooth On Point3');
-        if (localKOTItemNames.isNotEmpty) {
-          printerConnectionToLastSavedPrinterForKOT();
+      timerForPrintingKOTRunning = false;
+      if (localKOTItemNames.isNotEmpty) {
+        if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chefAssignedPrinterFromClass ==
+            '{}') {
+//ThisMeansNoPrinterHadBeenAssigned
+          playPrinterError();
+          show('Please Assign Chef Printer');
+        } else {
+          chefPrinterAssigningMap = json.decode(
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chefAssignedPrinterFromClass);
+          chefPrinterAssigningMap.forEach((key, value) {
+            chefPrinterRandomID = key;
+          });
+          printerSavingMap = json.decode(
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .savedPrintersFromClass);
+          chefPrinterCharacters = printerSavingMap[chefPrinterRandomID];
+          bytesGeneratorForKot();
+          // printerConnectionToLastSavedPrinterForKOT();
         }
-        _everySecondForKotTimer++;
-
-        _timerToGoForKOt!.cancel();
-      } else {
-        timerForPrintingKOTRunning = false;
-        _timerToGoForKOt!.cancel();
       }
     });
+//
+//     Timer? _timerToGoForSmallKot;
+//     _timerToGoForSmallKot =
+//         Timer.periodic(const Duration(seconds: 1), (_) async {
+// //ThisWillEnsureOnlyWhenNewItemsComeNextTime,itWillBePrinted
+//       tempLocalKOTItemsID = localKOTItemsID;
+//       print('__everySecondForKotTimer inside timer $_everySecondForKotTimer');
+//       if (_everySecondForKotTimer < 3) {
+//         timerForPrintingKOTRunning = true;
+//         _everySecondForKotTimer++;
+//         print('_everySecondForKotTimer $_everySecondForKotTimer');
+//       } else if (_everySecondForKotTimer == 3) {
+//         timerForPrintingKOTRunning = false;
+//         print('came inside bluetooth On Point3');
+//         if (localKOTItemNames.isNotEmpty) {
+//           if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+//                       listen: false)
+//                   .chefAssignedPrinterFromClass ==
+//               '{}') {
+// //ThisMeansNoPrinterHadBeenAssigned
+//             playPrinterError();
+//             show('Please Assign Chef Printer');
+//           }
+//           else {
+//             chefPrinterAssigningMap = json.decode(
+//                 Provider.of<PrinterAndOtherDetailsProvider>(context,
+//                         listen: false)
+//                     .chefAssignedPrinterFromClass);
+//             chefPrinterAssigningMap.forEach((key, value) {
+//               chefPrinterRandomID = key;
+//             });
+//             printerSavingMap = json.decode(
+//                 Provider.of<PrinterAndOtherDetailsProvider>(context,
+//                         listen: false)
+//                     .savedPrintersFromClass);
+//             chefPrinterCharacters = printerSavingMap[chefPrinterRandomID];
+//             bytesGeneratorForKot();
+//             // printerConnectionToLastSavedPrinterForKOT();
+//           }
+//         }
+//         _everySecondForKotTimer++;
+//
+//         _timerToGoForSmallKot!.cancel();
+//       } else {
+//         timerForPrintingKOTRunning = false;
+//         _timerToGoForSmallKot!.cancel();
+//       }
+//     });
   }
 
   void timerForPrintingKOTTenSeconds() {
-    _everySecondForKotTimer = 0;
-    timerForPrintingTenSecKOTRunning = false;
-    // Timer? _timerToGoForKOt;
-    _timerToGoForKOt = Timer.periodic(const Duration(seconds: 1), (_) async {
-      tempLocalKOTItemsID = localKOTItemsID;
-      print('__everySecondForKotTimer inside timer $_everySecondForKotTimer');
-      if (_everySecondForKotTimer < 8) {
-        timerForPrintingTenSecKOTRunning = true;
-        _everySecondForKotTimer++;
-        print('_everySecondForKotTimer $_everySecondForKotTimer');
-      } else if (_everySecondForKotTimer == 8) {
-        timerForPrintingTenSecKOTRunning = false;
-        print('came inside bluetooth On Point4');
-        if (localKOTItemNames.isNotEmpty &&
-            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-                .chefPrinterKOTFromClass) {
-          printerConnectionToLastSavedPrinterForKOT();
-        }
-        _everySecondForKotTimer++;
+    timerForPrintingTenSecKOTRunning = true;
 
-        _timerToGoForKOt!.cancel();
-      } else {
-        timerForPrintingTenSecKOTRunning = false;
-        _timerToGoForKOt!.cancel();
+    Timer(Duration(seconds: 9), () {
+      tempLocalKOTItemsID = localKOTItemsID;
+      timerForPrintingTenSecKOTRunning = false;
+      if (localKOTItemNames.isNotEmpty &&
+          Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+              .chefPrinterKOTFromClass) {
+        if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chefAssignedPrinterFromClass ==
+            '{}') {
+//ThisMeansNoPrinterHadBeenAssigned
+          playPrinterError();
+          show('Please Assign Chef Printer');
+        } else {
+          chefPrinterAssigningMap = json.decode(
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chefAssignedPrinterFromClass);
+          chefPrinterAssigningMap.forEach((key, value) {
+            chefPrinterRandomID = key;
+          });
+          printerSavingMap = json.decode(
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .savedPrintersFromClass);
+          chefPrinterCharacters = printerSavingMap[chefPrinterRandomID];
+          bytesGeneratorForKot();
+          // printerConnectionToLastSavedPrinterForKOT();
+        }
       }
     });
-  }
 
-//   void statusUpdaterInFireStore(
-//       String eachItemFromEntireItemsString,
-//       String entireItemListBeforeSplitting,
-//       String itemBelongsToDoc,
-//       String newStatusToUpdate) {
-//     final eachItemFromEntireItemsStringSplit =
-//         eachItemFromEntireItemsString.split('*');
-//     eachItemFromEntireItemsStringSplit[5] = newStatusToUpdate;
-//
-//     String tempStatusUpdaterString = '';
-//     for (int i = 0; i < eachItemFromEntireItemsStringSplit.length - 1; i++) {
-//       tempStatusUpdaterString += '${eachItemFromEntireItemsStringSplit[i]}*';
-//     }
-//
-//     String stringUsedForUpdatingStatus = entireItemListBeforeSplitting
-//         .replaceAll(eachItemFromEntireItemsString, tempStatusUpdaterString);
-//
-//     final statusUpdatedStringCheck = stringUsedForUpdatingStatus.split('*');
-//
-//     String partOfTableOrParcel = statusUpdatedStringCheck[0];
-//     String partOfTableOrParcelNumber = statusUpdatedStringCheck[1];
-//
-// //keepingDefaultAs7-AcceptedStatusWhichNeedNotCreateAnyIssue
-//     num chefStatus = 7;
-//     num captainStatus = 7;
-//
-//     for (int j = 1; j < ((statusUpdatedStringCheck.length - 1) / 15); j++) {
-// //ThisForLoopWillGoThroughEveryOrder,GoExactlyThroughThePointsWhereStatusIsThere
-//       if (((statusUpdatedStringCheck[(j * 15) + 5]) == '11')) {
-//         captainStatus = 11;
-//       } else if (((statusUpdatedStringCheck[(j * 15) + 5]) == '10') &&
-//           captainStatus != 11) {
-//         captainStatus = 10;
+//     Timer? _timerToGoForTenSecondsKot;
+//     _timerToGoForTenSecondsKot =
+//         Timer.periodic(const Duration(seconds: 1), (_) async {
+//       tempLocalKOTItemsID = localKOTItemsID;
+//       print(
+//           '__everySecondForKotTenSecTimer inside timer $_everySecondForKotTimer');
+//       if (_everySecondForKotTimer < 8) {
+//         timerForPrintingTenSecKOTRunning = true;
+//         _everySecondForKotTimer++;
+//         print('_everySecondForKotTenSecKotTimer $_everySecondForKotTimer');
 //       }
-//       if (((statusUpdatedStringCheck[(j * 15) + 5]) == '9')) {
-//         chefStatus = 9;
-//       }
-//     }
+//       else if (_everySecondForKotTimer == 8) {
+//         timerForPrintingTenSecKOTRunning = false;
+//         print('came inside bluetooth On Point4');
+//         if (localKOTItemNames.isNotEmpty &&
+//             Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+//                 .chefPrinterKOTFromClass) {
+//           print('What is chef assigned Printer');
+//           print(Provider.of<PrinterAndOtherDetailsProvider>(context,
+//                   listen: false)
+//               .chefAssignedPrinterFromClass);
 //
-//     FireStoreAddOrderServiceWithSplit(
-//             hotelName: widget.hotelName,
-//             itemsUpdaterString: stringUsedForUpdatingStatus,
-//             seatingNumber: itemBelongsToDoc,
-//             captainStatus: captainStatus,
-//             chefStatus: chefStatus,
-//             partOfTableOrParcel: partOfTableOrParcel,
-//             partOfTableOrParcelNumber: partOfTableOrParcelNumber)
-//         .addOrder();
-//   }
+//           if (Provider.of<PrinterAndOtherDetailsProvider>(context,
+//                       listen: false)
+//                   .chefAssignedPrinterFromClass ==
+//               '{}') {
+//             print('why not inside here');
+// //ThisMeansNoPrinterHadBeenAssigned
+//             playPrinterError();
+//             show('Please Assign Chef Printer');
+//           } else {
+//             chefPrinterAssigningMap = json.decode(
+//                 Provider.of<PrinterAndOtherDetailsProvider>(context,
+//                         listen: false)
+//                     .chefAssignedPrinterFromClass);
+//             chefPrinterAssigningMap.forEach((key, value) {
+//               chefPrinterRandomID = key;
+//             });
+//             printerSavingMap = json.decode(
+//                 Provider.of<PrinterAndOtherDetailsProvider>(context,
+//                         listen: false)
+//                     .savedPrintersFromClass);
+//             chefPrinterCharacters = printerSavingMap[chefPrinterRandomID];
+//             bytesGeneratorForKot();
+//             // printerConnectionToLastSavedPrinterForKOT();
+//           }
+//         }
+//         _everySecondForKotTimer++;
+//
+//         _timerToGoForTenSecondsKot!.cancel();
+//       }
+//       else {
+//         timerForPrintingTenSecKOTRunning = false;
+//         _timerToGoForTenSecondsKot!.cancel();
+//       }
+//     });
+  }
 
   void statusUpdaterInFireStoreForRunningOrders(String itemID,
       String itemBelongsToDoc, num newStatusToUpdate, String chefKOTPrinted) {
@@ -2965,24 +2968,9 @@ class _ChefToCookTableSnapshotCheckState
         localKOTItemNames = [];
         kotCounter = 0;
         player.stop();
-        if (bluetoothConnected) {
-          _fastDisconnectForAfterOrderPrint();
-          bluetoothConnected = false;
-          bluetoothAlreadyConnected = false;
-          Timer? _timer;
-          int _everySecondForDisconnectOnBackButton = 0;
-          _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-            _everySecondForDisconnectOnBackButton++;
 
-            if (_everySecondForDisconnectOnBackButton >= 1) {
-              _timer!.cancel();
-              _everySecondForDisconnectOnBackButton = 0;
-              Navigator.pop(context);
-            }
-          });
-        } else {
-          Navigator.pop(context);
-        }
+        Navigator.pop(context);
+
         return false;
 
         print('inside phone bacl button');
@@ -3001,24 +2989,8 @@ class _ChefToCookTableSnapshotCheckState
                 localKOTItemNames = [];
                 kotCounter = 0;
                 player.stop();
-                if (bluetoothConnected) {
-                  _fastDisconnectForAfterOrderPrint();
-                  bluetoothConnected = false;
-                  bluetoothAlreadyConnected = false;
-                  Timer? _timer;
-                  int _everySecondForDisconnectOnBackButton = 0;
-                  _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-                    _everySecondForDisconnectOnBackButton++;
 
-                    if (_everySecondForDisconnectOnBackButton >= 1) {
-                      _timer!.cancel();
-                      _everySecondForDisconnectOnBackButton = 0;
-                      Navigator.pop(context);
-                    }
-                  });
-                } else {
-                  Navigator.pop(context);
-                }
+                Navigator.pop(context);
 
 //IfBluetoothConnectedDuringBackButtonPressed,ItShouldBeDisconnected
 //                   if (bluetoothConnected) {
@@ -3062,8 +3034,7 @@ class _ChefToCookTableSnapshotCheckState
                   Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                          builder: (context) =>
-                              PrinterSettings(chefOrCaptain: 'Chef')));
+                          builder: (context) => PrinterRolesAssigning()));
                 },
                 icon: Icon(
                   Icons.settings,
@@ -3388,31 +3359,21 @@ class _ChefToCookTableSnapshotCheckState
                           localKotCancelledItemTrueElseFalse =
                               kotCancelledItemTrueElseFalse;
                           localKOTItemsID = kotItemsID;
-                          print(
-                              '_everySecondForKotTimer1 $_everySecondForKotTimer');
 
-                          if ((!listEquals(
-                                      tempLocalKOTItemsID, localKOTItemsID) ||
-                                  cancelledItemsKey.isNotEmpty) &&
-                              bluetoothJustTurningOn == false) {
+                          if (!listEquals(
+                                  tempLocalKOTItemsID, localKOTItemsID) ||
+                              cancelledItemsKey.isNotEmpty) {
                             print('came into temp also');
                             print(tempLocalKOTItemsID);
                             print(localKOTItemsID);
                             if (bluetoothOnTrueOrOffFalse &&
                                 timerForPrintingKOTRunning == false &&
                                 timerForPrintingTenSecKOTRunning == false &&
-                                intermediatePrintingCallKOTRunning == false &&
-                                intermediatePrintingAfterOrderReadyRunning ==
-                                    false) {
+                                deliverySlipPrinting == false &&
+                                serverUpdateAfterKotPrintIsOver) {
+                              print('called print again');
                               timerForPrintingKOT();
-                            } else if (bluetoothTurnOnMessageShown == false &&
-                                bluetoothOnTrueOrOffFalse == false) {
-                              print(
-                                  'inside calling bluetoothForKotNotTurnedOn');
-                              bluetoothForKotNotTurnedOn();
                             }
-                          } else {
-                            print('nothing needed');
                           }
                         }
                       }
@@ -3844,7 +3805,6 @@ class _ChefToCookTableSnapshotCheckState
                                                     }
 //IfAllItemsInParcelReady,,,WeWantTheBottomSheetToPrint
                                                     if (allItemsInParcelReady) {
-                                                      bluetoothStateChangeFunction();
                                                       if (chefPrinterAfterOrderReadyPrintFromClass) {
                                                         showModalBottomSheet(
                                                             context: context,
@@ -4123,7 +4083,6 @@ class _ChefToCookTableSnapshotCheckState
                                               if (!cancelledItemsKey
                                                       .contains(itemID) &&
                                                   statusOfOrderedItem != 11) {
-                                                bluetoothStateChangeFunction();
                                                 final orderedItemNameSplit =
                                                     orderedItem.split(':');
 
@@ -4335,16 +4294,6 @@ class _ChefToCookTableSnapshotCheckState
                                                                 color: Colors
                                                                     .black),
                                                           ),
-                                            // allItemComment ==
-                                            //         'nocomments'
-                                            //     ? null
-                                            //     : Text(
-                                            //         allItemComment,
-                                            //         style: TextStyle(
-                                            //             fontWeight:
-                                            //                 FontWeight.w500,
-                                            //             color: Colors.black),
-                                            //       ),
                                           ),
                                         ));
                                   },
@@ -4433,44 +4382,26 @@ class _ChefToCookTableSnapshotCheckState
               ),
             ),
             SizedBox(width: 10),
-//IfBluetoothStateIdOff-LessThan10 And Not 1
-//WePutTheButtonNameAs "TurnBluetoothOnToPrint
-//ElseWeJustSayPrint
-            Provider.of<PrinterAndOtherDetailsProvider>(context)
-                        .chefPrinterAddressFromClass ==
-                    ''
+//FirstWeCheckWhetherChefPrinterHasBeenAssigned
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                        .chefAssignedPrinterFromClass ==
+                    '{}'
                 ? Expanded(
                     // width: 300.0,
                     child: TextButton.icon(
                       icon: Icon(Icons.print),
-                      label: bluetoothOnTrueOrOffFalse
-                          ? Text(
-                              'Add Printer',
-                            )
-                          : Text(
-                              'Turn Bluetooth On & Add Printer',
-                            ),
+                      label: Text(
+                        'Assign Printer',
+                      ),
                       style: TextButton.styleFrom(
                           primary: Colors.white, backgroundColor: Colors.green),
                       onPressed: () async {
-                        disconnectAndConnectAttempted = false;
-//OnClickingPrint,WeAlwaysCallForTheMethodSavedBluetoothPrinterConnect
-//WhichWillInsideItCallForThePrintFunction
-
-                        if (bluetoothOnTrueOrOffFalse) {
-                          Navigator.pop(context);
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      SearchingConnectingPrinter(
-                                          chefOrCaptain: 'Chef')));
-                        } else {
-                          Navigator.pop(context);
-                          if (appInBackground == false) {
-                            show('Please Turn On Bluetooth');
-                          }
-                        }
+//WeGoToThePageForAssigningPrinters
+                        Navigator.pop(context);
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => PrinterRolesAssigning()));
                       },
                     ),
                   )
@@ -4478,36 +4409,35 @@ class _ChefToCookTableSnapshotCheckState
                     // width: 300.0,
                     child: TextButton.icon(
                       icon: Icon(Icons.print),
-                      label: bluetoothOnTrueOrOffFalse
-                          ? Text(
-                              'Print',
-                            )
-                          : Text(
-                              'Turn Bluetooth On To Print',
-                            ),
+                      label: Text(
+                        'Print',
+                      ),
                       style: TextButton.styleFrom(
                           primary: Colors.white, backgroundColor: Colors.green),
                       onPressed: () async {
-                        disconnectAndConnectAttempted = false;
 //OnClickingPrint,WeAlwaysCallForTheMethodSavedBluetoothPrinterConnect
 //WhichWillInsideItCallForThePrintFunction
-                        print('fdfdffddsnfjdnfiyhjrnsdkj');
                         localParcelReadyNumberOfItems =
                             parcelReadyNumberOfItems;
                         localParcelReadyItemNames = parcelReadyItemNames;
                         localParcelReadyItemComments = parcelReadyItemComments;
                         localParcelNumber = parcelNumber;
+                        chefPrinterAssigningMap = json.decode(
+                            Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                    listen: false)
+                                .chefAssignedPrinterFromClass);
+                        chefPrinterAssigningMap.forEach((key, value) {
+                          chefPrinterRandomID = key;
+                        });
+                        printerSavingMap = json.decode(
+                            Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                    listen: false)
+                                .savedPrintersFromClass);
+                        chefPrinterCharacters =
+                            printerSavingMap[chefPrinterRandomID];
 
-                        if (bluetoothOnTrueOrOffFalse) {
-                          printerConnectionToLastSavedPrinterForAfterOrderPrint();
-
-                          Navigator.pop(context);
-                        } else {
-                          Navigator.pop(context);
-                          if (appInBackground == false) {
-                            show('Please Turn On Bluetooth');
-                          }
-                        }
+                        deliverySlipPrintBytesGenerator();
+                        Navigator.pop(context);
                       },
                     ),
                   ),
@@ -4556,9 +4486,9 @@ class _ChefToCookTableSnapshotCheckState
                 );
               }),
         ),
-        Provider.of<PrinterAndOtherDetailsProvider>(context)
-                    .chefPrinterAddressFromClass ==
-                ''
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                    .chefAssignedPrinterFromClass ==
+                '{}'
             ? Padding(
                 padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
                 child: Container(
@@ -4566,34 +4496,17 @@ class _ChefToCookTableSnapshotCheckState
                   // width: 300.0,
                   child: TextButton.icon(
                     icon: Icon(Icons.print),
-                    label: bluetoothOnTrueOrOffFalse
-                        ? Text(
-                            'Add Printer',
-                          )
-                        : Text(
-                            'Turn On Bluetooth and Add Printer',
-                          ),
+                    label: Text(
+                      'Assign Printer',
+                    ),
                     style: TextButton.styleFrom(
                         primary: Colors.white, backgroundColor: Colors.green),
                     onPressed: () async {
-//OnClickingPrint,WeAlwaysCallForTheMethodSavedBluetoothPrinterConnect
-//WhichWillInsideItCallForThePrintFunction
-                      print('fdnfjdnfiyhfdfdfjrnsdkj');
-
-                      if (bluetoothOnTrueOrOffFalse) {
-                        Navigator.pop(context);
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    SearchingConnectingPrinter(
-                                        chefOrCaptain: 'Chef')));
-                      } else {
-                        Navigator.pop(context);
-                        if (appInBackground == false) {
-                          show('Please Turn On Bluetooth');
-                        }
-                      }
+                      Navigator.pop(context);
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => PrinterRolesAssigning()));
                     },
                   ),
                 ),
@@ -4605,100 +4518,35 @@ class _ChefToCookTableSnapshotCheckState
                   // width: 300.0,
                   child: TextButton.icon(
                     icon: Icon(Icons.print),
-                    label: bluetoothOnTrueOrOffFalse
-                        ? Text(
-                            'Print All',
-                          )
-                        : Text(
-                            'Turn Bluetooth To Print All',
-                          ),
+                    label: Text(
+                      'Print All',
+                    ),
                     style: TextButton.styleFrom(
                         primary: Colors.white, backgroundColor: Colors.green),
                     onPressed: () async {
-//OnClickingPrint,WeAlwaysCallForTheMethodSavedBluetoothPrinterConnect
-//WhichWillInsideItCallForThePrintFunction
-                      print('fdnfjdnfiyhfdfdfjrnsdkj');
                       localParcelReadyNumberOfItems = parcelReadyNumberOfItems;
                       localParcelReadyItemNames = parcelReadyItemNames;
                       localParcelReadyItemComments = parcelReadyItemComments;
                       localParcelNumber = parcelNumber;
-
-                      if (bluetoothOnTrueOrOffFalse) {
-                        printerConnectionToLastSavedPrinterForAfterOrderPrint();
-                        Navigator.pop(context);
-                      } else {
-                        Navigator.pop(context);
-                        if (appInBackground == false) {
-                          show('Please Turn On Bluetooth');
-                        }
-                      }
+                      chefPrinterAssigningMap = json.decode(
+                          Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                  listen: false)
+                              .chefAssignedPrinterFromClass);
+                      chefPrinterAssigningMap.forEach((key, value) {
+                        chefPrinterRandomID = key;
+                      });
+                      printerSavingMap = json.decode(
+                          Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                  listen: false)
+                              .savedPrintersFromClass);
+                      chefPrinterCharacters =
+                          printerSavingMap[chefPrinterRandomID];
+                      deliverySlipPrintBytesGenerator();
+                      Navigator.pop(context);
                     },
                   ),
                 ),
               ),
-//BottomWeGiveTwoOptions
-//closeWillSimplyCloseTheBottomSheetWithoutPrinting
-//         Row(
-//           children: [
-//             SizedBox(width: 10),
-//             Expanded(
-//               //width: 300.0,
-//               child: TextButton.icon(
-//                 icon: Icon(Icons.close),
-//                 label: Text(
-//                   'Close',
-//                 ),
-//                 style: TextButton.styleFrom(
-//                     primary: Colors.white,
-//                     backgroundColor: kBottomContainerColour),
-//                 onPressed: () async {
-//                   //WeDontNeedToPrint.SoJustPoppingBottomSheet
-//                   Navigator.pop(context);
-// //PoppingItTwiceSoThatWeStraightAwayGoToTheCaptain'sScreen,AvoidingTheItemsEachTableScreen
-//                 },
-//               ),
-//             ),
-//             // SizedBox(width: 10),
-// //IfBluetoothStateIdOff-LessThan10 And Not 1
-// //WePutTheButtonNameAs "TurnBluetoothOnToPrint
-// //ElseWeJustSayPrint
-//             Expanded(
-//               // width: 300.0,
-//               child: TextButton.icon(
-//                 icon: Icon(Icons.print),
-//                 label: bluetoothOnTrueOrOffFalse
-//                     ? Text(
-//                         'Print All',
-//                       )
-//                     : Text(
-//                         'Turn Bluetooth To Print All',
-//                       ),
-//                 style: TextButton.styleFrom(
-//                     primary: Colors.white, backgroundColor: Colors.green),
-//                 onPressed: () async {
-// //OnClickingPrint,WeAlwaysCallForTheMethodSavedBluetoothPrinterConnect
-// //WhichWillInsideItCallForThePrintFunction
-
-//                   localParcelReadyNumberOfItems = parcelReadyNumberOfItems;
-//                   localParcelReadyItemNames = parcelReadyItemNames;
-//                   localParcelNumber = parcelNumber;
-//
-//                   if (connectingPrinterAddressChefScreen != '') {
-//                     printerConnectionToLastSavedPrinter();
-//                   } else {
-//                     getAllPairedDevices();
-//                     setState(() {
-//                       noNeedPrinterConnectionScreen = false;
-//                     });
-//                   }
-//
-//                   Navigator.pop(context);
-//                 },
-//               ),
-//             ),
-//             SizedBox(width: 10),
-//           ],
-//         ),
         Divider(thickness: 6),
         Container(
           child: ListTile(
@@ -4708,6 +4556,7 @@ class _ChefToCookTableSnapshotCheckState
                 style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ),
+//WeGiveTwoOptionsBelow-ToPrintOneItemAloneOrJustCloseWithoutDeliverySlipPrint
         Row(
           children: [
             SizedBox(width: 10),
@@ -4729,23 +4578,16 @@ class _ChefToCookTableSnapshotCheckState
               ),
             ),
             SizedBox(width: 10),
-//IfBluetoothStateIdOff-LessThan10 And Not 1
-//WePutTheButtonNameAs "TurnBluetoothOnToPrint
-//ElseWeJustSayPrint
-            Provider.of<PrinterAndOtherDetailsProvider>(context)
-                        .chefPrinterAddressFromClass ==
-                    ''
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                        .chefAssignedPrinterFromClass ==
+                    '{}'
                 ? Expanded(
                     // width: 300.0,
                     child: TextButton.icon(
                       icon: Icon(Icons.print),
-                      label: bluetoothOnTrueOrOffFalse
-                          ? Text(
-                              'Add Printer',
-                            )
-                          : Text(
-                              'Turn Bluetooth On & Add Printer',
-                            ),
+                      label: Text(
+                        'Assign Printer',
+                      ),
                       style: TextButton.styleFrom(
                           primary: Colors.white, backgroundColor: Colors.green),
                       onPressed: () async {
@@ -4754,26 +4596,12 @@ class _ChefToCookTableSnapshotCheckState
                         localParcelReadyNumberOfItems = [];
                         localParcelReadyItemNames = [];
                         localParcelReadyItemComments = [];
-                        print('fdnfjdnfiyhjrnsdkjdfgg');
-                        // localParcelReadyNumberOfItems = parcelReadyNumberOfItems;
-                        // localParcelReadyItemNames = parcelReadyItemNames;
                         localParcelNumber = '';
-
-                        if (bluetoothOnTrueOrOffFalse) {
-                          Navigator.pop(context);
-                          print('nnknfkjnfndfdfdd');
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) =>
-                                      SearchingConnectingPrinter(
-                                          chefOrCaptain: 'Chef')));
-                        } else {
-                          Navigator.pop(context);
-                          if (appInBackground == false) {
-                            show('Please Turn On Bluetooth');
-                          }
-                        }
+                        Navigator.pop(context);
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => PrinterRolesAssigning()));
                       },
                     ),
                   )
@@ -4781,13 +4609,9 @@ class _ChefToCookTableSnapshotCheckState
                     // width: 300.0,
                     child: TextButton.icon(
                       icon: Icon(Icons.print),
-                      label: bluetoothOnTrueOrOffFalse
-                          ? Text(
-                              'Print Item',
-                            )
-                          : Text(
-                              'Turn Bluetooth To Print Item',
-                            ),
+                      label: Text(
+                        'Print Item',
+                      ),
                       style: TextButton.styleFrom(
                           primary: Colors.white, backgroundColor: Colors.green),
                       onPressed: () async {
@@ -4801,20 +4625,24 @@ class _ChefToCookTableSnapshotCheckState
                         localParcelReadyItemNames.add(parcelReadyItemNames[0]);
                         localParcelReadyItemComments
                             .add(parcelReadyItemComments[0]);
-                        print('fdnfjdnfiyhjrnsdkjdfgg');
                         // localParcelReadyNumberOfItems = parcelReadyNumberOfItems;
                         // localParcelReadyItemNames = parcelReadyItemNames;
                         localParcelNumber = parcelNumber;
-
-                        if (bluetoothOnTrueOrOffFalse) {
-                          printerConnectionToLastSavedPrinterForAfterOrderPrint();
-                          Navigator.pop(context);
-                        } else {
-                          Navigator.pop(context);
-                          if (appInBackground == false) {
-                            show('Please Turn On Bluetooth');
-                          }
-                        }
+                        chefPrinterAssigningMap = json.decode(
+                            Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                    listen: false)
+                                .chefAssignedPrinterFromClass);
+                        chefPrinterAssigningMap.forEach((key, value) {
+                          chefPrinterRandomID = key;
+                        });
+                        printerSavingMap = json.decode(
+                            Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                    listen: false)
+                                .savedPrintersFromClass);
+                        chefPrinterCharacters =
+                            printerSavingMap[chefPrinterRandomID];
+                        deliverySlipPrintBytesGenerator();
+                        Navigator.pop(context);
                       },
                     ),
                   ),

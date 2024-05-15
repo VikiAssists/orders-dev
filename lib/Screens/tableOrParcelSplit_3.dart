@@ -3,8 +3,9 @@ import 'dart:collection';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
-import 'package:orders_dev/Screens/items_each_order_8.dart';
-import 'package:orders_dev/Screens/menu_page_add_items_5.dart';
+import 'package:orders_dev/Screens/items_each_order_10.dart';
+import 'package:orders_dev/Screens/items_each_order_11.dart';
+import 'package:orders_dev/Screens/menu_page_add_items_6.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/Methods/split_button.dart';
 
@@ -107,7 +108,7 @@ class _TableOrParcelSplitWithRunningOrdersState
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => ItemsInEachOrderWithTime(
+                    builder: (context) => ItemsWithCancelRegister(
                           hotelName: widget.hotelName,
                           menuItems: widget.menuItems,
                           menuTitles: widget.menuTitles,
@@ -148,7 +149,7 @@ class _TableOrParcelSplitWithRunningOrdersState
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => ItemsInEachOrderWithTime(
+                    builder: (context) => ItemsWithCancelRegister(
                           hotelName: widget.hotelName,
                           menuItems: widget.menuItems,
                           menuPrices: widget.menuPrices,
@@ -169,7 +170,7 @@ class _TableOrParcelSplitWithRunningOrdersState
             Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => MenuPageWithTimeSelectionOfEachItem(
+                    builder: (context) => MenuPageWithBackButtonUsage(
                         hotelName: widget.hotelName,
                         tableOrParcel: widget.partOfTableOrParcel,
                         tableOrParcelNumber:

@@ -1,17 +1,17 @@
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_background/flutter_background.dart';
 import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/chefOrCaptain_5.dart';
 import 'package:orders_dev/Screens/permissions_screen.dart';
-import 'package:orders_dev/Screens/permissions_screen_2.dart';
+import 'package:orders_dev/Screens/permissions_screen_3.dart';
 import 'package:orders_dev/constants.dart';
 import 'package:orders_dev/services/background_services.dart';
 import 'package:orders_dev/services/firestore_services.dart';
@@ -47,7 +47,7 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
   String addressLine3ForPrint = '';
   String phoneNumberForPrint = '';
   String gstCodeForPrint = '';
-  bool hasBackgroundPermissions = true;
+  // bool hasBackgroundPermissions = true;
   bool locationPermissionAccepted = true;
   bool isNotificationPermissionGranted = true;
 
@@ -65,7 +65,7 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
 
   @override
   void initState() {
-    backgroundPermissionsCheck();
+    // backgroundPermissionsCheck();
     requestLocationPermissionForBluetooth();
     notificationPermissionChecker();
     showSpinner = false;
@@ -74,12 +74,12 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
     super.initState();
   }
 
-  void backgroundPermissionsCheck() async {
-    hasBackgroundPermissions = await FlutterBackground.hasPermissions;
-    setState(() {
-      hasBackgroundPermissions;
-    });
-  }
+  // void backgroundPermissionsCheck() async {
+  //   hasBackgroundPermissions = await FlutterBackground.hasPermissions;
+  //   setState(() {
+  //     hasBackgroundPermissions;
+  //   });
+  // }
 
   void requestLocationPermissionForBluetooth() async {
     var status = await Permission.locationWhenInUse.status;
@@ -167,6 +167,9 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
       allUserProfiles = allUserProfileDetailsOfTheRestaurant.data()!;
       Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
           .saveAllUserProfiles(json.encode(allUserProfiles));
+      downloadingPrinterDataAndAlsoCheckingExistenceOfUsersNeedingKot();
+//ThisCanBeRemovedOnceWeAreSureAllUsersHaveUpdated
+      removableOneOldPrinterToNewPrinterCopy();
     }
 
     final tableQuery =
@@ -291,7 +294,7 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
           body: '*newUserToken*');
     }
     if (locationPermissionAccepted == false ||
-        hasBackgroundPermissions == false ||
+        // hasBackgroundPermissions == false ||
         isNotificationPermissionGranted == false) {
       // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) {
       //   return ChefOrCaptain(
@@ -313,9 +316,204 @@ class _ChooseRestaurantState extends State<ChooseRestaurant> {
       Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (BuildContext) => PermissionsWithAutoStart(
+              builder: (BuildContext) => PermissionsWithNewPrinterPackage(
                     fromFirstScreenTrueElseFalse: true,
                   )));
+    }
+  }
+
+  void downloadingPrinterDataAndAlsoCheckingExistenceOfUsersNeedingKot() {
+    if (allUserProfiles[widget.userPhoneNumber]['printerSavingMap'] != null) {
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .savingPrintersAddedByTheUser(
+              allUserProfiles[widget.userPhoneNumber]['printerSavingMap']);
+    }
+    if (allUserProfiles[widget.userPhoneNumber]['billingPrinterAssigningMap'] !=
+        null) {
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .savingBillingAssignedPrinterByTheUser(
+              allUserProfiles[widget.userPhoneNumber]
+                  ['billingPrinterAssigningMap']);
+    }
+    if (allUserProfiles[widget.userPhoneNumber]['chefPrinterAssigningMap'] !=
+        null) {
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .savingChefAssignedPrinterByTheUser(
+              allUserProfiles[widget.userPhoneNumber]
+                  ['chefPrinterAssigningMap']);
+    }
+    if (allUserProfiles[widget.userPhoneNumber]['kotPrinterAssigningMap'] !=
+        null) {
+//IfNothingHasBeenAssignedForKotYet
+      if (allUserProfiles[widget.userPhoneNumber]['kotPrinterAssigningMap'] ==
+          '{}') {
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .savingKotAssignedPrinterByTheUser(
+                allUserProfiles[widget.userPhoneNumber]
+                    ['kotPrinterAssigningMap']);
+      } else {
+//ifItHasBeenAssigned,WeNeedToCheckWhetherTheUsersStillExist
+        Map<String, dynamic> kotPrinterAssigningMap = HashMap();
+        bool usersAssignedToKotPrintersHaveChanged = false;
+        Map<String, dynamic> tempKotPrinterAssigningMap = json.decode(
+            allUserProfiles[widget.userPhoneNumber]['kotPrinterAssigningMap']);
+        tempKotPrinterAssigningMap.forEach((key, value) {
+//keyIsPrinterIdHere
+//ValuesContainsMap,AsOfNotOnlyOfUsersAndTheCopiesTheyNeed
+          Map<String, dynamic> serverEachPrinterValueOfAllUsers =
+              value['users'];
+          Map<String, dynamic> eachPrinterMapToUpdateAfterCheck = HashMap();
+//ToGetOnlyTheUserPhoneNumber
+          List<dynamic> userPhoneNumbersThatNeedKot =
+              serverEachPrinterValueOfAllUsers.keys.toList();
+          for (var eachUserPhoneNumber in userPhoneNumbersThatNeedKot) {
+            if (allUserProfiles.containsKey(eachUserPhoneNumber)) {
+//ThisMeansThatTheUserStillExistsAndWeAddTheServerMapValueOfTheUserInTheBelowMap
+              eachPrinterMapToUpdateAfterCheck.addAll(
+                  {eachUserPhoneNumber: value['users'][eachUserPhoneNumber]});
+            } else {
+//IfUserIsNotExistingWeNeedToChangeTheDataInServerToo.HenceChangingBool
+              usersAssignedToKotPrintersHaveChanged = true;
+            }
+          }
+          kotPrinterAssigningMap.addAll({
+            key: {'users': eachPrinterMapToUpdateAfterCheck}
+          });
+        });
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .savingKotAssignedPrinterByTheUser(
+                json.encode(kotPrinterAssigningMap));
+        if (usersAssignedToKotPrintersHaveChanged) {
+//SinceUsersHaveChanged,WeWillNeedToUpdateInServer
+          FireStorePrintersInformation(
+                  userPhoneNumber: widget.userPhoneNumber,
+                  hotelName: Provider.of<PrinterAndOtherDetailsProvider>(
+                          context,
+                          listen: false)
+                      .chosenRestaurantDatabaseFromClass,
+                  printerMapKey: 'kotPrinterAssigningMap',
+                  printerMapValue: json.encode(kotPrinterAssigningMap))
+              .updatePrinterInfo();
+        }
+      }
+    }
+  }
+
+  void removableOneOldPrinterToNewPrinterCopy() {
+    if (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .captainPrinterAddressFromClass !=
+        '') {
+//ThisMeansThereIsPrinterSavedAsPartOfOldSoftware
+      Map<String, dynamic> printerSavingMap = {};
+      String randomID = (10000 + Random().nextInt(99999 - 10000)).toString();
+      Map<String, dynamic> tempPrinterMapForSaving = HashMap();
+      tempPrinterMapForSaving.addAll({
+        'printerRandomID': randomID,
+        'printerName': 'Printer One',
+        'printerManufacturerDeviceName':
+            (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                    .captainPrinterNameFromClass)
+                .toString(),
+        'printerType': 'Bluetooth',
+        'printerBluetoothAddress':
+            (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                    .captainPrinterAddressFromClass)
+                .toString(),
+        'printerIPAddress': 'NA',
+        'printerUsbVendorID': 'NA',
+        'printerUsbProductID': 'NA',
+        'printerSize':
+            (Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                    .captainPrinterSizeFromClass)
+                .toString(),
+        'spacesAboveKOT': '0',
+        'spacesBelowKOT': '0',
+        'kotFontSize': 'Small',
+        'spacesAboveBill': '0',
+        'spacesBelowBill': '0',
+        'billFontSize': 'Small',
+        'spacesAboveDeliverySlip': '0',
+        'spacesBelowDeliverySlip': '0',
+        'deliverySlipFontSize': 'Small',
+        'singleUserPrinter': false,
+        'autoCutAfterKotPrint': true,
+        'autoCutAfterChefPrint': true,
+        'autoCutAfterBillPrint': true,
+        'extraBool1': true,
+        'extraBool2': true,
+        'extraBool3': true,
+        'extraBool4': true,
+        'extraBool5': true,
+        'extraBool6': false,
+        'extraBool7': false,
+        'extraBool8': false,
+        'extraBool9': false,
+        'extraBool10': false,
+        'extraString1': 'true',
+        'extraString2': 'true',
+        'extraString3': 'true',
+        'extraString4': 'true',
+        'extraString5': 'true',
+        'extraString6': 'false',
+        'extraString7': 'false',
+        'extraString8': 'false',
+        'extraString9': 'false',
+        'extraString10': 'false'
+      });
+      printerSavingMap.addAll({randomID: tempPrinterMapForSaving});
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .savingPrintersAddedByTheUser(jsonEncode(printerSavingMap));
+      //savingTheChangeInPrinterSavingMapInServer
+      FireStorePrintersInformation(
+              userPhoneNumber: widget.userPhoneNumber,
+              hotelName: Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chosenRestaurantDatabaseFromClass,
+              printerMapKey: 'printerSavingMap',
+              printerMapValue: json.encode(printerSavingMap))
+          .updatePrinterInfo();
+//OnceSavedWeCanDeleteTheOldPrinter
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .addCaptainPrinter('', '', '0');
+//WeNeedToAlsoAssignPrintersForBillingAndForKotAlongWithUsersWhoNeedIt
+      Map<String, dynamic> kotPrinterAssigningMap = HashMap();
+      Map<String, dynamic> billingPrinterAssigningMap = HashMap();
+      Map<String, dynamic> usersWhoNeedKot = HashMap();
+      allUserProfiles.forEach((key, value) {
+        if (value['privileges']['8'] == true) {
+          usersWhoNeedKot.addAll({
+            key: {'copies': 1}
+          });
+        }
+      });
+      kotPrinterAssigningMap.addAll({
+        randomID: {'users': usersWhoNeedKot}
+      });
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .savingKotAssignedPrinterByTheUser(
+              json.encode(kotPrinterAssigningMap));
+      FireStorePrintersInformation(
+              userPhoneNumber: widget.userPhoneNumber,
+              hotelName: Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chosenRestaurantDatabaseFromClass,
+              printerMapKey: 'kotPrinterAssigningMap',
+              printerMapValue: json.encode(kotPrinterAssigningMap))
+          .updatePrinterInfo();
+      billingPrinterAssigningMap.addAll({
+        randomID: {'assigned': true, 'copies': 1}
+      });
+      Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+          .savingBillingAssignedPrinterByTheUser(
+              json.encode(billingPrinterAssigningMap));
+      FireStorePrintersInformation(
+              userPhoneNumber: widget.userPhoneNumber,
+              hotelName: Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .chosenRestaurantDatabaseFromClass,
+              printerMapKey: 'billingPrinterAssigningMap',
+              printerMapValue: json.encode(billingPrinterAssigningMap))
+          .updatePrinterInfo();
     }
   }
 
