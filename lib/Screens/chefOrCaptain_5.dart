@@ -25,9 +25,11 @@ import 'package:orders_dev/Screens/main_settings_screen.dart';
 import 'package:orders_dev/Screens/main_settings_screen_3.dart';
 import 'package:orders_dev/Screens/order_history_5.dart';
 import 'package:orders_dev/Screens/order_history_6.dart';
+import 'package:orders_dev/Screens/order_history_7.dart';
 import 'package:orders_dev/Screens/printer_settings_screen.dart';
 import 'package:orders_dev/Screens/statistics_page.dart';
 import 'package:orders_dev/Screens/statistics_page_2.dart';
+import 'package:orders_dev/Screens/statistics_page_3.dart';
 import 'package:orders_dev/Screens/user_profiles_screen_4.dart';
 
 import 'package:orders_dev/constants.dart';
@@ -388,10 +390,15 @@ class NavigationDrawer extends StatelessWidget {
         title: Text('Order History'),
         onTap: () {
           Navigator.pop(context);
+          // Navigator.push(
+          //     context,
+          //     MaterialPageRoute(
+          //         builder: (Buildcontext) => OrderHistoryWithNewPrintPackage(
+          //             hotelName: hotelName)));
           Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (Buildcontext) => OrderHistoryWithNewPrintPackage(
+                  builder: (Buildcontext) => OrderHistoryWithDayWiseFolder(
                       hotelName: hotelName)));
         },
       )
@@ -426,7 +433,7 @@ class NavigationDrawer extends StatelessWidget {
         onTap: () {
           Navigator.pop(context);
           Navigator.push(context,
-              MaterialPageRoute(builder: (BuildContext) => StatisticsWithExpenses(
+              MaterialPageRoute(builder: (BuildContext) => StatisticsWithExpensesAndIncome(
 
               )));
         },

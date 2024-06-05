@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:modal_progress_hud_alt/modal_progress_hud_alt.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
 import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
@@ -69,7 +71,7 @@ class ItemsWithCancelRegister extends StatefulWidget {
 class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
     with WidgetsBindingObserver {
 //KeepingInitialStateOfAllItemsDeliveredAsFalse
-
+  final _fireStore = FirebaseFirestore.instance;
   late StreamSubscription internetCheckerSubscription;
   bool pageHasInternet = true;
   List<Map<String, dynamic>> items = [];
@@ -105,6 +107,24 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
   bool deliveredStatus = true;
   bool orderIdCheckedWhenEnteringScreen = false;
   String firstCheckedOrderId = '';
+  Map<String, dynamic> restaurantInfoMap = HashMap();
+  StreamSubscription<QuerySnapshot>? _streamSubscriptionForThisMonth;
+  int closingHour = 0;
+  String statisticsYear = '';
+  String statisticsMonth = '';
+  String statisticsDay = '';
+  String lastItemIdForCancelling = '';
+  num lastItemStatusForCancelling = 0;
+  num previousCashBalanceWhileIterating = -9999999;
+  num dayIncrementWhileIterating = -1111111;
+  int currentGeneratedIncrementRandomNumber = 0;
+  bool showSpinner = false;
+  String billYear = '';
+  String billMonth = '';
+  String billDay = '';
+  String billHour = '';
+  String billMinute = '';
+  String billSecond = '';
 
   @override
   void initState() {
@@ -136,8 +156,16 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
     movePressed = false;
     orderIdCheckedWhenEnteringScreen = false;
     firstCheckedOrderId = '';
+    showSpinner = false;
 
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    _streamSubscriptionForThisMonth?.cancel();
+    super.dispose();
   }
 
   //ThisIsToCheckAppLifeCycleStateWhetherItIsInForegroundOrBackground
@@ -293,6 +321,25 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
     });
   }
 
+  //ConvertingAMapFromNormalValueToValueOfFieldValueToIncrements
+//SoThatItCanBeSentToFireStore
+  Map<String, dynamic> updateMapWithIncrements(Map<String, dynamic> map) {
+    final updatedMap = Map<String, dynamic>.from(map);
+    updatedMap.updateAll((key, value) {
+      if (value is Map<String, dynamic>) {
+        value.updateAll((subKey, subValue) {
+          if (subValue is num) {
+            return FieldValue.increment(subValue); // Apply increment directly
+          } else {
+            return subValue; // Return unchanged values
+          }
+        });
+      }
+      return value; // Return unchanged values for non-map entries
+    });
+    return updatedMap;
+  }
+
   @override
   Widget build(BuildContext innerContext) {
     final fcmProvider =
@@ -306,6 +353,112 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
     String customermobileNumber = '';
     String customeraddressline1 = '';
     TextEditingController _controller = TextEditingController();
+
+    void documentStatisticsRegistryDateMaker() {
+      DateTime now = DateTime.now();
+//WeEnsureWeTakeTheMonth,Day,Hour,MinuteAsString
+//ifItIsLessThan10,WeSaveItWithZeroInTheFront
+//ThisWillEnsure,ItIsAlwaysIn2Digits,AndWithoutPuttingItInTwoDigits,,
+//ItWon'tComeInAscendingOrder
+      if (baseInfoFromServerMap['billYear'] == '') {
+        billYear = now.year.toString();
+      } else {
+//thisMeansThatWeHavePutItInServerWithThisYearWhilePrinting
+        billYear = baseInfoFromServerMap['billYear'];
+      }
+      if (baseInfoFromServerMap['billMonth'] == '') {
+        billMonth = now.month < 10
+            ? '0${now.month.toString()}'
+            : '${now.month.toString()}';
+      } else {
+        billMonth = baseInfoFromServerMap['billMonth'];
+      }
+      if (baseInfoFromServerMap['billDay'] == '') {
+        billDay =
+            now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
+      } else {
+        billDay = baseInfoFromServerMap['billDay'];
+      }
+      if (baseInfoFromServerMap['billHour'] == '') {
+        billHour = now.hour < 10
+            ? '0${now.hour.toString()}'
+            : '${now.hour.toString()}';
+      } else {
+        billHour = baseInfoFromServerMap['billHour'];
+      }
+      if (baseInfoFromServerMap['billMinute'] == '') {
+        billMinute = now.minute < 10
+            ? '0${now.minute.toString()}'
+            : '${now.minute.toString()}';
+      } else {
+        billMinute = baseInfoFromServerMap['billMinute'];
+      }
+      if (baseInfoFromServerMap['billSecond'] == '') {
+        billSecond = now.second < 10
+            ? '0${now.second.toString()}'
+            : '${now.second.toString()}';
+      } else {
+        billSecond = baseInfoFromServerMap['billSecond'];
+      }
+
+//ThisCouldBeEitherNowTimeOrPrintedTime
+      DateTime dateTimeFromBaseInfo = DateTime(
+          int.parse(billYear),
+          int.parse(billMonth),
+          int.parse(billDay),
+          int.parse(billHour),
+          int.parse(billMinute),
+          int.parse(billSecond));
+
+      closingHour = 0;
+      statisticsYear = '';
+      statisticsMonth = '';
+      statisticsDay = '';
+
+      restaurantInfoMap = json.decode(
+          Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+              .restaurantInfoDataFromClass);
+      if (restaurantInfoMap.containsKey('restaurantClosingHour')) {
+        String tempClosingHour = restaurantInfoMap['restaurantClosingHour'];
+        if (tempClosingHour.substring(0, 2) != '12') {
+//TwelveIsAnywayZeroOnly
+          closingHour = int.parse(tempClosingHour.substring(0, 2));
+        }
+      }
+      if (dateTimeFromBaseInfo.millisecondsSinceEpoch >=
+          (DateTime(DateTime.now().year, DateTime.now().month,
+                  DateTime.now().day, closingHour))
+              .millisecondsSinceEpoch) {
+//WeAreCheckingWhetherItIsGreaterThanTheClosingTime
+        statisticsYear = billYear;
+        statisticsMonth = billMonth;
+        statisticsDay = billDay;
+      } else {
+//ThisMeansTheBillShouldGoIntoYesterday
+        if (dateTimeFromBaseInfo.millisecondsSinceEpoch >=
+            DateTime(dateTimeFromBaseInfo.year, dateTimeFromBaseInfo.month,
+                    dateTimeFromBaseInfo.day, closingHour)
+                .millisecondsSinceEpoch) {
+//thisMeansOnTheBilledDateItsHigherThanClosingHourAndHenceAgain
+//ThatDayIsStatisticsYearMonthDay
+          statisticsYear = billYear;
+          statisticsMonth = billMonth;
+          statisticsDay = billDay;
+        } else {
+//TheDocumentShouldBePreviousDayInTheBilledDate
+        }
+        DateTime yesterdayToBilledDay = DateTime(dateTimeFromBaseInfo.year,
+                dateTimeFromBaseInfo.month, dateTimeFromBaseInfo.day)
+            .subtract(Duration(days: 1));
+        statisticsYear = yesterdayToBilledDay.year.toString();
+        statisticsMonth = yesterdayToBilledDay.month.toString().length > 1
+            ? yesterdayToBilledDay.month.toString()
+            : '0${yesterdayToBilledDay.month.toString()}';
+        statisticsDay = yesterdayToBilledDay.day.toString().length > 1
+            ? yesterdayToBilledDay.day.toString()
+            : '0${yesterdayToBilledDay.day.toString()}';
+      }
+    }
 
     List<String> dynamicTokensToStringToken() {
       Map<String, dynamic> allUserTokensMap = json.decode(
@@ -1159,53 +1312,53 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
     String billIdOfThisOrder() {
       DateTime now = DateTime.now();
 
-      String tempYear = '';
-      String tempMonth = '';
-      String tempDay = '';
-      String tempHour = '';
-      String tempMinute = '';
-      String tempSecond = '';
       if (baseInfoFromServerMap['billYear'] == '') {
-        tempYear = now.year.toString();
+        billYear = now.year.toString();
       } else {
-        tempYear = baseInfoFromServerMap['billYear'];
+        billYear = baseInfoFromServerMap['billYear'];
       }
       if (baseInfoFromServerMap['billMonth'] == '') {
-        tempMonth = now.month < 10
+        billMonth = now.month < 10
             ? '0${now.month.toString()}'
             : '${now.month.toString()}';
       } else {
-        tempMonth = baseInfoFromServerMap['billMonth'];
+        billMonth = baseInfoFromServerMap['billMonth'];
       }
       if (baseInfoFromServerMap['billDay'] == '') {
-        tempDay =
+        billDay =
             now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
       } else {
-        tempDay = baseInfoFromServerMap['billDay'];
+        billDay = baseInfoFromServerMap['billDay'];
       }
       if (baseInfoFromServerMap['billHour'] == '') {
-        tempHour = now.hour < 10
+        billHour = now.hour < 10
             ? '0${now.hour.toString()}'
             : '${now.hour.toString()}';
       } else {
-        tempHour = baseInfoFromServerMap['billHour'];
+        billHour = baseInfoFromServerMap['billHour'];
       }
       if (baseInfoFromServerMap['billMinute'] == '') {
-        tempMinute = now.minute < 10
+        billMinute = now.minute < 10
             ? '0${now.minute.toString()}'
             : '${now.minute.toString()}';
       } else {
-        tempMinute = baseInfoFromServerMap['billMinute'];
+        billMinute = baseInfoFromServerMap['billMinute'];
       }
       if (baseInfoFromServerMap['billSecond'] == '') {
-        tempSecond = now.second < 10
+        billSecond = now.second < 10
             ? '0${now.second.toString()}'
             : '${now.second.toString()}';
       } else {
-        tempSecond = baseInfoFromServerMap['billSecond'];
+        billSecond = baseInfoFromServerMap['billSecond'];
       }
-      String orderIdForCreatingDocId = baseInfoFromServerMap['orderID'];
-      return '${tempYear}${tempMonth}${tempDay}${orderIdForCreatingDocId}';
+      String orderStartTimeForCreatingDocId =
+          baseInfoFromServerMap['startTime'];
+      if (orderStartTimeForCreatingDocId.length < 8) {
+        for (int i = orderStartTimeForCreatingDocId.length; i < 8; i++) {
+          orderStartTimeForCreatingDocId = '0' + orderStartTimeForCreatingDocId;
+        }
+      }
+      return '${billYear}${billMonth}${billDay}${orderStartTimeForCreatingDocId}';
     }
 
     void splitTableOrParcel() async {
@@ -1213,10 +1366,13 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
         Navigator.pop(context);
       } else {
         try {
+          documentStatisticsRegistryDateMaker();
           final docIdCheckSnapshot = await FirebaseFirestore.instance
               .collection(widget.hotelName)
-              .doc('orderhistory')
-              .collection('orderhistory')
+              .doc('salesBills')
+              .collection(statisticsYear)
+              .doc(statisticsMonth)
+              .collection(statisticsDay)
               .doc(billIdOfThisOrder())
               .get()
               .timeout(Duration(seconds: 5));
@@ -1289,10 +1445,14 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
 
     void moveTableOrParcel() async {
       try {
+        documentStatisticsRegistryDateMaker();
+
         final docIdCheckSnapshot = await FirebaseFirestore.instance
             .collection(widget.hotelName)
-            .doc('orderhistory')
-            .collection('orderhistory')
+            .doc('salesBills')
+            .collection(statisticsYear)
+            .doc(statisticsMonth)
+            .collection(statisticsDay)
             .doc(billIdOfThisOrder())
             .get()
             .timeout(Duration(seconds: 5));
@@ -1344,6 +1504,949 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
       } catch (e) {
         show('Please check Internet. Unable to reach server');
       }
+    }
+
+    List<Map<String, dynamic>> cancelledMapsForServerUpdate(
+        String lastItemId, num lastItemStatus) {
+      List<Map<String, dynamic>> cancellingUpdateMapsList = [];
+      Map<String, dynamic> tempAllCancelledItems =
+          cancelledItemsInOrderFromServerMap;
+      Map<String, dynamic> tempItemMapForCancel =
+          itemsInOrderFromServerMap[lastItemId];
+      if (lastItemStatus != 11) {
+        tempItemMapForCancel['cancellingCaptainName'] = json.decode(
+                Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .allUserProfilesFromClass)[
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .currentUserPhoneNumberFromClass]['username'];
+        tempItemMapForCancel['cancellingCaptainPhone'] =
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .currentUserPhoneNumberFromClass;
+      }
+      tempAllCancelledItems.addAll({lastItemId: tempItemMapForCancel});
+      Map<String, dynamic> captainCancellationMap = HashMap();
+      Map<String, dynamic> chefRejectionMap = HashMap();
+      Map<String, dynamic> itemsCancellationMap = HashMap();
+
+      tempAllCancelledItems.forEach((key, value) {
+        if (itemsCancellationMap.containsKey(value['itemName'])) {
+          itemsCancellationMap[value['itemName']]!['numberOfTimes']!.add(1);
+          itemsCancellationMap[value['itemName']]!['numberOfItems']!
+              .add(value['numberOfItem']);
+          itemsCancellationMap[value['itemName']]!['totalAmount']!
+              .add(value['numberOfItem'] * value['itemPrice']);
+        } else {
+          itemsCancellationMap.addAll({
+            value['itemName']: {
+              'numberOfTimes': [1],
+              'numberOfItems': [value['numberOfItem']],
+              'totalAmount': [value['numberOfItem'] * value['itemPrice']]
+            },
+          });
+        }
+
+        if (value['rejectingChefPhone'] != 'notRejected') {
+//thisMeansItsRejectedByChefAndHenceCancelledByCaptain
+          if (chefRejectionMap.containsKey(value['rejectingChefPhone'])) {
+            final tempIndividualItemsRejected =
+                chefRejectionMap[value['rejectingChefPhone']]
+                    ['individualItemsRejected'];
+            if (tempIndividualItemsRejected.containsKey(value['itemName'])) {
+              tempIndividualItemsRejected[value['itemName']] = {
+                'numberOfIndividualItems':
+                    tempIndividualItemsRejected[value['itemName']]
+                            ['numberOfIndividualItems'] +
+                        value['numberOfItem'],
+                'totalAmount': tempIndividualItemsRejected[value['itemName']]
+                        ['totalAmountOfIndividualItems'] +
+                    (value['numberOfItem'] * value['itemPrice'])
+              };
+            } else {
+              tempIndividualItemsRejected.addAll({
+                value['itemName']: {
+                  'numberOfIndividualItems': value['numberOfItem'],
+                  'totalAmountOfIndividualItems':
+                      value['numberOfItem'] * value['itemPrice']
+                }
+              });
+            }
+
+            chefRejectionMap[value['rejectingChefPhone']]!['numberOfTimes']!
+                .add(1);
+            chefRejectionMap[value['rejectingChefPhone']]!['numberOfItems']!
+                .add(value['numberOfItem']);
+            chefRejectionMap[value['rejectingChefPhone']]!['totalAmount']!
+                .add(value['numberOfItem'] * value['itemPrice']);
+            chefRejectionMap[value['rejectingChefPhone']]
+                ['individualItemsRejected'] = tempIndividualItemsRejected;
+          } else {
+            chefRejectionMap.addAll({
+              value['rejectingChefPhone']: {
+                'numberOfTimes': [1],
+                'numberOfItems': [value['numberOfItem']],
+                'totalAmount': [value['numberOfItem'] * value['itemPrice']],
+                'individualItemsRejected': {
+                  value['itemName']: {
+                    'numberOfIndividualItems': value['numberOfItem'],
+                    'totalAmountOfIndividualItems':
+                        value['numberOfItem'] * value['itemPrice']
+                  }
+                }
+              },
+            });
+          }
+        } else {
+          if (captainCancellationMap
+              .containsKey(value['cancellingCaptainPhone'])) {
+//ThisMapToCreateWhatAllItemsEachCaptainCancelled
+            final tempIndividualItemsCancelled =
+                captainCancellationMap[value['cancellingCaptainPhone']]
+                    ['individualItemsCancelled'];
+            if (tempIndividualItemsCancelled.containsKey(value['itemName'])) {
+              tempIndividualItemsCancelled[value['itemName']] = {
+                'numberOfIndividualItems':
+                    tempIndividualItemsCancelled[value['itemName']]
+                            ['numberOfIndividualItems'] +
+                        value['numberOfItem'],
+                'totalAmountOfIndividualItems':
+                    tempIndividualItemsCancelled[value['itemName']]
+                            ['totalAmountOfIndividualItems'] +
+                        (value['numberOfItem'] * value['itemPrice'])
+              };
+            } else {
+              tempIndividualItemsCancelled.addAll({
+                value['itemName'].toString(): {
+                  'numberOfIndividualItems': value['numberOfItem'],
+                  'totalAmountOfIndividualItems':
+                      value['numberOfItem'] * value['itemPrice']
+                }
+              });
+            }
+            captainCancellationMap[value['cancellingCaptainPhone']]![
+                    'numberOfTimes']!
+                .add(1);
+            captainCancellationMap[value['cancellingCaptainPhone']]![
+                    'numberOfItems']!
+                .add(value['numberOfItem']);
+            captainCancellationMap[value['cancellingCaptainPhone']]![
+                    'totalAmount']!
+                .add(value['numberOfItem'] * value['itemPrice']);
+            captainCancellationMap[value['cancellingCaptainPhone']]
+                ['individualItemsCancelled'] = tempIndividualItemsCancelled;
+          } else {
+            captainCancellationMap.addAll({
+              value['cancellingCaptainPhone']: {
+                'numberOfTimes': [1],
+                'numberOfItems': [value['numberOfItem']],
+                'totalAmount': [value['numberOfItem'] * value['itemPrice']],
+                'individualItemsCancelled': {
+                  value['itemName'].toString(): {
+                    'numberOfIndividualItems': value['numberOfItem'],
+                    'totalAmountOfIndividualItems':
+                        value['numberOfItem'] * value['itemPrice']
+                  }
+                }
+              },
+            });
+          }
+        }
+      });
+
+      cancellingUpdateMapsList.add(itemsCancellationMap);
+      cancellingUpdateMapsList.add(captainCancellationMap);
+      cancellingUpdateMapsList.add(chefRejectionMap);
+      cancellingUpdateMapsList.add(tempAllCancelledItems);
+      return cancellingUpdateMapsList;
+    }
+
+    Future<void> allItemsCancellingUpdateInServer(
+        String lastItemId, num lastItemStatus) async {
+      bool hasInternet = await InternetConnectionChecker().hasConnection;
+
+      if (hasInternet) {
+        if (noItemsInTable) {
+          Navigator.pop(context);
+        } else {
+          List<Map<String, dynamic>> cancellationUpdateMaps =
+              cancelledMapsForServerUpdate(lastItemId, lastItemStatus);
+          Map<String, dynamic> printOrdersMap = HashMap();
+
+          //ThisMeansItsAnPrintedBill
+          if (baseInfoFromServerMap['serialNumber'] != 'noSerialYet') {
+            try {
+              documentStatisticsRegistryDateMaker();
+              final docIdCheckSnapshot = await FirebaseFirestore.instance
+                  .collection(widget.hotelName)
+                  .doc('salesBills')
+                  .collection(statisticsYear)
+                  .doc(statisticsMonth)
+                  .collection(statisticsDay)
+                  .doc(billIdOfThisOrder())
+                  .get()
+                  .timeout(Duration(seconds: 5));
+              if (docIdCheckSnapshot == null || !docIdCheckSnapshot.exists) {
+                printOrdersMap.addAll({
+                  ' Date of Order  :':
+                      '$billYear/$billMonth/$billDay at ${DateTime.now().hour.toString()}:${DateTime.now().minute.toString()}'
+                });
+                Map<String, dynamic> itemCancellationMap =
+                    cancellationUpdateMaps[0];
+                Map<String, dynamic> captainCancellationMap =
+                    cancellationUpdateMaps[1];
+                Map<String, dynamic> chefRejectionMap =
+                    cancellationUpdateMaps[2];
+                Map<String, dynamic> cancelledItemsInOrder =
+                    cancellationUpdateMaps[3];
+
+                Map<String, dynamic> itemCancellationMapForServerUpdate =
+                    HashMap();
+                itemCancellationMap.forEach((key, value) {
+                  List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+                  List<dynamic> tempNumberOfItems = value['numberOfItems'];
+                  List<dynamic> tempTotalAmount = value['totalAmount'];
+                  List<num> numberOfTimes = tempNumberOfTimes
+                      .map((e) => num.parse(e.toString()))
+                      .toList();
+                  List<num> numberOfItems = tempNumberOfItems
+                      .map((e) => num.parse(e.toString()))
+                      .toList();
+                  List<num> totalAmount = tempTotalAmount
+                      .map((e) => num.parse(e.toString()))
+                      .toList();
+
+                  if (printOrdersMap.length < 10) {
+                    printOrdersMap.addAll({
+                      '0${printOrdersMap.length} . $key x ${numberOfItems.reduce((a, b) => a + b).toString()} = ':
+                          'Cancelled'
+                    });
+                  } else {
+//ifNumberMoreThan9,WeDon'tNeedTheAdditionOf 0 at First
+                    printOrdersMap.addAll({
+                      '${printOrdersMap.length} . $key x ${numberOfItems.reduce((a, b) => a + b).toString()} = ':
+                          'Cancelled'
+                    });
+                  }
+
+                  itemCancellationMapForServerUpdate.addAll({
+                    key: {
+                      'numberOfTimes': FieldValue.increment(
+                          numberOfTimes.reduce((a, b) => a + b)),
+                      'numberOfItems': FieldValue.increment(
+                          numberOfItems.reduce((a, b) => a + b)),
+                      'totalAmount': FieldValue.increment(
+                          totalAmount.reduce((a, b) => a + b)),
+                    }
+                  });
+                });
+                Map<String, dynamic> captainCancellationMapForServerUpdate =
+                    HashMap();
+                if (captainCancellationMap.isNotEmpty) {
+                  captainCancellationMap.forEach((key, value) {
+                    List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+                    List<dynamic> tempNumberOfItems = value['numberOfItems'];
+                    List<dynamic> tempTotalAmount = value['totalAmount'];
+                    Map<String, dynamic> tempIndividualItemsCancelled =
+                        value['individualItemsCancelled'];
+                    List<num> numberOfTimes = tempNumberOfTimes
+                        .map((e) => num.parse(e.toString()))
+                        .toList();
+                    List<num> numberOfItems = tempNumberOfItems
+                        .map((e) => num.parse(e.toString()))
+                        .toList();
+                    List<num> totalAmount = tempTotalAmount
+                        .map((e) => num.parse(e.toString()))
+                        .toList();
+                    captainCancellationMapForServerUpdate.addAll({
+                      key: {
+                        'numberOfTimes': FieldValue.increment(
+                            numberOfTimes.reduce((a, b) => a + b)),
+                        'numberOfItems': FieldValue.increment(
+                            numberOfItems.reduce((a, b) => a + b)),
+                        'totalAmount': FieldValue.increment(
+                            totalAmount.reduce((a, b) => a + b)),
+                        'individualItemsCancelled': updateMapWithIncrements(
+                            tempIndividualItemsCancelled)
+                      }
+                    });
+                  });
+                }
+                Map<String, dynamic> chefRejectionMapForServerUpdate =
+                    HashMap();
+                if (chefRejectionMap.isNotEmpty) {
+                  chefRejectionMap.forEach((key, value) {
+                    List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+                    List<dynamic> tempNumberOfItems = value['numberOfItems'];
+                    List<dynamic> tempTotalAmount = value['totalAmount'];
+                    Map<String, dynamic> tempIndividualItemsRejected =
+                        value['individualItemsRejected'];
+                    List<num> numberOfTimes = tempNumberOfTimes
+                        .map((e) => num.parse(e.toString()))
+                        .toList();
+                    List<num> numberOfItems = tempNumberOfItems
+                        .map((e) => num.parse(e.toString()))
+                        .toList();
+                    List<num> totalAmount = tempTotalAmount
+                        .map((e) => num.parse(e.toString()))
+                        .toList();
+                    chefRejectionMapForServerUpdate.addAll({
+                      key: {
+                        'numberOfTimes': FieldValue.increment(
+                            numberOfTimes.reduce((a, b) => a + b)),
+                        'numberOfItems': FieldValue.increment(
+                            numberOfItems.reduce((a, b) => a + b)),
+                        'totalAmount': FieldValue.increment(
+                            totalAmount.reduce((a, b) => a + b)),
+                        'individualItemsRejected':
+                            updateMapWithIncrements(tempIndividualItemsRejected)
+                      }
+                    });
+                  });
+                }
+                printOrdersMap.addAll({
+                  'serialNumberForPrint':
+                      'Cancelled:${baseInfoFromServerMap['serialNumber']}'
+                });
+                printOrdersMap.addAll({
+                  'serialNumberNum':
+                      num.parse(baseInfoFromServerMap['serialNumber'])
+                });
+                printOrdersMap.addAll({'dateForPrint':
+                '${billDay}/${billMonth}/${billYear} at ${billHour}:${billMinute}'});
+
+
+                printOrdersMap.addAll({
+                  'orderClosingCaptainPhone':
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .currentUserPhoneNumberFromClass
+                });
+                printOrdersMap.addAll({
+                  'orderClosingCaptainName': json.decode(
+                          Provider.of<PrinterAndOtherDetailsProvider>(context,
+                                  listen: false)
+                              .allUserProfilesFromClass)[
+                      Provider.of<PrinterAndOtherDetailsProvider>(context,
+                              listen: false)
+                          .currentUserPhoneNumberFromClass]['username']
+                });
+                printOrdersMap
+                    .addAll({'cancelledItemsInOrder': cancelledItemsInOrder});
+                if (baseInfoFromServerMap['tableOrParcel'] == 'Table') {
+                  if (baseInfoFromServerMap['parentOrChild'] == 'parent') {
+                    printOrdersMap.addAll({
+                      'takeAwayOrDineInForPrint':
+                          'TYPE: DINE-IN:${baseInfoFromServerMap['tableOrParcel']}:${baseInfoFromServerMap['tableOrParcelNumber']}'
+                    });
+                  } else {
+                    printOrdersMap.addAll({
+                      'takeAwayOrDineInForPrint':
+                          'TYPE: DINE-IN:${baseInfoFromServerMap['tableOrParcel']}:${baseInfoFromServerMap['tableOrParcelNumber']}${baseInfoFromServerMap['parentOrChild']}'
+                    });
+                  }
+                } else if (baseInfoFromServerMap['tableOrParcel'] == 'Parcel') {
+                  if (baseInfoFromServerMap['parentOrChild'] == 'parent') {
+                    printOrdersMap.addAll({
+                      'takeAwayOrDineInForPrint':
+                          'TYPE: TAKE-AWAY:${baseInfoFromServerMap['tableOrParcel']}:${baseInfoFromServerMap['tableOrParcelNumber']}'
+                    });
+                  } else {
+                    printOrdersMap.addAll({
+                      'takeAwayOrDineInForPrint':
+                          'TYPE: TAKE-AWAY:${baseInfoFromServerMap['tableOrParcel']}:${baseInfoFromServerMap['tableOrParcelNumber']}${baseInfoFromServerMap['parentOrChild']}'
+                    });
+                  }
+                }
+                printOrdersMap
+                    .addAll({'billNumberForPrint': billIdOfThisOrder()});
+                Map<String, dynamic> subMasterCancellationStats = HashMap();
+                subMasterCancellationStats.addAll({
+                  'mapCancelledIndividualItemsStats':
+                      itemCancellationMapForServerUpdate
+                });
+                if (captainCancellationMapForServerUpdate.isNotEmpty) {
+                  subMasterCancellationStats.addAll({
+                    'mapCancellingCaptainStats':
+                        captainCancellationMapForServerUpdate
+                  });
+                }
+                if (chefRejectionMapForServerUpdate.isNotEmpty) {
+                  subMasterCancellationStats.addAll({
+                    'mapRejectingChefStats': chefRejectionMapForServerUpdate
+                  });
+                }
+                Map<String, dynamic> statisticsDailyExpensesMap = {
+                  'day': num.parse(statisticsDay),
+                  'month': num.parse(statisticsMonth),
+                  'year': num.parse(statisticsYear)
+                };
+                Map<String, dynamic> statisticsMonthlyExpensesMap = {
+                  'cashBalanceData': {
+                    statisticsDay: {
+                      'dayIncrements': FieldValue.increment(0),
+                      'previousCashBalance': FieldValue.increment(
+                          previousCashBalanceWhileIterating)
+                    }
+                  },
+                  'month': num.parse(statisticsMonth),
+                  'year': num.parse(statisticsYear),
+                  'midMonthMilliSecond': DateTime(int.parse(statisticsYear),
+                          int.parse(statisticsMonth), 15)
+                      .millisecondsSinceEpoch
+                };
+                statisticsDailyExpensesMap.addAll(
+                    {'billedCancellationStats': subMasterCancellationStats});
+                statisticsMonthlyExpensesMap.addAll(
+                    {'billedCancellationStats': subMasterCancellationStats});
+
+                FireStoreBillAndStatisticsInServerVersionTwo(
+                        hotelName: widget.hotelName,
+                        dailyStatisticsUpdateMap: statisticsDailyExpensesMap,
+                        monthlyStatisticsUpdateMap:
+                            statisticsMonthlyExpensesMap,
+                        entireCashBalanceChangeSheet: {},
+                        day: statisticsDay,
+                        month: statisticsMonth,
+                        year: statisticsYear,
+                        orderHistoryDocID: billIdOfThisOrder(),
+                        printOrdersMap: printOrdersMap)
+                    .updateBillAndStatistics();
+                setState(() {
+                  showSpinner = false;
+                });
+//AfterUpdateWeCanDeleteTable
+                FireStoreDeleteFinishedOrderInRunningOrders(
+                        hotelName: widget.hotelName,
+                        eachTableId: widget.itemsFromDoc)
+                    .deleteFinishedOrder();
+                Navigator.pop(context);
+              } else {
+                setState(() {
+                  showSpinner = false;
+                });
+//ThisMeansItWasAlreadyPutInServer.SoWeAreSimplyDeletingThisTable
+                FireStoreDeleteFinishedOrderInRunningOrders(
+                        hotelName: widget.hotelName,
+                        eachTableId: widget.itemsFromDoc)
+                    .deleteFinishedOrder();
+                Navigator.pop(context);
+              }
+            } catch (e) {
+              show('Please Check Internet and Try Again');
+            }
+          } else {
+            Map<String, dynamic> itemCancellationMap =
+                cancellationUpdateMaps[0];
+            Map<String, dynamic> captainCancellationMap =
+                cancellationUpdateMaps[1];
+            Map<String, dynamic> chefRejectionMap = cancellationUpdateMaps[2];
+
+            Map<String, dynamic> itemCancellationMapForServerUpdate = HashMap();
+            itemCancellationMap.forEach((key, value) {
+              List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+              List<dynamic> tempNumberOfItems = value['numberOfItems'];
+              List<dynamic> tempTotalAmount = value['totalAmount'];
+              List<num> numberOfTimes = tempNumberOfTimes
+                  .map((e) => num.parse(e.toString()))
+                  .toList();
+              List<num> numberOfItems = tempNumberOfItems
+                  .map((e) => num.parse(e.toString()))
+                  .toList();
+              List<num> totalAmount =
+                  tempTotalAmount.map((e) => num.parse(e.toString())).toList();
+
+              itemCancellationMapForServerUpdate.addAll({
+                key: {
+                  'numberOfTimes': FieldValue.increment(
+                      numberOfTimes.reduce((a, b) => a + b)),
+                  'numberOfItems': FieldValue.increment(
+                      numberOfItems.reduce((a, b) => a + b)),
+                  'totalAmount':
+                      FieldValue.increment(totalAmount.reduce((a, b) => a + b)),
+                }
+              });
+            });
+            Map<String, dynamic> captainCancellationMapForServerUpdate =
+                HashMap();
+            if (captainCancellationMap.isNotEmpty) {
+              captainCancellationMap.forEach((key, value) {
+                List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+                List<dynamic> tempNumberOfItems = value['numberOfItems'];
+                List<dynamic> tempTotalAmount = value['totalAmount'];
+                Map<String, dynamic> tempIndividualItemsCancelled =
+                    value['individualItemsCancelled'];
+                List<num> numberOfTimes = tempNumberOfTimes
+                    .map((e) => num.parse(e.toString()))
+                    .toList();
+                List<num> numberOfItems = tempNumberOfItems
+                    .map((e) => num.parse(e.toString()))
+                    .toList();
+                List<num> totalAmount = tempTotalAmount
+                    .map((e) => num.parse(e.toString()))
+                    .toList();
+
+                captainCancellationMapForServerUpdate.addAll({
+                  key: {
+                    'numberOfTimes': FieldValue.increment(
+                        numberOfTimes.reduce((a, b) => a + b)),
+                    'numberOfItems': FieldValue.increment(
+                        numberOfItems.reduce((a, b) => a + b)),
+                    'totalAmount': FieldValue.increment(
+                        totalAmount.reduce((a, b) => a + b)),
+                    'individualItemsCancelled':
+                        updateMapWithIncrements(tempIndividualItemsCancelled)
+                  }
+                });
+              });
+            }
+            Map<String, dynamic> chefRejectionMapForServerUpdate = HashMap();
+            if (chefRejectionMap.isNotEmpty) {
+              chefRejectionMap.forEach((key, value) {
+                List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+                List<dynamic> tempNumberOfItems = value['numberOfItems'];
+                List<dynamic> tempTotalAmount = value['totalAmount'];
+                Map<String, dynamic> tempIndividualItemsRejected =
+                    value['individualItemsRejected'];
+                List<num> numberOfTimes = tempNumberOfTimes
+                    .map((e) => num.parse(e.toString()))
+                    .toList();
+                List<num> numberOfItems = tempNumberOfItems
+                    .map((e) => num.parse(e.toString()))
+                    .toList();
+                List<num> totalAmount = tempTotalAmount
+                    .map((e) => num.parse(e.toString()))
+                    .toList();
+                chefRejectionMapForServerUpdate.addAll({
+                  key: {
+                    'numberOfTimes': FieldValue.increment(
+                        numberOfTimes.reduce((a, b) => a + b)),
+                    'numberOfItems': FieldValue.increment(
+                        numberOfItems.reduce((a, b) => a + b)),
+                    'totalAmount': FieldValue.increment(
+                        totalAmount.reduce((a, b) => a + b)),
+                    'individualItemsRejected':
+                        updateMapWithIncrements(tempIndividualItemsRejected)
+                  }
+                });
+              });
+            }
+
+            Map<String, dynamic> subMasterCancellationStats = HashMap();
+            subMasterCancellationStats.addAll({
+              'mapCancelledIndividualItemsStats':
+                  itemCancellationMapForServerUpdate
+            });
+            if (captainCancellationMapForServerUpdate.isNotEmpty) {
+              subMasterCancellationStats.addAll({
+                'mapCancellingCaptainStats':
+                    captainCancellationMapForServerUpdate
+              });
+            }
+            if (chefRejectionMapForServerUpdate.isNotEmpty) {
+              subMasterCancellationStats.addAll(
+                  {'mapRejectingChefStats': chefRejectionMapForServerUpdate});
+            }
+            Map<String, dynamic> statisticsDailyExpensesMap = {
+              'day': num.parse(statisticsDay),
+              'month': num.parse(statisticsMonth),
+              'year': num.parse(statisticsYear)
+            };
+            Map<String, dynamic> statisticsMonthlyExpensesMap = {
+              'cashBalanceData': {
+                statisticsDay: {
+                  'dayIncrements': FieldValue.increment(0),
+//SinceWeAreCancelling,NoMatterWhatDayIncrementsShouldBeZeroOnly
+                  'previousCashBalance':
+                      FieldValue.increment(previousCashBalanceWhileIterating)
+                }
+              },
+              'month': num.parse(statisticsMonth),
+              'year': num.parse(statisticsYear),
+              'midMonthMilliSecond': DateTime(
+                      int.parse(statisticsYear), int.parse(statisticsMonth), 15)
+                  .millisecondsSinceEpoch
+            };
+            statisticsDailyExpensesMap.addAll(
+                {'nonBilledCancellationStats': subMasterCancellationStats});
+            statisticsMonthlyExpensesMap.addAll(
+                {'nonBilledCancellationStats': subMasterCancellationStats});
+
+            FireStoreBillAndStatisticsInServerVersionTwo(
+                    hotelName: widget.hotelName,
+                    dailyStatisticsUpdateMap: statisticsDailyExpensesMap,
+                    monthlyStatisticsUpdateMap: statisticsMonthlyExpensesMap,
+                    entireCashBalanceChangeSheet: {},
+                    day: statisticsDay,
+                    month: statisticsMonth,
+                    year: statisticsYear,
+                    orderHistoryDocID: '',
+                    printOrdersMap: printOrdersMap)
+                .updateBillAndStatistics();
+            setState(() {
+              showSpinner = false;
+            });
+//AfterUpdateWeCanDeleteTable
+            FireStoreDeleteFinishedOrderInRunningOrders(
+                    hotelName: widget.hotelName,
+                    eachTableId: widget.itemsFromDoc)
+                .deleteFinishedOrder();
+            Navigator.pop(context);
+          }
+        }
+      } else {
+        setState(() {
+          showSpinner = false;
+        });
+        show('Please Check Internet and Try Again');
+      }
+    }
+
+    void thisMonthStatisticsStreamToCheckInternet() {
+      final thisMonthCollectionRef = FirebaseFirestore.instance
+          .collection(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+              .chosenRestaurantDatabaseFromClass)
+          .doc('reports')
+          .collection('monthlyReports')
+          .where('midMonthMilliSecond',
+              isEqualTo: DateTime(DateTime.now().year, DateTime.now().month, 15)
+                  .millisecondsSinceEpoch);
+      _streamSubscriptionForThisMonth = thisMonthCollectionRef
+          .snapshots()
+          .listen((thisMonthStatisticsSnapshot) {
+//ThisStreamIsSimplyToCheckWhetherInternetIsWorkingOrNot
+//IfStreamSubscriptionIsNull,ItMeansThatThereIsNoInternet
+//OnceDataIsUploadedWeCanCancelTheStream
+      });
+    }
+
+    void cashBalanceWithPreviousYearDataCheck(
+        DateTime dateToQuery, int randomNumberForThisButtonPress) async {
+      bool gotSomeData = false;
+      bool calledNextFunction = false;
+      bool gotCancellingIncrements = false;
+      bool gotToTheQueriedDate = false;
+      Timer(Duration(seconds: 5), () {
+        if (gotSomeData == false) {
+          calledNextFunction = true;
+          if (_streamSubscriptionForThisMonth == null) {
+            setState(() {
+              showSpinner = false;
+            });
+            currentGeneratedIncrementRandomNumber = 0;
+            calledNextFunction = true;
+            gotCancellingIncrements = false;
+            _streamSubscriptionForThisMonth?.cancel();
+            show('Please Check Internet and Try Again');
+          }
+        }
+      });
+      num milliSecondsYearPreviousToPickedDate =
+          DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+              .subtract(Duration(days: 365))
+              .millisecondsSinceEpoch;
+
+      final pastYearToNowCollectionRef = FirebaseFirestore.instance
+          .collection(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+              .chosenRestaurantDatabaseFromClass)
+          .doc('reports')
+          .collection('monthlyReports')
+          .where('midMonthMilliSecond',
+              isGreaterThan: milliSecondsYearPreviousToPickedDate)
+          .orderBy('midMonthMilliSecond', descending: false);
+//WantInAscendingOrderSoThatWeCanCheckPreviousDayBalanceWhileIterating
+      final pastYearToNowStatisticsSnapshot =
+          await pastYearToNowCollectionRef.get();
+      if (pastYearToNowStatisticsSnapshot.docs.length >= 1) {
+        gotSomeData = true;
+        int monthsCheckCounter = 0;
+        previousCashBalanceWhileIterating = -9999999;
+        dayIncrementWhileIterating = -1111111;
+        for (var eachMonthDocument in pastYearToNowStatisticsSnapshot.docs) {
+          monthsCheckCounter++;
+
+//SoThatWeCheckOnlyTheFirstDocumentTimePeriod
+          if (eachMonthDocument['midMonthMilliSecond'] >
+                  DateTime(dateToQuery.year, dateToQuery.month, 15)
+                      .millisecondsSinceEpoch &&
+              gotToTheQueriedDate == false) {
+            if (previousCashBalanceWhileIterating == -9999999 &&
+                dayIncrementWhileIterating == -1111111) {
+//ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//So,WeHaveToAddFirstDocumentOurselvesForThatMonth
+              previousCashBalanceWhileIterating = 0;
+              dayIncrementWhileIterating = 0;
+              gotCancellingIncrements = true;
+              gotToTheQueriedDate = true;
+            } else {
+              gotCancellingIncrements = true;
+              gotToTheQueriedDate = true;
+              previousCashBalanceWhileIterating =
+                  previousCashBalanceWhileIterating +
+                      dayIncrementWhileIterating;
+              dayIncrementWhileIterating = 0;
+            }
+          }
+
+          Map<String, dynamic> iteratingMonthCashBalanceData =
+              eachMonthDocument['cashBalanceData'];
+          int numberOfDaysInIteratingMonth = DateUtils.getDaysInMonth(
+              eachMonthDocument['year'], eachMonthDocument['month']);
+          for (int i = 1; i <= numberOfDaysInIteratingMonth; i++) {
+            String dayAsString =
+                i.toString().length > 1 ? i.toString() : '0${i.toString()}';
+            if (DateTime(eachMonthDocument['year'], eachMonthDocument['month'],
+                        i)
+                    .millisecondsSinceEpoch <
+                DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                    .millisecondsSinceEpoch) {
+//ThisMeansItsADayBeforeTheDayOfQuery
+              if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+                previousCashBalanceWhileIterating =
+                    iteratingMonthCashBalanceData[dayAsString]
+                        ['previousCashBalance'];
+                dayIncrementWhileIterating =
+                    iteratingMonthCashBalanceData[dayAsString]['dayIncrements'];
+              }
+            } else if (DateTime(eachMonthDocument['year'],
+                        eachMonthDocument['month'], i)
+                    .millisecondsSinceEpoch ==
+                DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                    .millisecondsSinceEpoch) {
+//ThisMeansThisIsTheDayInWhichWeNeedToAdd
+              if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+//ThisMeansTheDayAlreadyExistsAndWeDontHaveToIncrementAnything
+                gotToTheQueriedDate = true;
+                previousCashBalanceWhileIterating = 0;
+                dayIncrementWhileIterating = 0;
+                gotCancellingIncrements = true;
+              } else {
+//ThisMeansTheDayDoesntExistsAndWeNeedToAddPreviousCashBalanceAndThenDayIncrement
+                if (previousCashBalanceWhileIterating == -9999999 &&
+                    dayIncrementWhileIterating == -1111111) {
+//ThisMeansThatWeHaven'tGotPreviousCashBalanceTillNow.So,WeNeedToPutTheCashBalance
+//ForThatDayAsZeroAndJustDoDayIncrementsFromThere
+                  gotToTheQueriedDate = true;
+                  previousCashBalanceWhileIterating = 0;
+                  dayIncrementWhileIterating = 0;
+                  gotCancellingIncrements = true;
+                } else {
+//thisMeansTheDayDoesn'tExistAndThereIsPreviousCashBalanceDataToRegister
+                  previousCashBalanceWhileIterating =
+                      previousCashBalanceWhileIterating +
+                          dayIncrementWhileIterating;
+                  dayIncrementWhileIterating = 0;
+                  gotCancellingIncrements = true;
+                  gotToTheQueriedDate = true;
+                }
+              }
+            }
+          }
+          if (monthsCheckCounter ==
+                  pastYearToNowStatisticsSnapshot.docs.length &&
+              gotToTheQueriedDate == false &&
+              eachMonthDocument['midMonthMilliSecond'] <
+                  DateTime(dateToQuery.year, dateToQuery.month, 15)
+                      .millisecondsSinceEpoch) {
+            if (previousCashBalanceWhileIterating == -9999999 &&
+                dayIncrementWhileIterating == -1111111) {
+              //ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//So,WeHaveToAddFirstDocumentOurselvesForThatMonth
+              previousCashBalanceWhileIterating = 0;
+              dayIncrementWhileIterating = 0;
+              gotToTheQueriedDate = true;
+              gotCancellingIncrements = true;
+            } else {
+              gotCancellingIncrements = true;
+              gotToTheQueriedDate = true;
+              previousCashBalanceWhileIterating =
+                  previousCashBalanceWhileIterating +
+                      dayIncrementWhileIterating;
+              dayIncrementWhileIterating = 0;
+            }
+          }
+        }
+        if (gotCancellingIncrements &&
+                randomNumberForThisButtonPress ==
+                    currentGeneratedIncrementRandomNumber &&
+                calledNextFunction == false
+//CheckingWhetherWeGotTheDataOnTime
+            ) {
+          _streamSubscriptionForThisMonth?.cancel();
+          currentGeneratedIncrementRandomNumber = 0;
+          calledNextFunction = true;
+//CallFunctionToDoTheOtherTasksOfIncrement
+          print('callingFromhere3');
+          allItemsCancellingUpdateInServer(
+              lastItemIdForCancelling, lastItemStatusForCancelling);
+        }
+      } else {
+        if (_streamSubscriptionForThisMonth != null &&
+            randomNumberForThisButtonPress ==
+                currentGeneratedIncrementRandomNumber &&
+            calledNextFunction == false) {
+//ThisMeansNoDocumentsAreThereInThePastOneYear.MostProbablyNewRestaurant
+//WeWillPutNewDataHere.SinceStreamSubscriptionIsNotNullWeCanConfirm
+// ThatTheLackOfDataIsn'tBecauseOfInternet
+          previousCashBalanceWhileIterating = 0;
+          dayIncrementWhileIterating = 0;
+          _streamSubscriptionForThisMonth?.cancel();
+          currentGeneratedIncrementRandomNumber = 0;
+          calledNextFunction = true;
+          print('callingFromhere2');
+          allItemsCancellingUpdateInServer(
+              lastItemIdForCancelling, lastItemStatusForCancelling);
+        }
+      }
+    }
+
+    Future<void> cashBalanceWithQueriedMonthToLatestDataCheck(
+        DateTime dateToQuery, int randomNumberForThisButtonPress) async {
+      bool noPreviousCashBalanceDataInThisPeriod = false;
+      bool gotSomeData = false;
+      bool calledNextFunction = false;
+      bool gotCancellingIncrements = false;
+      bool gotToTheQueriedDate = false;
+      Timer(Duration(seconds: 2), () {
+        if (gotSomeData == false) {
+          calledNextFunction = true;
+          cashBalanceWithPreviousYearDataCheck(
+              dateToQuery, randomNumberForThisButtonPress);
+        }
+      });
+      num milliSecondsPickedDateMonth =
+          DateTime(dateToQuery.year, dateToQuery.month, 15)
+              .millisecondsSinceEpoch;
+      final queriedMonthToEndCollectionRef = FirebaseFirestore.instance
+          .collection(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+              .chosenRestaurantDatabaseFromClass)
+          .doc('reports')
+          .collection('monthlyReports')
+          .where('midMonthMilliSecond',
+              isGreaterThanOrEqualTo: milliSecondsPickedDateMonth)
+          .orderBy('midMonthMilliSecond', descending: false);
+
+//WantInAscendingOrderSoThatWeCanCheckPreviousDayBalanceWhileIterating
+      final queriedMonthToEndStatisticsSnapshot =
+          await queriedMonthToEndCollectionRef.get();
+      if (queriedMonthToEndStatisticsSnapshot.docs.length >= 1) {
+        print('entered Inside month');
+        gotSomeData = true;
+        int monthsCheckCounter = 0;
+        previousCashBalanceWhileIterating = -9999999;
+        dayIncrementWhileIterating = -1111111;
+        for (var eachMonthDocument
+            in queriedMonthToEndStatisticsSnapshot.docs) {
+          monthsCheckCounter++;
+
+//SoThatWeCheckOnlyTheFirstDocumentTimePeriod
+          if (eachMonthDocument['midMonthMilliSecond'] >
+                  DateTime(dateToQuery.year, dateToQuery.month, 15)
+                      .millisecondsSinceEpoch &&
+              gotToTheQueriedDate == false) {
+//ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//WeNeedToCheckTheYearFunctionThen
+            print('came Into exiting loop2');
+            noPreviousCashBalanceDataInThisPeriod = true;
+            calledNextFunction = true;
+            cashBalanceWithPreviousYearDataCheck(
+                dateToQuery, randomNumberForThisButtonPress);
+          }
+
+          print('iterating thru each doc');
+          Map<String, dynamic> iteratingMonthCashBalanceData =
+              eachMonthDocument['cashBalanceData'];
+          String monthYearDocId = eachMonthDocument.id;
+          int numberOfDaysInIteratingMonth = DateUtils.getDaysInMonth(
+              eachMonthDocument['year'], eachMonthDocument['month']);
+          for (int i = 1; i <= numberOfDaysInIteratingMonth; i++) {
+            print('iterating thru each day');
+            String dayAsString =
+                i.toString().length > 1 ? i.toString() : '0${i.toString()}';
+            if (DateTime(eachMonthDocument['year'], eachMonthDocument['month'],
+                        i)
+                    .millisecondsSinceEpoch <
+                DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                    .millisecondsSinceEpoch) {
+//ThisMeansItsADayBeforeTheDayOfQuery
+              if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+                previousCashBalanceWhileIterating =
+                    iteratingMonthCashBalanceData[dayAsString]
+                        ['previousCashBalance'];
+                dayIncrementWhileIterating =
+                    iteratingMonthCashBalanceData[dayAsString]['dayIncrements'];
+              }
+            } else if (DateTime(eachMonthDocument['year'],
+                        eachMonthDocument['month'], i)
+                    .millisecondsSinceEpoch ==
+                DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                    .millisecondsSinceEpoch) {
+//ThisMeansThisIsTheDayInWhichWeNeedToAdd
+              if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+                gotToTheQueriedDate = true;
+//ThisMeansTheDayAlreadyExistsAndWeOnlyHaveToAddTheIncrementsToDayIncrements
+                print('came Inside this called 2');
+                previousCashBalanceWhileIterating = 0;
+                dayIncrementWhileIterating = 0;
+                gotCancellingIncrements = true;
+              } else {
+                if (previousCashBalanceWhileIterating == -9999999 &&
+                    dayIncrementWhileIterating == -1111111) {
+//ThisMeansThatWeHaven'tGotPreviousCashBalanceTillNow.WeCanSimplyExitTheLoop
+                  print('came Into exiting loop 1');
+                  noPreviousCashBalanceDataInThisPeriod = true;
+                  calledNextFunction = true;
+                  cashBalanceWithPreviousYearDataCheck(
+                      dateToQuery, randomNumberForThisButtonPress);
+                } else {
+                  //ThisMeansTheDayDoesn'tExistsAnd
+                  // WeNeedToAddPreviousCashBalanceAndThenDayIncrement
+                  gotToTheQueriedDate = true;
+                  previousCashBalanceWhileIterating =
+                      previousCashBalanceWhileIterating +
+                          dayIncrementWhileIterating;
+                  dayIncrementWhileIterating = 0;
+                  gotCancellingIncrements = true;
+                }
+              }
+            }
+          }
+          if (monthsCheckCounter ==
+                  queriedMonthToEndStatisticsSnapshot.docs.length &&
+              gotToTheQueriedDate == false) {
+//ThisMeansWeHaveReachedTheEndOfDocumentButTheQueriedDateDidn'tCome
+            calledNextFunction = true;
+            cashBalanceWithPreviousYearDataCheck(
+                dateToQuery, randomNumberForThisButtonPress);
+          }
+        }
+
+        if (gotCancellingIncrements &&
+                calledNextFunction ==
+                    false && //thisWillCheckWhetherYearCheckWasCalled
+                randomNumberForThisButtonPress ==
+                    currentGeneratedIncrementRandomNumber
+//ThisWillCheckWhetherButtonWasPressedAgainAndThisIsOldInstance
+            ) {
+//ThisMeansWeCanUpdateIncrementsAsBatch
+          print('came Inside this called 1');
+
+          _streamSubscriptionForThisMonth?.cancel();
+          currentGeneratedIncrementRandomNumber = 0;
+          calledNextFunction = true;
+//CallFunctionToDoTheOtherTasksOfIncrement
+          allItemsCancellingUpdateInServer(
+              lastItemIdForCancelling, lastItemStatusForCancelling);
+        }
+      } else {
+//ThisMeansNoDocumentsAreThereInThePastTwoMonthsAndWeWillBetterCheckForOneYear
+        calledNextFunction = true;
+        cashBalanceWithPreviousYearDataCheck(
+            dateToQuery, randomNumberForThisButtonPress);
+      }
+      print('came Inside this called 11');
     }
 
     void deliveredAllAlertDialogBox() async {
@@ -1493,555 +2596,584 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
             )
           ],
         ),
-        body: Column(
-          children: [
-            pageHasInternet
-                ? const SizedBox.shrink()
-                : Container(
-                    width: double.infinity,
-                    color: Colors.red,
-                    child: const Center(
-                      child: Text('You are Offline',
-                          style:
-                              TextStyle(color: Colors.white, fontSize: 30.0)),
+        body: ModalProgressHUD(
+          inAsyncCall: showSpinner,
+          child: Column(
+            children: [
+              pageHasInternet
+                  ? const SizedBox.shrink()
+                  : Container(
+                      width: double.infinity,
+                      color: Colors.red,
+                      child: const Center(
+                        child: Text('You are Offline',
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 30.0)),
+                      ),
                     ),
-                  ),
-            (splitPressed || movePressed)
-                ? Expanded(child: Center(child: CircularProgressIndicator()))
-                : Expanded(
-                    child:
-                        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                            stream: FirebaseFirestore.instance
-                                .collection(widget.hotelName)
-                                .doc('runningorders')
-                                .collection('runningorders')
-                                .doc(widget.itemsFromDoc)
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
+              (splitPressed || movePressed)
+                  ? Expanded(child: Center(child: CircularProgressIndicator()))
+                  : Expanded(
+                      child: StreamBuilder<
+                              DocumentSnapshot<Map<String, dynamic>>>(
+                          stream: FirebaseFirestore.instance
+                              .collection(widget.hotelName)
+                              .doc('runningorders')
+                              .collection('runningorders')
+                              .doc(widget.itemsFromDoc)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
 //IfConnectionStateIsWaiting,ThenWePutTheRotatingCircleThatShowsLoadingInTheCenter
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  backgroundColor: Colors.lightBlueAccent,
+                                ),
+                              );
+                            } else if (snapshot.hasError) {
+//IfThereIsAnError,WeCaptureTheErrorAndPutItInThePage
+                              return Center(
+                                child: Text(snapshot.error.toString()),
+                              );
+                            } else if (snapshot.hasData) {
+                              if (snapshot.data!.data() == null) {
+                                print('came inside null');
+                                noItemsInTable = true;
+
                                 return const Center(
-                                  child: CircularProgressIndicator(
-                                    backgroundColor: Colors.lightBlueAccent,
+                                  child: Text(
+                                    'Table\nClosed/Split/Moved',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 30),
                                   ),
                                 );
-                              } else if (snapshot.hasError) {
-//IfThereIsAnError,WeCaptureTheErrorAndPutItInThePage
-                                return Center(
-                                  child: Text(snapshot.error.toString()),
-                                );
-                              } else if (snapshot.hasData) {
-                                if (snapshot.data!.data() == null) {
-                                  print('came inside null');
-                                  noItemsInTable = true;
-
-                                  return const Center(
-                                    child: Text(
-                                      'Table\nClosed/Split/Moved',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 30),
-                                    ),
-                                  );
-                                } else {
-                                  noItemsInTable = false;
-                                  deliveredStatus = true;
-                                  items = [];
-                                  rejectedItems = [];
-                                  readyItems = [];
-                                  acceptedItems = [];
-                                  nonAcceptedItems = [];
-                                  deliveredItems = [];
-                                  otherItems = [];
+                              } else {
+                                noItemsInTable = false;
+                                deliveredStatus = true;
+                                items = [];
+                                rejectedItems = [];
+                                readyItems = [];
+                                acceptedItems = [];
+                                nonAcceptedItems = [];
+                                deliveredItems = [];
+                                otherItems = [];
 //RemakingTheEntireListPassedIntoThisPageEachTimeStreamBuilderRebuildsIt
-                                  widget.itemsID.clear();
-                                  widget.itemsName.clear();
-                                  widget.itemsNumber.clear();
-                                  widget.itemsStatus.clear();
-                                  widget.itemsEachPrice.clear();
+                                widget.itemsID.clear();
+                                widget.itemsName.clear();
+                                widget.itemsNumber.clear();
+                                widget.itemsStatus.clear();
+                                widget.itemsEachPrice.clear();
 
-                                  Map<String, dynamic> mapToAddIntoItems = {};
-                                  var output = snapshot.data!.data();
+                                Map<String, dynamic> mapToAddIntoItems = {};
+                                var output = snapshot.data!.data();
 
-                                  baseInfoFromServerMap =
-                                      output!['baseInfoMap'];
-                                  itemsInOrderFromServerMap =
-                                      output!['itemsInOrderMap'];
-                                  if (output
-                                      .containsKey('cancelledItemsInOrder')) {
-                                    cancelledItemsInOrderFromServerMap =
-                                        output!['cancelledItemsInOrder'];
-                                  }
-                                  if (orderIdCheckedWhenEnteringScreen ==
-                                      false) {
-                                    orderIdCheckedWhenEnteringScreen = true;
-                                    firstCheckedOrderId =
-                                        baseInfoFromServerMap['orderID'];
-                                  }
-                                  if (firstCheckedOrderId ==
-                                      baseInfoFromServerMap['orderID']) {
-                                    noItemsInTable = false;
-                                  } else {
-                                    noItemsInTable = true;
-                                  }
-                                  statusFromServerMap = output!['statusMap'];
-                                  ticketsFromServerMap = output!['ticketsMap'];
-                                  partOfTableOrParcelFromMap =
-                                      output!['partOfTableOrParcel'];
-                                  partOfTableOrParcelNumberFromMap =
-                                      output!['partOfTableOrParcelNumber'];
-                                  chefStatusForSplit =
-                                      statusFromServerMap['chefStatus'];
-                                  captainStatusForSplit =
-                                      statusFromServerMap['captainStatus'];
-                                  String tableorparcel =
-                                      baseInfoFromServerMap['tableOrParcel'];
-                                  num tableorparcelnumber = num.parse(
-                                      baseInfoFromServerMap[
-                                          'tableOrParcelNumber']);
-                                  num timecustomercametoseat = num.parse(
-                                      baseInfoFromServerMap['startTime']);
-                                  customername =
-                                      baseInfoFromServerMap['customerName'];
-                                  customermobileNumber = baseInfoFromServerMap[
-                                      'customerMobileNumber'];
-                                  customeraddressline1 =
-                                      baseInfoFromServerMap['customerAddress'];
-                                  parentOrChild =
-                                      baseInfoFromServerMap['parentOrChild'];
+                                baseInfoFromServerMap = output!['baseInfoMap'];
+                                itemsInOrderFromServerMap =
+                                    output!['itemsInOrderMap'];
+                                if (output
+                                    .containsKey('cancelledItemsInOrder')) {
+                                  cancelledItemsInOrderFromServerMap =
+                                      output!['cancelledItemsInOrder'];
+                                }
+                                if (orderIdCheckedWhenEnteringScreen == false) {
+                                  orderIdCheckedWhenEnteringScreen = true;
+                                  firstCheckedOrderId =
+                                      baseInfoFromServerMap['orderID'];
+                                }
+                                if (firstCheckedOrderId ==
+                                    baseInfoFromServerMap['orderID']) {
+                                  noItemsInTable = false;
+                                } else {
+                                  noItemsInTable = true;
+                                }
+                                statusFromServerMap = output!['statusMap'];
+                                ticketsFromServerMap = output!['ticketsMap'];
+                                partOfTableOrParcelFromMap =
+                                    output!['partOfTableOrParcel'];
+                                partOfTableOrParcelNumberFromMap =
+                                    output!['partOfTableOrParcelNumber'];
+                                chefStatusForSplit =
+                                    statusFromServerMap['chefStatus'];
+                                captainStatusForSplit =
+                                    statusFromServerMap['captainStatus'];
+                                String tableorparcel =
+                                    baseInfoFromServerMap['tableOrParcel'];
+                                num tableorparcelnumber = num.parse(
+                                    baseInfoFromServerMap[
+                                        'tableOrParcelNumber']);
+                                num timecustomercametoseat = num.parse(
+                                    baseInfoFromServerMap['startTime']);
+                                customername =
+                                    baseInfoFromServerMap['customerName'];
+                                customermobileNumber = baseInfoFromServerMap[
+                                    'customerMobileNumber'];
+                                customeraddressline1 =
+                                    baseInfoFromServerMap['customerAddress'];
+                                parentOrChild =
+                                    baseInfoFromServerMap['parentOrChild'];
 
-                                  itemsInOrderFromServerMap
-                                      .forEach((key, value) {
+                                itemsInOrderFromServerMap.forEach((key, value) {
 //ThisWillEnsureWeDontTakeCancelledItemsIntoTheList
-                                    if (value['itemCancelled'] == 'false') {
-                                      mapToAddIntoItems = {};
-                                      mapToAddIntoItems['tableorparcel'] =
-                                          tableorparcel;
-                                      mapToAddIntoItems['tableorparcelnumber'] =
-                                          tableorparcelnumber;
-                                      mapToAddIntoItems[
-                                              'timecustomercametoseat'] =
-                                          timecustomercametoseat;
-                                      widget.itemsID.add(key);
-                                      mapToAddIntoItems['eachiteminorderid'] =
-                                          key;
-                                      widget.itemsName.add(value['itemName']);
-                                      mapToAddIntoItems['item'] =
-                                          value['itemName'];
-                                      widget.itemsEachPrice
-                                          .add(value['itemPrice']);
-                                      mapToAddIntoItems['priceofeach'] =
-                                          value['itemPrice'];
-                                      widget.itemsNumber.add(int.parse(
-                                          value['numberOfItem'].toString()));
-                                      mapToAddIntoItems['number'] =
-                                          value['numberOfItem'];
-                                      mapToAddIntoItems['timeoforder'] =
-                                          num.parse(value['orderTakingTime']);
-                                      widget.itemsStatus.add(int.parse(
-                                          value['itemStatus'].toString()));
-                                      mapToAddIntoItems['statusoforder'] =
-                                          value['itemStatus'];
-                                      if (value['itemStatus'] != 3) {
-                                        deliveredStatus = false;
-                                      }
-
-                                      mapToAddIntoItems['commentsForTheItem'] =
-                                          value['itemComment'];
-                                      mapToAddIntoItems['chefKotStatus'] =
-                                          value['chefKOT'];
-                                      mapToAddIntoItems['itemBelongsToDoc'] =
-                                          widget.itemsFromDoc;
-                                      if (value['itemStatus'] == 11) {
-                                        rejectedItems.add(mapToAddIntoItems);
-                                        rejectedItems.sort((a, b) =>
-                                            (a['timeoforder'])
-                                                .compareTo(b['timeoforder']));
-                                      } else if (value['itemStatus'] == 10) {
-                                        readyItems.add(mapToAddIntoItems);
-                                        readyItems.sort((a, b) =>
-                                            (a['timeoforder'])
-                                                .compareTo(b['timeoforder']));
-                                      } else if (value['itemStatus'] == 9) {
-                                        nonAcceptedItems.add(mapToAddIntoItems);
-
-                                        nonAcceptedItems.sort((a, b) =>
-                                            (a['timeoforder'])
-                                                .compareTo(b['timeoforder']));
-                                      } else if (value['itemStatus'] == 7) {
-                                        acceptedItems.add(mapToAddIntoItems);
-                                        acceptedItems.sort((a, b) =>
-                                            (a['timeoforder'])
-                                                .compareTo(b['timeoforder']));
-                                      } else if (value['itemStatus'] == 3) {
-                                        deliveredItems.add(mapToAddIntoItems);
-                                        deliveredItems.sort((a, b) =>
-                                            (a['timeoforder'])
-                                                .compareTo(b['timeoforder']));
-                                      } else {
-                                        otherItems.add(mapToAddIntoItems);
-                                        otherItems.sort((a, b) =>
-                                            (a['timeoforder'])
-                                                .compareTo(b['timeoforder']));
-                                      }
+                                  if (value['itemCancelled'] == 'false') {
+                                    mapToAddIntoItems = {};
+                                    mapToAddIntoItems['tableorparcel'] =
+                                        tableorparcel;
+                                    mapToAddIntoItems['tableorparcelnumber'] =
+                                        tableorparcelnumber;
+                                    mapToAddIntoItems[
+                                            'timecustomercametoseat'] =
+                                        timecustomercametoseat;
+                                    widget.itemsID.add(key);
+                                    mapToAddIntoItems['eachiteminorderid'] =
+                                        key;
+                                    widget.itemsName.add(value['itemName']);
+                                    mapToAddIntoItems['item'] =
+                                        value['itemName'];
+                                    widget.itemsEachPrice
+                                        .add(value['itemPrice']);
+                                    mapToAddIntoItems['priceofeach'] =
+                                        value['itemPrice'];
+                                    widget.itemsNumber.add(int.parse(
+                                        value['numberOfItem'].toString()));
+                                    mapToAddIntoItems['number'] =
+                                        value['numberOfItem'];
+                                    mapToAddIntoItems['timeoforder'] =
+                                        num.parse(value['orderTakingTime']);
+                                    widget.itemsStatus.add(int.parse(
+                                        value['itemStatus'].toString()));
+                                    mapToAddIntoItems['statusoforder'] =
+                                        value['itemStatus'];
+                                    if (value['itemStatus'] != 3) {
+                                      deliveredStatus = false;
                                     }
-                                  });
-                                  items.addAll(rejectedItems);
-                                  items.addAll(readyItems);
-                                  items.addAll(nonAcceptedItems);
-                                  items.addAll(acceptedItems);
-                                  items.addAll(otherItems);
-                                  items.addAll(deliveredItems);
 
-                                  return noItemsInTable == false
-                                      ? Scaffold(
-                                          body: Column(
-                                            children: [
-                                              Expanded(
-                                                  child:
-                                                      SlidableAutoCloseBehavior(
-                                                closeWhenOpened: true,
-                                                child: ListView.builder(
-                                                    itemCount: items.length,
-                                                    itemBuilder:
-                                                        (context, index) {
+                                    mapToAddIntoItems['commentsForTheItem'] =
+                                        value['itemComment'];
+                                    mapToAddIntoItems['chefKotStatus'] =
+                                        value['chefKOT'];
+                                    mapToAddIntoItems['itemBelongsToDoc'] =
+                                        widget.itemsFromDoc;
+                                    if (value['itemStatus'] == 11) {
+                                      rejectedItems.add(mapToAddIntoItems);
+                                      rejectedItems.sort((a, b) =>
+                                          (a['timeoforder'])
+                                              .compareTo(b['timeoforder']));
+                                    } else if (value['itemStatus'] == 10) {
+                                      readyItems.add(mapToAddIntoItems);
+                                      readyItems.sort((a, b) =>
+                                          (a['timeoforder'])
+                                              .compareTo(b['timeoforder']));
+                                    } else if (value['itemStatus'] == 9) {
+                                      nonAcceptedItems.add(mapToAddIntoItems);
+
+                                      nonAcceptedItems.sort((a, b) =>
+                                          (a['timeoforder'])
+                                              .compareTo(b['timeoforder']));
+                                    } else if (value['itemStatus'] == 7) {
+                                      acceptedItems.add(mapToAddIntoItems);
+                                      acceptedItems.sort((a, b) =>
+                                          (a['timeoforder'])
+                                              .compareTo(b['timeoforder']));
+                                    } else if (value['itemStatus'] == 3) {
+                                      deliveredItems.add(mapToAddIntoItems);
+                                      deliveredItems.sort((a, b) =>
+                                          (a['timeoforder'])
+                                              .compareTo(b['timeoforder']));
+                                    } else {
+                                      otherItems.add(mapToAddIntoItems);
+                                      otherItems.sort((a, b) =>
+                                          (a['timeoforder'])
+                                              .compareTo(b['timeoforder']));
+                                    }
+                                  }
+                                });
+                                items.addAll(rejectedItems);
+                                items.addAll(readyItems);
+                                items.addAll(nonAcceptedItems);
+                                items.addAll(acceptedItems);
+                                items.addAll(otherItems);
+                                items.addAll(deliveredItems);
+
+                                return noItemsInTable == false
+                                    ? Scaffold(
+                                        body: Column(
+                                          children: [
+                                            Expanded(
+                                                child:
+                                                    SlidableAutoCloseBehavior(
+                                              closeWhenOpened: true,
+                                              child: ListView.builder(
+                                                  itemCount: items.length,
+                                                  itemBuilder:
+                                                      (context, index) {
 //WeGoThroughAllTheItemsAndItemsNumberList
 //IDAndStatusIsForActionsWeCanDoWithSlidableInFireStore
-                                                      final itemName =
-                                                          items[index]['item'];
-                                                      final itemNumber =
-                                                          items[index]
-                                                              ['number'];
-                                                      final itemID = items[
-                                                              index]
-                                                          ['eachiteminorderid'];
-                                                      final itemStatus =
-                                                          items[index]
-                                                              ['statusoforder'];
-                                                      final itemBelongsToDoc =
-                                                          items[index][
-                                                              'itemBelongsToDoc'];
-                                                      final commentsForTheItem =
-                                                          items[index][
-                                                              'commentsForTheItem'];
-                                                      return Slidable(
+                                                    final itemName =
+                                                        items[index]['item'];
+                                                    final itemNumber =
+                                                        items[index]['number'];
+                                                    final itemID = items[index]
+                                                        ['eachiteminorderid'];
+                                                    final itemStatus =
+                                                        items[index]
+                                                            ['statusoforder'];
+                                                    final itemBelongsToDoc =
+                                                        items[index][
+                                                            'itemBelongsToDoc'];
+                                                    final commentsForTheItem =
+                                                        items[index][
+                                                            'commentsForTheItem'];
+                                                    return Slidable(
 //SlidablePackageFromNetHelpsToSlideAndGetOptions
 //AmongTheManyAnimationOptionsForSliding,WeChooseScrollMotion
-                                                          endActionPane:
-                                                              ActionPane(
+                                                        endActionPane:
+                                                            ActionPane(
 //StartActionPaneIsForOptionsInLeftSide
-                                                            motion:
-                                                                const ScrollMotion(),
-                                                            children: [
-                                                              SlidableAction(
+                                                          motion:
+                                                              const ScrollMotion(),
+                                                          children: [
+                                                            SlidableAction(
 //IfItemStatusIs11,ItMeansChefHasRejectedTheOrder
 //SoWeDeleteItInFireStoreWithFireStoreServices
-                                                                onPressed:
-                                                                    (BuildContext
-                                                                        context) {
-                                                                  setState(() {
-                                                                    if (itemStatus !=
-                                                                        3) {
+                                                              onPressed:
+                                                                  (BuildContext
+                                                                      context) {
+                                                                setState(() {
+                                                                  if (itemStatus !=
+                                                                      3) {
 //IfStatusIsNot3,itMeansTheItemHasNotYetBeenPickedUpByTheWaiter
 //WeGiveHimTheOptionToClickPickedUpByUpdatingStatusTo3
-                                                                      Map<String,
-                                                                              dynamic>
-                                                                          tempMapToUpdateStatus =
+                                                                    Map<String,
+                                                                            dynamic>
+                                                                        tempMapToUpdateStatus =
+                                                                        {
+                                                                      'itemStatus':
+                                                                          3
+                                                                    };
+                                                                    Map<String,
+                                                                            dynamic>
+                                                                        masterOrderMapToServer =
+                                                                        HashMap();
+                                                                    masterOrderMapToServer
+                                                                        .addAll({
+                                                                      'statusMap':
                                                                           {
-                                                                        'itemStatus':
-                                                                            3
-                                                                      };
-                                                                      Map<String,
-                                                                              dynamic>
-                                                                          masterOrderMapToServer =
-                                                                          HashMap();
-                                                                      masterOrderMapToServer
-                                                                          .addAll({
-                                                                        'statusMap':
-                                                                            {
-                                                                          'captainStatus':
-                                                                              3,
-                                                                          'chefStatus':
-                                                                              7
-                                                                        }
-                                                                      });
-                                                                      masterOrderMapToServer
-                                                                          .addAll({
-                                                                        'itemsInOrderMap':
-                                                                            {
-                                                                          itemID:
-                                                                              tempMapToUpdateStatus
-                                                                        }
-                                                                      });
+                                                                        'captainStatus':
+                                                                            3,
+                                                                        'chefStatus':
+                                                                            7
+                                                                      }
+                                                                    });
+                                                                    masterOrderMapToServer
+                                                                        .addAll({
+                                                                      'itemsInOrderMap':
+                                                                          {
+                                                                        itemID:
+                                                                            tempMapToUpdateStatus
+                                                                      }
+                                                                    });
 //MeansThatAnItemIsDelivered
 
-                                                                      FireStoreAddOrderInRunningOrderFolder(
-                                                                              hotelName: widget.hotelName,
-                                                                              seatingNumber: itemBelongsToDoc,
-                                                                              ordersMap: masterOrderMapToServer)
-                                                                          .addOrder();
-                                                                    }
-                                                                  });
-                                                                },
+                                                                    FireStoreAddOrderInRunningOrderFolder(
+                                                                            hotelName: widget
+                                                                                .hotelName,
+                                                                            seatingNumber:
+                                                                                itemBelongsToDoc,
+                                                                            ordersMap:
+                                                                                masterOrderMapToServer)
+                                                                        .addOrder();
+                                                                  }
+                                                                });
+                                                              },
 //WeKeepBackgroundColorOfSlidableOptionAsPerStatus,
 //ifStatus11(Rejected)-Red,If3(Delivered)-DarkGreen,Else-LightGreen
-                                                                backgroundColor: itemStatus ==
-                                                                        11
-                                                                    ? Colors
-                                                                        .white
-                                                                    : itemStatus ==
-                                                                            3
-                                                                        ? Colors
-                                                                            .green
-                                                                            .shade900
-                                                                        : Colors
-                                                                            .green
-                                                                            .shade500,
+                                                              backgroundColor: itemStatus ==
+                                                                      11
+                                                                  ? Colors.white
+                                                                  : itemStatus ==
+                                                                          3
+                                                                      ? Colors
+                                                                          .green
+                                                                          .shade900
+                                                                      : Colors
+                                                                          .green
+                                                                          .shade500,
 //iconAsPerStatus,11(Rejected)-deleteIcon,
 //if3(AlreadyDelivered)-DoubleTick
 //Else(DeliveredNow)-SingleTick
-                                                                icon: itemStatus ==
-                                                                        11
-                                                                    ? null
-                                                                    : itemStatus ==
-                                                                            3
-                                                                        ? const IconData(
-                                                                            0xefe5,
-                                                                            fontFamily:
-                                                                                'MaterialIcons')
-                                                                        : const IconData(
-                                                                            0xe1f8,
-                                                                            fontFamily:
-                                                                                'MaterialIcons'),
+                                                              icon: itemStatus ==
+                                                                      11
+                                                                  ? null
+                                                                  : itemStatus ==
+                                                                          3
+                                                                      ? const IconData(
+                                                                          0xefe5,
+                                                                          fontFamily:
+                                                                              'MaterialIcons')
+                                                                      : const IconData(
+                                                                          0xe1f8,
+                                                                          fontFamily:
+                                                                              'MaterialIcons'),
 //labelAsPerStatus,11(Rejected)-delete,
 //if3(AlreadyDelivered)-Already Delivered
 //Else(DeliveredNow)-Delivered
-                                                                label: itemStatus ==
-                                                                        11
-                                                                    ? ' '
-                                                                    : itemStatus ==
-                                                                            3
-                                                                        ? 'Already Served'
-                                                                        : 'Served',
-                                                              ),
-                                                            ],
-                                                          ),
+                                                              label: itemStatus ==
+                                                                      11
+                                                                  ? ' '
+                                                                  : itemStatus ==
+                                                                          3
+                                                                      ? 'Already Served'
+                                                                      : 'Served',
+                                                            ),
+                                                          ],
+                                                        ),
 //EndActionPaneIsForRightSideSlidableOptions
-                                                          startActionPane:
-                                                              ActionPane(
-                                                            motion:
-                                                                const ScrollMotion(),
-                                                            children: [
-                                                              Visibility(
+                                                        startActionPane:
+                                                            ActionPane(
+                                                          motion:
+                                                              const ScrollMotion(),
+                                                          children: [
+                                                            Visibility(
 //OnlyIfUserHasCancellationAccessHeWillBeAbleToCancel
-                                                                visible: json.decode(Provider.of<
-                                                                            PrinterAndOtherDetailsProvider>(
-                                                                        context,
-                                                                        listen:
-                                                                            false)
-                                                                    .allUserProfilesFromClass)[Provider.of<
-                                                                            PrinterAndOtherDetailsProvider>(
-                                                                        context,
-                                                                        listen:
-                                                                            false)
-                                                                    .currentUserPhoneNumberFromClass]['privileges']['11'],
-                                                                child:
-                                                                    SlidableAction(
+                                                              visible: json.decode(Provider.of<
+                                                                          PrinterAndOtherDetailsProvider>(
+                                                                      context,
+                                                                      listen:
+                                                                          false)
+                                                                  .allUserProfilesFromClass)[Provider.of<
+                                                                          PrinterAndOtherDetailsProvider>(
+                                                                      context,
+                                                                      listen:
+                                                                          false)
+                                                                  .currentUserPhoneNumberFromClass]['privileges']['11'],
+                                                              child:
+                                                                  SlidableAction(
 //WaiterCanDeleteItAnyTimeInCaseTheCustomerSaysTheyDon'tWant
 //WeRemoveItOutOfTheListsToo
-                                                                        onPressed:
-                                                                            (BuildContext
-                                                                                context) {
-                                                                          setState(
-                                                                              () {
+                                                                      onPressed:
+                                                                          (BuildContext
+                                                                              context) {
+                                                                        setState(
+                                                                            () {
 //IfItemIsAccepted/Ready-WeNeedToIntimateTheChef
-                                                                            if (items.length ==
-                                                                                1) {
-//IfThereIsOnlyOneItemWeDeleteTheTableItself
-                                                                              FireStoreDeleteFinishedOrderInRunningOrders(hotelName: widget.hotelName, eachTableId: itemBelongsToDoc).deleteFinishedOrder();
-                                                                              Navigator.pop(context);
-                                                                            } else if (itemStatus == 7 ||
-                                                                                itemStatus == 10) {
+                                                                          if (items.length ==
+                                                                              1) {
+                                                                            showSpinner =
+                                                                                true;
+                                                                            documentStatisticsRegistryDateMaker();
+                                                                            currentGeneratedIncrementRandomNumber =
+                                                                                (1000000 + Random().nextInt(9999999 - 1000000));
+
+                                                                            lastItemIdForCancelling =
+                                                                                itemID;
+                                                                            lastItemStatusForCancelling =
+                                                                                itemStatus;
+                                                                            thisMonthStatisticsStreamToCheckInternet();
+                                                                            cashBalanceWithQueriedMonthToLatestDataCheck(DateTime(int.parse(statisticsYear), int.parse(statisticsMonth), int.parse(statisticsDay)),
+                                                                                currentGeneratedIncrementRandomNumber);
+                                                                          } else if (itemStatus == 7 ||
+                                                                              itemStatus == 10) {
 //ThisIsForMakingCancellationMap
-                                                                              Map<String, dynamic> tempItemMapForCancel = itemsInOrderFromServerMap[itemID];
-                                                                              tempItemMapForCancel['cancellingCaptainName'] = json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['username'];
-                                                                              tempItemMapForCancel['cancellingCaptainPhone'] = Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass;
+                                                                            Map<String, dynamic>
+                                                                                tempItemMapForCancel =
+                                                                                itemsInOrderFromServerMap[itemID];
+                                                                            tempItemMapForCancel['cancellingCaptainName'] =
+                                                                                json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['username'];
+                                                                            tempItemMapForCancel['cancellingCaptainPhone'] =
+                                                                                Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass;
 
 //ThisMeansTheTheItemHasBeenAccepted/ReadyByCook.WeNeedToInformCookTo...
 // ...stopGettingItReady
 //IfStatusIsNot3,itMeansTheItemHasNotYetBeenPickedUpByTheWaiter
 //WeGiveHimTheOptionToClickPickedUpByUpdatingStatusTo3
 //letTheStatusOfCaptainCancelledItemBe12
-                                                                              Map<String, dynamic> tempMapToUpdateStatus = HashMap();
-                                                                              if (itemStatus == 7) {
-                                                                                tempMapToUpdateStatus.addAll({
-                                                                                  'itemCancelled': 'acceptedToDelete'
-                                                                                });
-                                                                              } else if (itemStatus == 10) {
-                                                                                tempMapToUpdateStatus.addAll({
-                                                                                  'itemCancelled': 'readyToDelete'
-                                                                                });
+                                                                            Map<String, dynamic>
+                                                                                tempMapToUpdateStatus =
+                                                                                HashMap();
+                                                                            if (itemStatus ==
+                                                                                7) {
+                                                                              tempMapToUpdateStatus.addAll({
+                                                                                'itemCancelled': 'acceptedToDelete'
+                                                                              });
+                                                                            } else if (itemStatus ==
+                                                                                10) {
+                                                                              tempMapToUpdateStatus.addAll({
+                                                                                'itemCancelled': 'readyToDelete'
+                                                                              });
+                                                                            }
+                                                                            tempMapToUpdateStatus.addAll({
+                                                                              'itemStatus': 9
+                                                                            });
+
+                                                                            tempMapToUpdateStatus.addAll({
+                                                                              'chefKOT': 'chefkotnotyet'
+                                                                            });
+
+                                                                            Map<String, dynamic>
+                                                                                masterOrderMapToServer =
+                                                                                HashMap();
+                                                                            masterOrderMapToServer.addAll({
+                                                                              'itemsInOrderMap': {
+                                                                                itemID: tempMapToUpdateStatus
+                                                                              },
+                                                                            });
+                                                                            masterOrderMapToServer.addAll({
+                                                                              'statusMap': {
+                                                                                'chefStatus': 9
                                                                               }
-                                                                              tempMapToUpdateStatus.addAll({
-                                                                                'itemStatus': 9
-                                                                              });
-
-                                                                              tempMapToUpdateStatus.addAll({
-                                                                                'chefKOT': 'chefkotnotyet'
-                                                                              });
-
-                                                                              Map<String, dynamic> masterOrderMapToServer = HashMap();
-                                                                              masterOrderMapToServer.addAll({
-                                                                                'itemsInOrderMap': {
-                                                                                  itemID: tempMapToUpdateStatus
-                                                                                },
-                                                                              });
-                                                                              masterOrderMapToServer.addAll({
-                                                                                'statusMap': {
-                                                                                  'chefStatus': 9
-                                                                                }
-                                                                              });
-                                                                              masterOrderMapToServer.addAll({
-                                                                                'cancelledItemsInOrder': {
-                                                                                  itemID: tempItemMapForCancel
-                                                                                }
-                                                                              });
-                                                                              FireStoreAddOrderInRunningOrderFolder(hotelName: widget.hotelName, seatingNumber: itemBelongsToDoc, ordersMap: masterOrderMapToServer).addOrder();
-                                                                              fcmProvider.sendNotification(token: dynamicTokensToStringToken(), title: widget.hotelName, restaurantNameForNotification: json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['restaurantName'], body: '*newOrderForCook*');
-                                                                            } else {
-                                                                              Map<String, dynamic> tempItemMapForCancel = itemsInOrderFromServerMap[itemID];
+                                                                            });
+                                                                            masterOrderMapToServer.addAll({
+                                                                              'cancelledItemsInOrder': {
+                                                                                itemID: tempItemMapForCancel
+                                                                              }
+                                                                            });
+                                                                            FireStoreAddOrderInRunningOrderFolder(hotelName: widget.hotelName, seatingNumber: itemBelongsToDoc, ordersMap: masterOrderMapToServer).addOrder();
+                                                                            fcmProvider.sendNotification(
+                                                                                token: dynamicTokensToStringToken(),
+                                                                                title: widget.hotelName,
+                                                                                restaurantNameForNotification: json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['restaurantName'],
+                                                                                body: '*newOrderForCook*');
+                                                                          } else {
+                                                                            Map<String, dynamic>
+                                                                                tempItemMapForCancel =
+                                                                                itemsInOrderFromServerMap[itemID];
 //ifItIs11,It'sAnRejectedItemAndTheChefNameWillBeAlreadyThereInTheRejectedList
 //SoWeDontNeedToChangeCaptain
-                                                                              if (itemStatus != 11) {
-                                                                                tempItemMapForCancel['cancellingCaptainName'] = json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['username'];
-                                                                                tempItemMapForCancel['cancellingCaptainPhone'] = Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass;
-                                                                              }
+                                                                            if (itemStatus !=
+                                                                                11) {
+                                                                              tempItemMapForCancel['cancellingCaptainName'] = json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['username'];
+                                                                              tempItemMapForCancel['cancellingCaptainPhone'] = Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass;
+                                                                            }
 //deletingAnNonAccepted/RejectedItemFromTheListOfItems
 
-                                                                              Map<String, dynamic> masterOrderMapToServer = HashMap();
+                                                                            Map<String, dynamic>
+                                                                                masterOrderMapToServer =
+                                                                                HashMap();
 //ToDeleted
-                                                                              masterOrderMapToServer.addAll({
-                                                                                'itemsInOrderMap': {
-                                                                                  itemID: FieldValue.delete()
-                                                                                },
-                                                                              });
+                                                                            masterOrderMapToServer.addAll({
+                                                                              'itemsInOrderMap': {
+                                                                                itemID: FieldValue.delete()
+                                                                              },
+                                                                            });
 //InCaseItIsRejectedItem,WeNeedToRegisterThatTheCaptainHasSeenIt
-                                                                              masterOrderMapToServer.addAll({
-                                                                                'statusMap': {
-                                                                                  'captainStatus': 7
-                                                                                },
-                                                                              });
-                                                                              masterOrderMapToServer.addAll({
-                                                                                'cancelledItemsInOrder': {
-                                                                                  itemID: tempItemMapForCancel
-                                                                                }
-                                                                              });
+                                                                            masterOrderMapToServer.addAll({
+                                                                              'statusMap': {
+                                                                                'captainStatus': 7
+                                                                              },
+                                                                            });
+                                                                            masterOrderMapToServer.addAll({
+                                                                              'cancelledItemsInOrder': {
+                                                                                itemID: tempItemMapForCancel
+                                                                              }
+                                                                            });
 
-                                                                              FireStoreAddOrderInRunningOrderFolder(hotelName: widget.hotelName, seatingNumber: itemBelongsToDoc, ordersMap: masterOrderMapToServer).addOrder();
-                                                                            }
-                                                                          });
-                                                                        },
+                                                                            FireStoreAddOrderInRunningOrderFolder(hotelName: widget.hotelName, seatingNumber: itemBelongsToDoc, ordersMap: masterOrderMapToServer).addOrder();
+                                                                          }
+                                                                        });
+                                                                      },
 //IfAlreadyDelivered(Status 3)-GreenColor,Else-Red
-                                                                        backgroundColor: Colors
-                                                                            .red
-                                                                            .shade500,
+                                                                      backgroundColor:
+                                                                          Colors
+                                                                              .red
+                                                                              .shade500,
 //IfAlreadyDelivered(Status 3)-DoubleTick,Else-DeleteIcon
-                                                                        icon: Icons
-                                                                            .close,
+                                                                      icon: Icons
+                                                                          .close,
 //IfAlreadyDelivered(Status 3)-Already Delivered,Else-Delete as label
-                                                                        label:
-                                                                            'Cancel'),
-                                                              ),
-                                                            ],
-                                                          ),
-                                                          child: Container(
+                                                                      label:
+                                                                          'Cancel'),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        child: Container(
 //thisContainerWillHaveTheListTile,WithBorderRadius
-                                                            //margin: EdgeInsets.fromLTRB(5, 5, 5, 5),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          5),
-                                                              border:
-                                                                  Border.all(
-                                                                color: Colors
-                                                                    .black87,
-                                                                width: 1.0,
-                                                              ),
+                                                          //margin: EdgeInsets.fromLTRB(5, 5, 5, 5),
+                                                          decoration:
+                                                              BoxDecoration(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        5),
+                                                            border: Border.all(
+                                                              color: Colors
+                                                                  .black87,
+                                                              width: 1.0,
+                                                            ),
 //ContainerColor-Status11(Rejected)-Red,10(ReadyWithChef)-Green,
 //3-AlreadyDelivered-LightBlue
-                                                              color: itemStatus ==
-                                                                      11
-                                                                  ? Colors.red
-                                                                  : itemStatus ==
-                                                                          10
-                                                                      ? Colors
-                                                                          .green
-                                                                      : itemStatus ==
-                                                                              7
-                                                                          ? Colors
-                                                                              .orangeAccent
-                                                                          : itemStatus == 3
-                                                                              ? Colors.lightBlueAccent
-                                                                              : null,
-                                                            ),
-                                                            child: ListTile(
+                                                            color: itemStatus ==
+                                                                    11
+                                                                ? Colors.red
+                                                                : itemStatus ==
+                                                                        10
+                                                                    ? Colors
+                                                                        .green
+                                                                    : itemStatus ==
+                                                                            7
+                                                                        ? Colors
+                                                                            .orangeAccent
+                                                                        : itemStatus ==
+                                                                                3
+                                                                            ? Colors.lightBlueAccent
+                                                                            : null,
+                                                          ),
+                                                          child: ListTile(
 //ListTileWillHaveItemNameInLeftAndNumberInRight
-                                                              title: Text(
-                                                                  itemName,
-                                                                  style: TextStyle(
-                                                                      fontSize:
-                                                                          28.0)),
-                                                              trailing: Text(
-                                                                  itemNumber
-                                                                      .toString(),
-                                                                  style: TextStyle(
-                                                                      fontSize:
-                                                                          28.0)),
-                                                              subtitle:
-                                                                  commentsForTheItem ==
-                                                                          'noComment'
-                                                                      ? null
-                                                                      : Text(
-                                                                          commentsForTheItem,
-                                                                          style: TextStyle(
-                                                                              fontWeight: FontWeight.w500,
-                                                                              color: Colors.black),
-                                                                        ),
-                                                            ),
-                                                          ));
-                                                    }),
-                                              )),
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.all(10),
-                                                child: BottomButton(
-                                                    buttonWidth:
-                                                        double.infinity,
-                                                    buttonColor: (deliveredStatus &&
-                                                            !noItemsInTable)
-                                                        ? kBottomContainerColour
-                                                        : Colors.grey,
-                                                    onTap: () {
+                                                            title: Text(
+                                                                itemName,
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        28.0)),
+                                                            trailing: Text(
+                                                                itemNumber
+                                                                    .toString(),
+                                                                style: TextStyle(
+                                                                    fontSize:
+                                                                        28.0)),
+                                                            subtitle:
+                                                                commentsForTheItem ==
+                                                                        'noComment'
+                                                                    ? null
+                                                                    : Text(
+                                                                        commentsForTheItem,
+                                                                        style: TextStyle(
+                                                                            fontWeight:
+                                                                                FontWeight.w500,
+                                                                            color: Colors.black),
+                                                                      ),
+                                                          ),
+                                                        ));
+                                                  }),
+                                            )),
+                                            Padding(
+                                              padding: const EdgeInsets.all(10),
+                                              child: BottomButton(
+                                                  buttonWidth: double.infinity,
+                                                  buttonColor: (deliveredStatus &&
+                                                          !noItemsInTable)
+                                                      ? kBottomContainerColour
+                                                      : Colors.grey,
+                                                  onTap: () {
 //OnlyIfAllItemAreDelivered,WeGoForwardWithPrint
-                                                      if (deliveredStatus &&
-                                                          !noItemsInTable) {
-                                                        Navigator.push(
-                                                            context,
-                                                            MaterialPageRoute(
-                                                                builder:
-                                                                    (context) =>
-                                                                        BillPrintWithStatsCheck(
-                                                                          hotelName:
-                                                                              widget.hotelName,
-                                                                          // addedItemsSet:
-                                                                          //     addedItemsSet,
-                                                                          itemsID:
-                                                                              widget.itemsID,
-                                                                          itemsFromThisDocumentInFirebaseDoc:
-                                                                              widget.itemsFromDoc,
-                                                                        )));
+                                                    if (deliveredStatus &&
+                                                        !noItemsInTable) {
+                                                      Navigator.push(
+                                                          context,
+                                                          MaterialPageRoute(
+                                                              builder: (context) =>
+                                                                  BillPrintWithStatsCheck(
+                                                                    hotelName:
+                                                                        widget
+                                                                            .hotelName,
+                                                                    // addedItemsSet:
+                                                                    //     addedItemsSet,
+                                                                    itemsID: widget
+                                                                        .itemsID,
+                                                                    itemsFromThisDocumentInFirebaseDoc:
+                                                                        widget
+                                                                            .itemsFromDoc,
+                                                                  )));
 
 //WeGiveThePrintOrdersMap,navigatingToPrintScreen,WhereItWillBeDisplayedAsBill
 //                 Navigator.pushReplacement(
@@ -2050,139 +3182,136 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
 //                         builder: (context) => FinalBillScreen(
 //                               eachOrderMap: printOrdersMap,
 //                             )));
-                                                      } else if (noItemsInTable) {
-                                                        Navigator.pop(context);
-                                                      }
-                                                    },
-//ButtonTitleWillBePrint
-                                                    buttonTitle:
-                                                        'Confirm Bill'),
-                                              )
-                                            ],
-                                          ),
-                                          //inDownRight,WeHaveFloatingActionButton,
-//ThisWillBeContainerAndWillBeInRoundShape
-                                          floatingActionButton: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.end,
-                                            children: [
-                                              Container(
-                                                width: 75.0,
-                                                height: 75.0,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(1),
-                                                  // border: Border.all(
-                                                  //   color: Colors.black87,
-                                                  //   width: 0.2,
-                                                  // )
-                                                ),
-                                                child: MaterialButton(
-                                                  color: Colors.white70,
-                                                  onPressed: () {
-                                                    _controller =
-                                                        TextEditingController(
-                                                            text:
-                                                                customermobileNumber);
-                                                    showModalBottomSheet(
-                                                        isScrollControlled:
-                                                            true,
-                                                        context: context,
-                                                        builder: (context) {
-                                                          return buildUserInfoWidget();
-                                                        });
+                                                    } else if (noItemsInTable) {
+                                                      Navigator.pop(context);
+                                                    }
                                                   },
-                                                  shape: CircleBorder(
+//ButtonTitleWillBePrint
+                                                  buttonTitle: 'Confirm Bill'),
+                                            )
+                                          ],
+                                        ),
+                                        //inDownRight,WeHaveFloatingActionButton,
+//ThisWillBeContainerAndWillBeInRoundShape
+                                        floatingActionButton: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
+                                          children: [
+                                            Container(
+                                              width: 75.0,
+                                              height: 75.0,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(1),
+                                                // border: Border.all(
+                                                //   color: Colors.black87,
+                                                //   width: 0.2,
+                                                // )
+                                              ),
+                                              child: MaterialButton(
+                                                color: Colors.white70,
+                                                onPressed: () {
+                                                  _controller =
+                                                      TextEditingController(
+                                                          text:
+                                                              customermobileNumber);
+                                                  showModalBottomSheet(
+                                                      isScrollControlled: true,
+                                                      context: context,
+                                                      builder: (context) {
+                                                        return buildUserInfoWidget();
+                                                      });
+                                                },
+                                                shape: CircleBorder(
 
-                                                      // side: BorderSide(
-                                                      //     // width: 2,
-                                                      //     // color: Colors.red,
-                                                      //     // style: BorderStyle.solid,
-                                                      //     )
-                                                      ),
-                                                  child: const Icon(
-                                                    IconData(0xe043,
-                                                        fontFamily:
-                                                            'MaterialIcons'),
-                                                    size: 35,
-                                                  ),
+                                                    // side: BorderSide(
+                                                    //     // width: 2,
+                                                    //     // color: Colors.red,
+                                                    //     // style: BorderStyle.solid,
+                                                    //     )
+                                                    ),
+                                                child: const Icon(
+                                                  IconData(0xe043,
+                                                      fontFamily:
+                                                          'MaterialIcons'),
+                                                  size: 35,
                                                 ),
                                               ),
-                                              SizedBox(height: 10),
-                                              Container(
-                                                width: 75.0,
-                                                height: 75.0,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(1),
+                                            ),
+                                            SizedBox(height: 10),
+                                            Container(
+                                              width: 75.0,
+                                              height: 75.0,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(1),
 //            border: Border.all(
 //          color: Colors.black87,
 //          width: 0.2,
 //        )
-                                                ),
+                                              ),
 //FloatingActionButtonNameWillBeMenu
-                                                child: FloatingActionButton(
-                                                  backgroundColor:
-                                                      Colors.white70,
-                                                  child: const Text(
-                                                    'Menu',
-                                                    style: TextStyle(
-                                                        color: Colors.black,
-                                                        fontWeight:
-                                                            FontWeight.w900),
-                                                  ),
-                                                  onPressed: () {
+                                              child: FloatingActionButton(
+                                                backgroundColor: Colors.white70,
+                                                child: const Text(
+                                                  'Menu',
+                                                  style: TextStyle(
+                                                      color: Colors.black,
+                                                      fontWeight:
+                                                          FontWeight.w900),
+                                                ),
+                                                onPressed: () {
 //onPressedWeAlreadyHaveAllTheBelowInputsAsThisScreenWasCalled
 //WeGiveUnavailableItemsToEnsureWeDon'tShowItAndItemsAddedMap
 //WillHaveTheItemNameAsKeyAndTheNumberAsValue
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) =>
-                                                            MenuPageWithBackButtonUsage(
-                                                          hotelName:
-                                                              widget.hotelName,
-                                                          tableOrParcel: widget
-                                                              .tableOrParcel,
-                                                          tableOrParcelNumber:
-                                                              widget
-                                                                  .tableOrParcelNumber,
-                                                          parentOrChild:
-                                                              parentOrChild,
-                                                          menuItems:
-                                                              widget.menuItems,
-                                                          menuPrices:
-                                                              widget.menuPrices,
-                                                          menuTitles:
-                                                              widget.menuTitles,
-                                                          itemsAddedMapCalled: {},
-                                                          itemsAddedCommentCalled: {},
-                                                          itemsAddedTimeCalled: {},
-                                                          alreadyRunningTicketsMap:
-                                                              ticketsFromServerMap,
-                                                        ),
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          MenuPageWithBackButtonUsage(
+                                                        hotelName:
+                                                            widget.hotelName,
+                                                        tableOrParcel: widget
+                                                            .tableOrParcel,
+                                                        tableOrParcelNumber: widget
+                                                            .tableOrParcelNumber,
+                                                        parentOrChild:
+                                                            parentOrChild,
+                                                        menuItems:
+                                                            widget.menuItems,
+                                                        menuPrices:
+                                                            widget.menuPrices,
+                                                        menuTitles:
+                                                            widget.menuTitles,
+                                                        itemsAddedMapCalled: {},
+                                                        itemsAddedCommentCalled: {},
+                                                        itemsAddedTimeCalled: {},
+                                                        alreadyRunningTicketsMap:
+                                                            ticketsFromServerMap,
                                                       ),
-                                                    );
-                                                  },
-                                                ),
+                                                    ),
+                                                  );
+                                                },
                                               ),
-                                              SizedBox(height: 100),
-                                            ],
-                                          ),
-                                        )
-                                      : const Center(
-                                          child: Text(
-                                            'Table\nClosed/Split/Moved',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(fontSize: 30),
-                                          ),
-                                        );
-                                }
-                              } else {
-                                return CircularProgressIndicator();
+                                            ),
+                                            SizedBox(height: 100),
+                                          ],
+                                        ),
+                                      )
+                                    : const Center(
+                                        child: Text(
+                                          'Table\nClosed/Split/Moved',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 30),
+                                        ),
+                                      );
                               }
-                            })),
-          ],
+                            } else {
+                              return CircularProgressIndicator();
+                            }
+                          })),
+            ],
+          ),
         ),
       ),
     );

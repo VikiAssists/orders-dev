@@ -718,6 +718,74 @@ class FireStoreBillAndStatisticsInServer {
   }
 }
 
+class FireStoreBillAndStatisticsInServerVersionTwo {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String orderHistoryDocID;
+  Map<String, dynamic> printOrdersMap = HashMap();
+  Map<String, dynamic> dailyStatisticsUpdateMap = HashMap();
+  Map<String, dynamic> monthlyStatisticsUpdateMap = HashMap();
+  Map<String, dynamic> entireCashBalanceChangeSheet = HashMap();
+  final String year;
+  final String month;
+  final String day;
+
+  FireStoreBillAndStatisticsInServerVersionTwo(
+      {required this.hotelName,
+      required this.printOrdersMap,
+      required this.orderHistoryDocID,
+      required this.dailyStatisticsUpdateMap,
+      required this.monthlyStatisticsUpdateMap,
+      required this.entireCashBalanceChangeSheet,
+      required this.year,
+      required this.month,
+      required this.day});
+
+  Future<void> updateBillAndStatistics() {
+    var batch = _fireStore.batch();
+    if (orderHistoryDocID != '') {
+//ThisWayWeCanCallFromCancellingOrdersToo
+      var orderHistoryRef = _fireStore
+          .collection(hotelName)
+          .doc('salesBills')
+          .collection(year)
+          .doc(month)
+          .collection(day)
+          .doc(orderHistoryDocID);
+      batch.set(orderHistoryRef, printOrdersMap, SetOptions(merge: true));
+    }
+    if (entireCashBalanceChangeSheet.isNotEmpty) {
+      entireCashBalanceChangeSheet.forEach((key, value) {
+        var statisticsMonthlyReportForExpensesRef = _fireStore
+            .collection(hotelName)
+            .doc('reports')
+            .collection('monthlyReports')
+            .doc(key);
+        batch.set(statisticsMonthlyReportForExpensesRef,
+            {'cashBalanceData': value}, SetOptions(merge: true));
+      });
+    }
+    var statisticsDayRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('dailyReports')
+        .doc(year)
+        .collection(month)
+        .doc(day);
+    var statisticsMonthlyRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('monthlyReports')
+        .doc('$year*$month');
+    batch.set(
+        statisticsDayRef, dailyStatisticsUpdateMap, SetOptions(merge: true));
+    batch.set(statisticsMonthlyRef, monthlyStatisticsUpdateMap,
+        SetOptions(merge: true));
+
+    return batch.commit();
+  }
+}
+
 class FireStoreDeleteFinishedOrderInPresentOrders {
   final _fireStore = FirebaseFirestore.instance;
   final String hotelName;
@@ -1086,6 +1154,79 @@ class FireStoreDeleteOldExpenseWithBatch {
     batch.set(statisticsMonthlyReportForExpensesRef, statisticsExpensesMap,
         SetOptions(merge: true));
     batch.set(statisticsDailyReportForExpensesRef, statisticsExpensesMap,
+        SetOptions(merge: true));
+
+    return batch.commit();
+  }
+}
+
+class FireStoreCancellingEntireTableWithBatch {
+  final _fireStore = FirebaseFirestore.instance;
+  final String hotelName;
+  final String expenseBillName;
+  final String year;
+  final String month;
+  final String day;
+  Map<String, dynamic> expensesBillMap = HashMap();
+  Map<String, dynamic> statisticsDailyExpensesMap = HashMap();
+  Map<String, dynamic> statisticsMonthlyExpensesMap = HashMap();
+  Map<String, dynamic> expensesSegregationUpdateMap = HashMap();
+  final int expensesUpdateTimeInMilliseconds;
+
+  FireStoreCancellingEntireTableWithBatch(
+      {required this.hotelName,
+      required this.expenseBillName,
+      required this.year,
+      required this.month,
+      required this.day,
+      required this.expensesBillMap,
+      required this.statisticsDailyExpensesMap,
+      required this.statisticsMonthlyExpensesMap,
+      required this.expensesSegregationUpdateMap,
+      required this.expensesUpdateTimeInMilliseconds});
+
+  Future<void> addExpense() {
+    var batch = _fireStore.batch();
+
+    var expensesBillsRef = _fireStore
+        .collection(hotelName)
+        .doc('expensesBills')
+        .collection(year)
+        .doc('month')
+        .collection(month)
+        .doc(expenseBillName);
+    var statisticsMonthlyReportForExpensesRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('monthlyReports')
+        .doc('$year*$month');
+    var statisticsDailyReportForExpensesRef = _fireStore
+        .collection(hotelName)
+        .doc('reports')
+        .collection('dailyReports')
+        .doc(year)
+        .collection(month)
+        .doc(day);
+    if (expensesSegregationUpdateMap.isNotEmpty) {
+      var expensesSegregationUpdationRef =
+          _fireStore.collection(hotelName).doc('expensesSegregation');
+      var expensesDateUpdationRef =
+          _fireStore.collection(hotelName).doc('basicinfo');
+      batch.set(expensesSegregationUpdationRef, expensesSegregationUpdateMap,
+          SetOptions(merge: true));
+      batch.set(
+          expensesDateUpdationRef,
+          {
+            'updateTimes': {
+              'expensesSegregation': expensesUpdateTimeInMilliseconds
+            }
+          },
+          SetOptions(merge: true));
+    }
+    batch.set(expensesBillsRef, expensesBillMap, SetOptions(merge: true));
+    batch.set(statisticsMonthlyReportForExpensesRef,
+        statisticsMonthlyExpensesMap, SetOptions(merge: true));
+    batch.set(statisticsDailyReportForExpensesRef, statisticsDailyExpensesMap,
         SetOptions(merge: true));
 
     return batch.commit();

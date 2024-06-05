@@ -13,6 +13,7 @@ import 'package:flutter_pos_printer_platform_image_3/flutter_pos_printer_platfor
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:orders_dev/Methods/bottom_button.dart';
 import 'package:orders_dev/Methods/usb_bluetooth_printer.dart';
+import 'package:orders_dev/Providers/notification_provider.dart';
 import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/printer_roles_assigning.dart';
 import 'package:orders_dev/constants.dart';
@@ -42,6 +43,7 @@ class BillPrintWithStatsCheck extends StatefulWidget {
 }
 
 class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
+  final _fireStore = FirebaseFirestore.instance;
   String hotelNameAlone = '';
 //SpinnerOrCircularProgressIndicatorWhenTryingToPrint
   bool showSpinner = false;
@@ -57,12 +59,12 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
   String customername = '';
   String customermobileNumber = '';
   String customeraddressline1 = '';
-  String tempYear = '';
-  String tempMonth = '';
-  String tempDay = '';
-  String tempHour = '';
-  String tempMinute = '';
-  String tempSecond = '';
+  String billYear = '';
+  String billMonth = '';
+  String billDay = '';
+  String billHour = '';
+  String billMinute = '';
+  String billSecond = '';
   num startTimeOfThisTableOrParcelInNum = 0;
   List<Map<String, dynamic>> items = [];
   List<String> distinctItemNames = [];
@@ -76,12 +78,10 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
   Map<String, dynamic> menuIndividualItemsStatsMap = HashMap();
   Map<String, dynamic> extraIndividualItemsStatsMap = HashMap();
   Map<String, dynamic> mapEachCaptainOrdersTakenStatsMap = HashMap();
-  Map<String, dynamic> dailyStatisticsMap = HashMap();
-  Map<String, dynamic> monthlyStatisticsMap = HashMap();
+
   List<String> arraySoldItemsCategoryArray = [];
   Map<String, dynamic> toCheckPastOrderHistoryMap = HashMap();
-  Map<String, String> printOrdersMap = HashMap();
-
+  Map<String, dynamic> printOrdersMap = HashMap();
   num discount = 0;
   String discountEnteredValue = '';
   bool discountValueClickedTruePercentageClickedFalse = true;
@@ -136,21 +136,52 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
   bool bluetoothBillConnect = false;
   bool bluetoothBillConnectTried = false;
   int printerConnectionSuccessCheckRandomNumber = 0;
-  String orderIdForCreatingDocId = '';
+  String orderStartTimeForCreatingDocId = '';
   bool paymentDoneClicked = false;
   bool orderIdCheckedWhenEnteringScreen = false;
   String firstCheckedOrderId = '';
   Map<String, dynamic> expensesSegregationMap = HashMap();
   List<String> paymentMethod = [];
-  Map<int, dynamic> paymentClosingMap = HashMap();
+  Map<int, dynamic> bottomBarPaymentClosingMap = HashMap();
+  Map<String, dynamic> finalPaymentClosingMap = HashMap();
+  Map<String, dynamic> finalCashierClosingMap = HashMap();
+  num cashIncrementRequired = 0;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
-      streamSubscriptionForPrinting;
+      _streamSubscriptionForPrinting;
+  List<String> finalNewPaymentMethod = []; //forAddingNewPaymentMethods
+  List<String> paymentMethodsInThisPeriod =
+      []; //thisIsForArrayUnionOfAllPaymentMethods
+  int closingHour = 0;
+  String statisticsYear = '';
+  String statisticsMonth = '';
+  String statisticsDay = '';
+  StreamSubscription<QuerySnapshot>? _streamSubscriptionForThisMonthStatistics;
+//MakingThisToGetCashIncrement
+  num previousCashBalanceWhileIterating = -9999999;
+  num dayIncrementWhileIterating = -1111111;
+  int currentGeneratedIncrementRandomNumber = 0;
+  num valueToIncrementInCashInCashBalance = 0;
+  Map<String, dynamic> cancelledItemsInOrderFromServerMap = HashMap();
+  Map<String, dynamic> subMasterBilledCancellationStats = HashMap();
+  Map<String, dynamic> restaurantInfoMap = HashMap();
+  bool streamSubscriptionForPrintingOnTrueOffFalse = false;
+  bool serialNumberStreamCalled = false;
+  //SecondaryPrintCheckSoThatWeDon'tCallPrintTwiceFromStream
+//AndAtTheSameTimeWeCanUseTheSameStreamToGetDataForPaymentDoneAlso
+  bool secondaryPrintButtonTapCheck = false;
+  Map<String, dynamic> entireCashBalanceChangeSheet = HashMap();
+  bool gotCashIncrementData = false;
+  String orderHistoryChecked = 'checking';
+  bool billUpdateTried = false;
+  int closingCheckCounter = 0;
+  List<int> paymentSorterList = [];
 
   @override
   void initState() {
     showSpinner = false;
 
     tappedPrintButton = false;
+    secondaryPrintButtonTapCheck = false;
     paymentDoneClicked = false;
     gotSerialNumber = false;
     items = [];
@@ -158,6 +189,9 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     serialNumber = 0;
     orderIdCheckedWhenEnteringScreen = false;
     firstCheckedOrderId = '';
+    bottomBarPaymentClosingMap = {};
+    gotCashIncrementData = false;
+    billUpdateTried = false;
     // TODO: implement initState
 
     requestLocationPermission();
@@ -232,7 +266,402 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     _subscription?.cancel();
     _subscriptionBtStatus?.cancel();
     _subscriptionUsbStatus?.cancel();
+    _streamSubscriptionForPrinting?.cancel();
+    _streamSubscriptionForThisMonthStatistics?.cancel();
     super.dispose();
+  }
+
+//StatisticsStreamToCheckInternet
+  void thisMonthStatisticsStreamToCheckInternet() {
+    final thisMonthCollectionRef = FirebaseFirestore.instance
+        .collection(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass)
+        .doc('reports')
+        .collection('monthlyReports')
+        .where('midMonthMilliSecond',
+            isEqualTo: DateTime(DateTime.now().year, DateTime.now().month, 15)
+                .millisecondsSinceEpoch);
+    _streamSubscriptionForThisMonthStatistics = thisMonthCollectionRef
+        .snapshots()
+        .listen((thisMonthStatisticsSnapshot) {
+//ThisStreamIsSimplyToCheckWhetherInternetIsWorkingOrNot
+//IfStreamSubscriptionIsNull,ItMeansThatThereIsNoInternet
+//OnceDataIsUploadedWeCanCancelTheStream
+    });
+  }
+
+  Future<void> cashBalanceWithQueriedMonthToLatestDataCheck(
+      DateTime dateToQuery, int randomNumberForThisButtonPress) async {
+    bool noPreviousCashBalanceDataInThisPeriod = false;
+    Map<String, dynamic> tempEntireCashBalanceChangeSheet = {};
+    bool gotSomeData = false;
+    bool calledNextFunction = false;
+    bool gotToTheQueriedDate = false;
+    Timer(Duration(seconds: 2), () {
+      if (gotSomeData == false) {
+        calledNextFunction = true;
+        cashBalanceWithPreviousYearDataCheck(
+            dateToQuery, randomNumberForThisButtonPress);
+      }
+    });
+    num milliSecondsPickedDateMonth =
+        DateTime(dateToQuery.year, dateToQuery.month, 15)
+            .millisecondsSinceEpoch;
+    final queriedMonthToEndCollectionRef = FirebaseFirestore.instance
+        .collection(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass)
+        .doc('reports')
+        .collection('monthlyReports')
+        .where('midMonthMilliSecond',
+            isGreaterThanOrEqualTo: milliSecondsPickedDateMonth)
+        .orderBy('midMonthMilliSecond', descending: false);
+
+//WantInAscendingOrderSoThatWeCanCheckPreviousDayBalanceWhileIterating
+    final queriedMonthToEndStatisticsSnapshot =
+        await queriedMonthToEndCollectionRef.get();
+    if (queriedMonthToEndStatisticsSnapshot.docs.length >= 1) {
+      print('entered Inside month');
+      gotSomeData = true;
+      int monthsCheckCounter = 0;
+      previousCashBalanceWhileIterating = -9999999;
+      dayIncrementWhileIterating = -1111111;
+      for (var eachMonthDocument in queriedMonthToEndStatisticsSnapshot.docs) {
+        monthsCheckCounter++;
+//SoThatWeCheckOnlyTheFirstDocumentTimePeriod
+        if (eachMonthDocument['midMonthMilliSecond'] >
+                DateTime(dateToQuery.year, dateToQuery.month, 15)
+                    .millisecondsSinceEpoch &&
+            gotToTheQueriedDate == false) {
+//ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//WeNeedToCheckTheYearFunctionThen
+          print('came Into exiting loop2');
+          noPreviousCashBalanceDataInThisPeriod = true;
+          calledNextFunction = true;
+          cashBalanceWithPreviousYearDataCheck(
+              dateToQuery, randomNumberForThisButtonPress);
+        }
+
+        print('iterating thru each doc');
+        Map<String, dynamic> iteratingMonthCashBalanceData =
+            eachMonthDocument['cashBalanceData'];
+        String monthYearDocId = eachMonthDocument.id;
+        Map<String, dynamic> changeOfEachMonthCashBalanceData = HashMap();
+        int numberOfDaysInIteratingMonth = DateUtils.getDaysInMonth(
+            eachMonthDocument['year'], eachMonthDocument['month']);
+        for (int i = 1; i <= numberOfDaysInIteratingMonth; i++) {
+          print('iterating thru each day');
+          String dayAsString =
+              i.toString().length > 1 ? i.toString() : '0${i.toString()}';
+          if (DateTime(eachMonthDocument['year'], eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch <
+              DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                  .millisecondsSinceEpoch) {
+//ThisMeansItsADayBeforeTheDayOfQuery
+            if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+              previousCashBalanceWhileIterating =
+                  iteratingMonthCashBalanceData[dayAsString]
+                      ['previousCashBalance'];
+              dayIncrementWhileIterating =
+                  iteratingMonthCashBalanceData[dayAsString]['dayIncrements'];
+            }
+          } else if (DateTime(
+                      eachMonthDocument['year'], eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch ==
+              DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                  .millisecondsSinceEpoch) {
+//ThisMeansThisIsTheDayInWhichWeNeedToAdd
+            if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+//ThisMeansTheDayAlreadyExistsAndWeOnlyHaveToAddTheIncrementsToDayIncrements
+              gotToTheQueriedDate = true;
+              previousCashBalanceWhileIterating = 0;
+              dayIncrementWhileIterating = valueToIncrementInCashInCashBalance;
+            } else {
+              if (previousCashBalanceWhileIterating == -9999999 &&
+                  dayIncrementWhileIterating == -1111111) {
+//ThisMeansThatWeHaven'tGotPreviousCashBalanceTillNow.WeCanSimplyExitTheLoop
+                print('came Into exiting loop 1');
+                noPreviousCashBalanceDataInThisPeriod = true;
+                calledNextFunction = true;
+                cashBalanceWithPreviousYearDataCheck(
+                    dateToQuery, randomNumberForThisButtonPress);
+              } else {
+                gotToTheQueriedDate = true;
+                //ThisMeansTheDayDoesntExistsAndWeNeedToAddPreviousCashBalanceAndThenDayIncrement
+                previousCashBalanceWhileIterating =
+                    previousCashBalanceWhileIterating +
+                        dayIncrementWhileIterating;
+                dayIncrementWhileIterating =
+                    valueToIncrementInCashInCashBalance;
+              }
+            }
+          } else if (DateTime(
+                      eachMonthDocument['year'], eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch >
+              DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                  .millisecondsSinceEpoch) {
+            if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+//ThisMeansThatThisDayExistsAndWeNeedToIncrementPreviousCashBalanceAlone
+              changeOfEachMonthCashBalanceData.addAll({
+                dayAsString: {
+                  'previousCashBalance':
+                      FieldValue.increment(valueToIncrementInCashInCashBalance)
+                }
+              });
+            }
+          }
+        }
+        if (changeOfEachMonthCashBalanceData.isNotEmpty) {
+          tempEntireCashBalanceChangeSheet
+              .addAll({monthYearDocId: changeOfEachMonthCashBalanceData});
+        }
+        if (monthsCheckCounter ==
+                queriedMonthToEndStatisticsSnapshot.docs.length &&
+            gotToTheQueriedDate == false &&
+            eachMonthDocument['midMonthMilliSecond'] <
+                DateTime(dateToQuery.year, dateToQuery.month, 15)
+                    .millisecondsSinceEpoch) {
+//ThisMeansWeHaveReachedTheEndOfDocumentButTheQueriedDateDidn'tCome
+          calledNextFunction = true;
+          cashBalanceWithPreviousYearDataCheck(
+              dateToQuery, randomNumberForThisButtonPress);
+        }
+      }
+      if (tempEntireCashBalanceChangeSheet.isNotEmpty &&
+              calledNextFunction ==
+                  false && //thisWillCheckWhetherYearCheckWasCalled
+              randomNumberForThisButtonPress ==
+                  currentGeneratedIncrementRandomNumber &&
+              gotToTheQueriedDate
+//ThisWillCheckWhetherButtonWasPressedAgainAndThisIsOldInstance
+          ) {
+        entireCashBalanceChangeSheet = tempEntireCashBalanceChangeSheet;
+        gotCashIncrementData = true;
+        _streamSubscriptionForThisMonthStatistics?.cancel();
+        currentGeneratedIncrementRandomNumber = 0;
+        calledNextFunction = true;
+//CallFunctionToDoTheOtherTasksOfIncrement
+      } else if (tempEntireCashBalanceChangeSheet.isEmpty &&
+          calledNextFunction ==
+              false && //thisWillCheckWhetherYearCheckWasCalled
+          randomNumberForThisButtonPress ==
+              currentGeneratedIncrementRandomNumber &&
+          gotToTheQueriedDate) {
+        entireCashBalanceChangeSheet = tempEntireCashBalanceChangeSheet;
+        _streamSubscriptionForThisMonthStatistics?.cancel();
+        currentGeneratedIncrementRandomNumber = 0;
+        calledNextFunction = true;
+        gotCashIncrementData = true;
+      }
+    } else {
+//ThisMeansNoDocumentsAreThereInThePastTwoMonthsAndWeWillBetterCheckForOneYear
+      calledNextFunction = true;
+      cashBalanceWithPreviousYearDataCheck(
+          dateToQuery, randomNumberForThisButtonPress);
+    }
+  }
+
+  void cashBalanceWithPreviousYearDataCheck(
+      DateTime dateToQuery, int randomNumberForThisButtonPress) async {
+    Map<String, dynamic> tempEntireCashBalanceChangeSheet = {};
+    bool gotSomeData = false;
+    bool calledNextFunction = false;
+    bool gotToTheQueriedDate = false;
+    Timer(Duration(seconds: 4), () {
+      if (gotSomeData == false) {
+        calledNextFunction = true;
+        if (_streamSubscriptionForThisMonthStatistics == null) {
+          currentGeneratedIncrementRandomNumber = 0;
+          calledNextFunction = true;
+          _streamSubscriptionForThisMonthStatistics?.cancel();
+          show('Please Check Internet and Try Again');
+          setState(() {
+            showSpinner = false;
+          });
+        }
+      }
+    });
+    num milliSecondsYearPreviousToPickedDate =
+        DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+            .subtract(Duration(days: 380))
+            .millisecondsSinceEpoch;
+    final pastYearToNowCollectionRef = FirebaseFirestore.instance
+        .collection(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass)
+        .doc('reports')
+        .collection('monthlyReports')
+        .where('midMonthMilliSecond',
+            isGreaterThan: milliSecondsYearPreviousToPickedDate)
+        .orderBy('midMonthMilliSecond', descending: false);
+//WantInAscendingOrderSoThatWeCanCheckPreviousDayBalanceWhileIterating
+    final pastYearToNowStatisticsSnapshot =
+        await pastYearToNowCollectionRef.get();
+    if (pastYearToNowStatisticsSnapshot.docs.length >= 1) {
+      gotSomeData = true;
+      int monthsCheckCounter = 0;
+      previousCashBalanceWhileIterating = -9999999;
+      dayIncrementWhileIterating = -1111111;
+
+      for (var eachMonthDocument in pastYearToNowStatisticsSnapshot.docs) {
+        monthsCheckCounter++;
+//SoThatWeCheckOnlyTheFirstDocumentTimePeriod
+        if (eachMonthDocument['midMonthMilliSecond'] >
+                DateTime(dateToQuery.year, dateToQuery.month, 15)
+                    .millisecondsSinceEpoch &&
+            gotToTheQueriedDate == false) {
+          if (previousCashBalanceWhileIterating == -9999999 &&
+              dayIncrementWhileIterating == -1111111) {
+//ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//So,WeHaveToAddFirstDocumentOurselvesForThatMonth
+            previousCashBalanceWhileIterating = 0;
+            dayIncrementWhileIterating = valueToIncrementInCashInCashBalance;
+            gotToTheQueriedDate = true;
+          } else {
+            gotToTheQueriedDate = true;
+            previousCashBalanceWhileIterating =
+                previousCashBalanceWhileIterating + dayIncrementWhileIterating;
+            dayIncrementWhileIterating = valueToIncrementInCashInCashBalance;
+          }
+        }
+
+        Map<String, dynamic> iteratingMonthCashBalanceData =
+            eachMonthDocument['cashBalanceData'];
+        String monthYearDocId = eachMonthDocument.id;
+        Map<String, dynamic> changeOfEachMonthCashBalanceData = HashMap();
+        int numberOfDaysInIteratingMonth = DateUtils.getDaysInMonth(
+            eachMonthDocument['year'], eachMonthDocument['month']);
+        for (int i = 1; i <= numberOfDaysInIteratingMonth; i++) {
+          String dayAsString =
+              i.toString().length > 1 ? i.toString() : '0${i.toString()}';
+          if (DateTime(eachMonthDocument['year'], eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch <
+              DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                  .millisecondsSinceEpoch) {
+//ThisMeansItsADayBeforeTheDayOfQuery
+            if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+              previousCashBalanceWhileIterating =
+                  iteratingMonthCashBalanceData[dayAsString]
+                      ['previousCashBalance'];
+              dayIncrementWhileIterating =
+                  iteratingMonthCashBalanceData[dayAsString]['dayIncrements'];
+            }
+          } else if (DateTime(
+                      eachMonthDocument['year'], eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch ==
+              DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                  .millisecondsSinceEpoch) {
+//ThisMeansThisIsTheDayInWhichWeNeedToAdd
+            if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+//ThisMeansTheDayAlreadyExistsAndWeOnlyHaveToAddTheIncrementsToDayIncrements
+              gotToTheQueriedDate = true;
+              previousCashBalanceWhileIterating = 0;
+              dayIncrementWhileIterating = valueToIncrementInCashInCashBalance;
+            } else {
+              print('came into this loop 45');
+//ThisMeansTheDayDoesntExistsAndWeNeedToAddPreviousCashBalanceAndThenDayIncrement
+              if (previousCashBalanceWhileIterating == -9999999 &&
+                  dayIncrementWhileIterating == -1111111) {
+                gotToTheQueriedDate = true;
+                print('came into this loop 46');
+//ThisMeansThatWeHaven'tGotPreviousCashBalanceTillNow.So,WeNeedToPutTheCashBalance
+//ForThatDayAsZeroAndJustDoDayIncrementsFromThere
+                previousCashBalanceWhileIterating = 0;
+                dayIncrementWhileIterating =
+                    valueToIncrementInCashInCashBalance;
+              } else {
+                gotToTheQueriedDate = true;
+                previousCashBalanceWhileIterating =
+                    previousCashBalanceWhileIterating +
+                        dayIncrementWhileIterating;
+                dayIncrementWhileIterating =
+                    valueToIncrementInCashInCashBalance;
+              }
+            }
+          } else if (DateTime(
+                      eachMonthDocument['year'], eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch >
+              DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
+                  .millisecondsSinceEpoch) {
+            if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+//ThisMeansThatThisDayExistsAndWeNeedToIncrementPreviousCashBalanceAlone
+              changeOfEachMonthCashBalanceData.addAll({
+                dayAsString: {
+                  'previousCashBalance':
+                      FieldValue.increment(valueToIncrementInCashInCashBalance)
+                }
+              });
+            }
+          }
+        }
+        if (changeOfEachMonthCashBalanceData.isNotEmpty) {
+          tempEntireCashBalanceChangeSheet
+              .addAll({monthYearDocId: changeOfEachMonthCashBalanceData});
+        }
+        if (monthsCheckCounter == pastYearToNowStatisticsSnapshot.docs.length &&
+            gotToTheQueriedDate == false &&
+            eachMonthDocument['midMonthMilliSecond'] <
+                DateTime(dateToQuery.year, dateToQuery.month, 15)
+                    .millisecondsSinceEpoch) {
+//ThisMeansItsLastDocumentAndStillQueriedDateIsNotThere
+//AndTheLastDocumentIsLesserMonthThanQueriedMonth
+          if (previousCashBalanceWhileIterating == -9999999 &&
+              dayIncrementWhileIterating == -1111111) {
+//ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//So,WeHaveToAddFirstDocumentOurselvesForThatMonth
+            previousCashBalanceWhileIterating = 0;
+            dayIncrementWhileIterating = valueToIncrementInCashInCashBalance;
+            gotToTheQueriedDate = true;
+          } else {
+            gotToTheQueriedDate = true;
+            previousCashBalanceWhileIterating =
+                previousCashBalanceWhileIterating + dayIncrementWhileIterating;
+            dayIncrementWhileIterating = valueToIncrementInCashInCashBalance;
+          }
+        }
+      }
+      if (tempEntireCashBalanceChangeSheet.isNotEmpty &&
+              randomNumberForThisButtonPress ==
+                  currentGeneratedIncrementRandomNumber &&
+              calledNextFunction == false &&
+              gotToTheQueriedDate
+//CheckingWhetherWeGotTheDataOnTime
+          ) {
+//ThisMeansWeCanUpdateIncrementsAsBatch
+        entireCashBalanceChangeSheet = tempEntireCashBalanceChangeSheet;
+        _streamSubscriptionForThisMonthStatistics?.cancel();
+        currentGeneratedIncrementRandomNumber = 0;
+        calledNextFunction = true;
+        gotCashIncrementData = true;
+//CallFunctionToDoTheOtherTasksOfIncrement
+      } else if (tempEntireCashBalanceChangeSheet.isEmpty &&
+          randomNumberForThisButtonPress ==
+              currentGeneratedIncrementRandomNumber &&
+          calledNextFunction == false &&
+          gotToTheQueriedDate) {
+        entireCashBalanceChangeSheet = tempEntireCashBalanceChangeSheet;
+        _streamSubscriptionForThisMonthStatistics?.cancel();
+        currentGeneratedIncrementRandomNumber = 0;
+        calledNextFunction = true;
+        gotCashIncrementData = true;
+      }
+    } else {
+      if (_streamSubscriptionForThisMonthStatistics != null &&
+          randomNumberForThisButtonPress ==
+              currentGeneratedIncrementRandomNumber &&
+          calledNextFunction == false) {
+//ThisMeansNoDocumentsAreThereInThePastOneYear.MostProbablyNewRestaurant
+//WeWillPutNewDataHere.SinceStreamSubscriptionIsNotNullWeCanConfirm
+// ThatTheLackOfDataIsn'tBecauseOfInternet
+        previousCashBalanceWhileIterating = 0;
+        dayIncrementWhileIterating = 0;
+        _streamSubscriptionForThisMonthStatistics?.cancel();
+        currentGeneratedIncrementRandomNumber = 0;
+        calledNextFunction = true;
+        gotCashIncrementData = true;
+      }
+    }
   }
 
 //WeNeedThisMethodToDownloadThePaymentMethodsFromExpensesSegregation
@@ -280,9 +709,9 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
         : [];
     tempPaymentMethodList.sort();
     paymentMethod.clear();
-    paymentMethod.add('Choose Payment Method');
+    paymentMethod.add('Choose');
     paymentMethod.addAll(tempPaymentMethodList);
-    paymentMethod.add('New Payment Method');
+    paymentMethod.add('New');
 //IfOthersIsClickedWeShouldGiveThemTheTextBox
 
     setState(() {});
@@ -372,9 +801,6 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     updatedMap.updateAll((key, value) {
       if (value is Map<String, dynamic>) {
         value.updateAll((subKey, subValue) {
-          print('subValue');
-          print(subValue.runtimeType);
-          print(subValue);
           if (subValue is num) {
             return FieldValue.increment(subValue); // Apply increment directly
           } else {
@@ -392,8 +818,6 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     generalStatsMap = {};
     menuIndividualItemsStatsMap = {};
     extraIndividualItemsStatsMap = {};
-    dailyStatisticsMap = {};
-    monthlyStatisticsMap = {};
     arraySoldItemsCategoryArray = [];
     DateTime now = DateTime.now();
 //WeEnsureWeTakeTheMonth,Day,Hour,MinuteAsString
@@ -401,42 +825,43 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
 //ThisWillEnsure,ItIsAlwaysIn2Digits,AndWithoutPuttingItInTwoDigits,,
 //ItWon'tComeInAscendingOrder
     if (baseInfoFromServerMap['billYear'] == '') {
-      tempYear = now.year.toString();
+      billYear = now.year.toString();
     } else {
-      tempYear = baseInfoFromServerMap['billYear'];
+//thisMeansThatWeHavePutItInServerWithThisYearWhilePrinting
+      billYear = baseInfoFromServerMap['billYear'];
     }
     if (baseInfoFromServerMap['billMonth'] == '') {
-      tempMonth = now.month < 10
+      billMonth = now.month < 10
           ? '0${now.month.toString()}'
           : '${now.month.toString()}';
     } else {
-      tempMonth = baseInfoFromServerMap['billMonth'];
+      billMonth = baseInfoFromServerMap['billMonth'];
     }
     if (baseInfoFromServerMap['billDay'] == '') {
-      tempDay =
+      billDay =
           now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
     } else {
-      tempDay = baseInfoFromServerMap['billDay'];
+      billDay = baseInfoFromServerMap['billDay'];
     }
     if (baseInfoFromServerMap['billHour'] == '') {
-      tempHour =
+      billHour =
           now.hour < 10 ? '0${now.hour.toString()}' : '${now.hour.toString()}';
     } else {
-      tempHour = baseInfoFromServerMap['billHour'];
+      billHour = baseInfoFromServerMap['billHour'];
     }
     if (baseInfoFromServerMap['billMinute'] == '') {
-      tempMinute = now.minute < 10
+      billMinute = now.minute < 10
           ? '0${now.minute.toString()}'
           : '${now.minute.toString()}';
     } else {
-      tempMinute = baseInfoFromServerMap['billMinute'];
+      billMinute = baseInfoFromServerMap['billMinute'];
     }
     if (baseInfoFromServerMap['billSecond'] == '') {
-      tempSecond = now.second < 10
+      billSecond = now.second < 10
           ? '0${now.second.toString()}'
           : '${now.second.toString()}';
     } else {
-      tempSecond = baseInfoFromServerMap['billSecond'];
+      billSecond = baseInfoFromServerMap['billSecond'];
     }
     if (baseInfoFromServerMap['extraCharges'] != null) {
       extraChargesMapFromServer = baseInfoFromServerMap['extraCharges'];
@@ -454,27 +879,26 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     // }
     startTimeOfThisTableOrParcelInNum =
         num.parse(baseInfoFromServerMap['startTime'].toString());
-    orderIdForCreatingDocId = baseInfoFromServerMap['startTime'];
-    if (orderIdForCreatingDocId.length < 8) {
-      for (int i = orderIdForCreatingDocId.length; i < 8; i++) {
-        orderIdForCreatingDocId = '0' + orderIdForCreatingDocId;
+    orderStartTimeForCreatingDocId = baseInfoFromServerMap['startTime'];
+    if (orderStartTimeForCreatingDocId.length < 8) {
+      for (int i = orderStartTimeForCreatingDocId.length; i < 8; i++) {
+        orderStartTimeForCreatingDocId = '0' + orderStartTimeForCreatingDocId;
       }
     }
-    // orderIdForCreatingDocId = baseInfoFromServerMap['orderID'];
 
     printOrdersMap = {};
     statisticsMap = {};
     toCheckPastOrderHistoryMap = {};
     orderHistoryDocID =
-        '${tempYear}${tempMonth}${tempDay}${orderIdForCreatingDocId}';
-    statisticsDocID = '$tempYear*$tempMonth*$tempDay';
+        '${billYear}${billMonth}${billDay}${orderStartTimeForCreatingDocId}';
+    statisticsDocID = '$billYear*$billMonth*$billDay';
     printingDate =
-        '${tempDay}/${tempMonth}/${tempYear} at ${tempHour}:${tempMinute}';
+        '${billDay}/${billMonth}/${billYear} at ${billHour}:${billMinute}';
     //InThePrintOrdersMap(HashMap),FirstWeSaveKeyAs "DateOfOrder"&ValueAs,,
 //year/Month/Day At Hour:Minute
     printOrdersMap.addAll({
       ' Date of Order  :':
-          '$tempYear/$tempMonth/$tempDay at $tempHour:$tempMinute'
+          '$billYear/$billMonth/$billDay at $billHour:$billMinute'
     });
 
     Map<String, dynamic> mapToAddIntoItems = {};
@@ -512,6 +936,15 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
 
     if (baseInfoFromServerMap['serialNumber'] != 'noSerialYet') {
       serialNumber = num.parse(baseInfoFromServerMap['serialNumber']).toInt();
+      gotSerialNumber = true;
+      streamSubscriptionForPrintingOnTrueOffFalse = false;
+      _streamSubscriptionForPrinting?.cancel();
+    } else if (serialNumberStreamCalled == false) {
+//thisMeansSerialNumberIsNotThereAndWeNeedToCallStreamForPrinting
+//thisWillCheckWhetherSerialNumberIsNotThereAndWeHaven'tCalledStreamYet
+      documentStatisticsRegistryDateMaker();
+      serialNumberStreamForPrinting();
+      serialNumberStreamCalled = true;
     }
 //ThisIsToCheckPaymentDoneMapIsAvailableOrNot
     bool billClosureTimeForAtleastOnePersonAvailable = false;
@@ -633,6 +1066,7 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
 
     for (var distinctItemName in distinctItemNames) {
       num individualPriceOfOneDistinctItemForAddingIntoList = 0;
+      num numberOfTicketsOfEachItemForAddingIntoStats = 0;
       num numberOfEachDistinctItemForAddingIntoList = 0;
       num totalPriceOfEachDistinctItemForAddingIntoList = 0;
 
@@ -641,6 +1075,7 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
 //FirstWeMakeSimpleCalculationForEachTicket
           individualPriceOfOneDistinctItemForAddingIntoList =
               eachItem['priceofeach'];
+          numberOfTicketsOfEachItemForAddingIntoStats += 1;
           numberOfEachDistinctItemForAddingIntoList += eachItem['number'];
           totalPriceOfEachDistinctItemForAddingIntoList +=
               (eachItem['priceofeach'] * eachItem['number']);
@@ -659,6 +1094,12 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
           distinctItemName:
               FieldValue.increment(numberOfEachDistinctItemForAddingIntoList)
         });
+
+        tempIndividualMenuItemSoldStatMap.addAll({
+          'numberOfTickets':
+              FieldValue.increment(numberOfTicketsOfEachItemForAddingIntoStats)
+        });
+
         tempIndividualMenuItemSoldStatMap.addAll({
           'numberOfUnits':
               FieldValue.increment(numberOfEachDistinctItemForAddingIntoList)
@@ -845,7 +1286,10 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
       }
     }
     //thisWillHelpForTakingOneParticularDay'sOrdersAloneInTheFuture
-    printOrdersMap.addAll({'statisticsDocID': statisticsDocID});
+    if (cancelledItemsInOrderFromServerMap.isNotEmpty) {
+      allItemsCancellingUpdateInServer();
+    }
+
     // printOrdersMap.addAll({'Total = ': (totalPriceOfAllItems.toString())});
 
     // cgstCalculatedForBillFunction();
@@ -853,6 +1297,7 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     if (baseInfoFromServerMap['billClosingPhoneOrderIdWithTime'] != null &&
         paymentDoneClicked &&
         billClosureTimeForAtleastOnePersonAvailable) {
+      print('came inside step 1');
 //WithBillClosureCheckMapWeEnsureTheDataOfWhoClosedIsThere
       paymentDoneClicked = false;
       // Timer(Duration(milliseconds: 500), () {
@@ -861,129 +1306,275 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     }
   }
 
-  void checkingDocumentIdAlreadyExistsInOrderHistory() async {
-    bool hasInternet = await InternetConnectionChecker().hasConnection;
-    if (hasInternet) {
-      try {
-        final docIdCheckSnapshot = await FirebaseFirestore.instance
-            .collection(widget.hotelName)
-            .doc('orderhistory')
-            .collection('orderhistory')
-            .doc(orderHistoryDocID)
-            .get()
-            .timeout(Duration(seconds: 5));
-        if (docIdCheckSnapshot == null || !docIdCheckSnapshot.exists) {
-          if (!noItemsInTable) {
-            Map<String, dynamic> tableClosureCheckMap =
-                baseInfoFromServerMap['billClosingPhoneOrderIdWithTime'];
-            if (tableClosureCheckMap.isNotEmpty) {
-              String keyPhoneNumberOfUserWhoClosedFirst = '';
-              Timestamp firstTimeOfClosure = Timestamp.fromDate(DateTime(5000));
-              tableClosureCheckMap.forEach((key, value) {
-                if (value['timeOfClosure'] != null) {
-                  if ((firstTimeOfClosure.compareTo(value['timeOfClosure']) ==
-                          1) &&
-                      value['endingOrderId'] == orderIdForCreatingDocId) {
-//WeCheckWhetherEndIdAndStartOrderIdAreSameAlongWithLesserTime
-//ThisIsToStopMixUpOfTables...
-// ...WhereSlowNetPhoneAccidentallySendsOldEndOrderIdToNewOrder
-                    keyPhoneNumberOfUserWhoClosedFirst = key;
-                    firstTimeOfClosure = value['timeOfClosure'];
-                  }
-                }
-              });
+  List<Map<String, dynamic>> cancelledMapsForServerUpdate() {
+    List<Map<String, dynamic>> cancellingUpdateMapsList = [];
+    Map<String, dynamic> tempAllCancelledItems =
+        cancelledItemsInOrderFromServerMap;
+    Map<String, dynamic> captainCancellationMap = HashMap();
+    Map<String, dynamic> chefRejectionMap = HashMap();
+    Map<String, dynamic> itemsCancellationMap = HashMap();
 
-              if (keyPhoneNumberOfUserWhoClosedFirst != '') {
-//ThisMeansSomeBodyHasClosedTheTableAlready
-                if (keyPhoneNumberOfUserWhoClosedFirst ==
-                    Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .currentUserPhoneNumberFromClass) {
-//ThisMeansThisUserIsClosingTheTable
+    tempAllCancelledItems.forEach((key, value) {
+      if (itemsCancellationMap.containsKey(value['itemName'])) {
+        itemsCancellationMap[value['itemName']]!['numberOfTimes']!.add(1);
+        itemsCancellationMap[value['itemName']]!['numberOfItems']!
+            .add(value['numberOfItem']);
+        itemsCancellationMap[value['itemName']]!['totalAmount']!
+            .add(value['numberOfItem'] * value['itemPrice']);
+      } else {
+        itemsCancellationMap.addAll({
+          value['itemName']: {
+            'numberOfTimes': [1],
+            'numberOfItems': [value['numberOfItem']],
+            'totalAmount': [value['numberOfItem'] * value['itemPrice']]
+          },
+        });
+      }
 
-                  serverUpdateOfBill();
-                } else {
-//ThisMeansSomebodyOtherThanThisUserIsClosingTheTable
-
-                  screenPopOutTimerAfterServerUpdate();
-                }
-              } else {
-                if (serialNumber == 0) {
-                  // ThisMeansThatTheDataHasNotReachedTheServer
-                  Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-                  tempSerialInStatisticsMap.addAll({
-                    orderHistoryDocID: {
-                      Provider.of<PrinterAndOtherDetailsProvider>(context,
-                              listen: false)
-                          .currentUserPhoneNumberFromClass: FieldValue.delete()
-                    }
-                  });
-                  FirebaseFirestore.instance
-                      .collection(widget.hotelName)
-                      .doc('reports')
-                      .collection('dailyReports')
-                      .doc(tempYear)
-                      .collection(tempMonth)
-                      .doc(tempDay)
-                      .set({
-                    'statisticsDocumentIdMap': tempSerialInStatisticsMap
-                  }, SetOptions(merge: true));
-                  // FirebaseFirestore.instance
-                  //     .collection(widget.hotelName)
-                  //     .doc('statistics')
-                  //     .collection('statistics')
-                  //     .doc(statisticsDocID)
-                  //     .set({
-                  //   'statisticsDocumentIdMap': tempSerialInStatisticsMap
-                  // }, SetOptions(merge: true));
-                }
-                clearingCurrentUserBillingTime();
-              }
-            } else {
-              if (serialNumber == 0) {
-                // ThisMeansThatTheDataHasNotReachedTheServer
-                Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-                tempSerialInStatisticsMap.addAll({
-                  orderHistoryDocID: {
-                    Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .currentUserPhoneNumberFromClass: FieldValue.delete()
-                  }
-                });
-                FirebaseFirestore.instance
-                    .collection(widget.hotelName)
-                    .doc('statistics')
-                    .collection('statistics')
-                    .doc(statisticsDocID)
-                    .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                        SetOptions(merge: true));
-              }
-              clearingCurrentUserBillingTime();
-            }
+      if (value['rejectingChefPhone'] != 'notRejected') {
+//thisMeansItsRejectedByChefAndHenceCancelledByCaptain
+        if (chefRejectionMap.containsKey(value['rejectingChefPhone'])) {
+          final tempIndividualItemsRejected =
+              chefRejectionMap[value['rejectingChefPhone']]
+                  ['individualItemsRejected'];
+          if (tempIndividualItemsRejected.containsKey(value['itemName'])) {
+            tempIndividualItemsRejected[value['itemName']] = {
+              'numberOfIndividualItems':
+                  tempIndividualItemsRejected[value['itemName']]
+                          ['numberOfIndividualItems'] +
+                      value['numberOfItem'],
+              'totalAmount': tempIndividualItemsRejected[value['itemName']]
+                      ['totalAmountOfIndividualItems'] +
+                  (value['numberOfItem'] * value['itemPrice'])
+            };
           } else {
-            Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-            tempSerialInStatisticsMap
-                .addAll({orderHistoryDocID: FieldValue.delete()});
-            FirebaseFirestore.instance
-                .collection(widget.hotelName)
-                .doc('statistics')
-                .collection('statistics')
-                .doc(statisticsDocID)
-                .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                    SetOptions(merge: true));
+            tempIndividualItemsRejected.addAll({
+              value['itemName']: {
+                'numberOfIndividualItems': value['numberOfItem'],
+                'totalAmountOfIndividualItems':
+                    value['numberOfItem'] * value['itemPrice']
+              }
+            });
           }
+
+          chefRejectionMap[value['rejectingChefPhone']]!['numberOfTimes']!
+              .add(1);
+          chefRejectionMap[value['rejectingChefPhone']]!['numberOfItems']!
+              .add(value['numberOfItem']);
+          chefRejectionMap[value['rejectingChefPhone']]!['totalAmount']!
+              .add(value['numberOfItem'] * value['itemPrice']);
+          chefRejectionMap[value['rejectingChefPhone']]
+              ['individualItemsRejected'] = tempIndividualItemsRejected;
         } else {
+          chefRejectionMap.addAll({
+            value['rejectingChefPhone']: {
+              'numberOfTimes': [1],
+              'numberOfItems': [value['numberOfItem']],
+              'totalAmount': [value['numberOfItem'] * value['itemPrice']],
+              'individualItemsRejected': {
+                value['itemName']: {
+                  'numberOfIndividualItems': value['numberOfItem'],
+                  'totalAmountOfIndividualItems':
+                      value['numberOfItem'] * value['itemPrice']
+                }
+              }
+            },
+          });
+        }
+      } else {
+        if (captainCancellationMap
+            .containsKey(value['cancellingCaptainPhone'])) {
+//ThisMapToCreateWhatAllItemsEachCaptainCancelled
+          final tempIndividualItemsCancelled =
+              captainCancellationMap[value['cancellingCaptainPhone']]
+                  ['individualItemsCancelled'];
+          if (tempIndividualItemsCancelled.containsKey(value['itemName'])) {
+            tempIndividualItemsCancelled[value['itemName']] = {
+              'numberOfIndividualItems':
+                  tempIndividualItemsCancelled[value['itemName']]
+                          ['numberOfIndividualItems'] +
+                      value['numberOfItem'],
+              'totalAmountOfIndividualItems':
+                  tempIndividualItemsCancelled[value['itemName']]
+                          ['totalAmountOfIndividualItems'] +
+                      (value['numberOfItem'] * value['itemPrice'])
+            };
+          } else {
+            tempIndividualItemsCancelled.addAll({
+              value['itemName'].toString(): {
+                'numberOfIndividualItems': value['numberOfItem'],
+                'totalAmountOfIndividualItems':
+                    value['numberOfItem'] * value['itemPrice']
+              }
+            });
+          }
+          captainCancellationMap[value['cancellingCaptainPhone']]![
+                  'numberOfTimes']!
+              .add(1);
+          captainCancellationMap[value['cancellingCaptainPhone']]![
+                  'numberOfItems']!
+              .add(value['numberOfItem']);
+          captainCancellationMap[value['cancellingCaptainPhone']]![
+                  'totalAmount']!
+              .add(value['numberOfItem'] * value['itemPrice']);
+          captainCancellationMap[value['cancellingCaptainPhone']]
+              ['individualItemsCancelled'] = tempIndividualItemsCancelled;
+        } else {
+          captainCancellationMap.addAll({
+            value['cancellingCaptainPhone']: {
+              'numberOfTimes': [1],
+              'numberOfItems': [value['numberOfItem']],
+              'totalAmount': [value['numberOfItem'] * value['itemPrice']],
+              'individualItemsCancelled': {
+                value['itemName'].toString(): {
+                  'numberOfIndividualItems': value['numberOfItem'],
+                  'totalAmountOfIndividualItems':
+                      value['numberOfItem'] * value['itemPrice']
+                }
+              }
+            },
+          });
+        }
+      }
+    });
+
+    cancellingUpdateMapsList.add(itemsCancellationMap);
+    cancellingUpdateMapsList.add(captainCancellationMap);
+    cancellingUpdateMapsList.add(chefRejectionMap);
+    cancellingUpdateMapsList.add(tempAllCancelledItems);
+    return cancellingUpdateMapsList;
+  }
+
+  void allItemsCancellingUpdateInServer() {
+    List<Map<String, dynamic>> cancellationUpdateMaps =
+        cancelledMapsForServerUpdate();
+
+    Map<String, dynamic> itemCancellationMap = cancellationUpdateMaps[0];
+    Map<String, dynamic> captainCancellationMap = cancellationUpdateMaps[1];
+    Map<String, dynamic> chefRejectionMap = cancellationUpdateMaps[2];
+    Map<String, dynamic> cancelledItemsInOrder = cancellationUpdateMaps[3];
+
+    Map<String, dynamic> itemCancellationMapForServerUpdate = HashMap();
+    itemCancellationMap.forEach((key, value) {
+      List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+      List<dynamic> tempNumberOfItems = value['numberOfItems'];
+      List<dynamic> tempTotalAmount = value['totalAmount'];
+      List<num> numberOfTimes =
+          tempNumberOfTimes.map((e) => num.parse(e.toString())).toList();
+      List<num> numberOfItems =
+          tempNumberOfItems.map((e) => num.parse(e.toString())).toList();
+      List<num> totalAmount =
+          tempTotalAmount.map((e) => num.parse(e.toString())).toList();
+
+      itemCancellationMapForServerUpdate.addAll({
+        key: {
+          'numberOfTimes':
+              FieldValue.increment(numberOfTimes.reduce((a, b) => a + b)),
+          'numberOfItems':
+              FieldValue.increment(numberOfItems.reduce((a, b) => a + b)),
+          'totalAmount':
+              FieldValue.increment(totalAmount.reduce((a, b) => a + b)),
+        }
+      });
+    });
+    Map<String, dynamic> captainCancellationMapForServerUpdate = HashMap();
+    if (captainCancellationMap.isNotEmpty) {
+      captainCancellationMap.forEach((key, value) {
+        List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+        List<dynamic> tempNumberOfItems = value['numberOfItems'];
+        List<dynamic> tempTotalAmount = value['totalAmount'];
+        Map<String, dynamic> tempIndividualItemsCancelled =
+            value['individualItemsCancelled'];
+        List<num> numberOfTimes =
+            tempNumberOfTimes.map((e) => num.parse(e.toString())).toList();
+        List<num> numberOfItems =
+            tempNumberOfItems.map((e) => num.parse(e.toString())).toList();
+        List<num> totalAmount =
+            tempTotalAmount.map((e) => num.parse(e.toString())).toList();
+        captainCancellationMapForServerUpdate.addAll({
+          key: {
+            'numberOfTimes':
+                FieldValue.increment(numberOfTimes.reduce((a, b) => a + b)),
+            'numberOfItems':
+                FieldValue.increment(numberOfItems.reduce((a, b) => a + b)),
+            'totalAmount':
+                FieldValue.increment(totalAmount.reduce((a, b) => a + b)),
+            'individualItemsCancelled':
+                updateMapWithIncrements(tempIndividualItemsCancelled)
+          }
+        });
+      });
+    }
+    Map<String, dynamic> chefRejectionMapForServerUpdate = HashMap();
+    if (chefRejectionMap.isNotEmpty) {
+      chefRejectionMap.forEach((key, value) {
+        List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
+        List<dynamic> tempNumberOfItems = value['numberOfItems'];
+        List<dynamic> tempTotalAmount = value['totalAmount'];
+        Map<String, dynamic> tempIndividualItemsRejected =
+            value['individualItemsRejected'];
+        List<num> numberOfTimes =
+            tempNumberOfTimes.map((e) => num.parse(e.toString())).toList();
+        List<num> numberOfItems =
+            tempNumberOfItems.map((e) => num.parse(e.toString())).toList();
+        List<num> totalAmount =
+            tempTotalAmount.map((e) => num.parse(e.toString())).toList();
+        chefRejectionMapForServerUpdate.addAll({
+          key: {
+            'numberOfTimes':
+                FieldValue.increment(numberOfTimes.reduce((a, b) => a + b)),
+            'numberOfItems':
+                FieldValue.increment(numberOfItems.reduce((a, b) => a + b)),
+            'totalAmount':
+                FieldValue.increment(totalAmount.reduce((a, b) => a + b)),
+            'individualItemsRejected':
+                updateMapWithIncrements(tempIndividualItemsRejected)
+          }
+        });
+      });
+    }
+
+    printOrdersMap.addAll({'cancelledItemsInOrder': cancelledItemsInOrder});
+    print('cancelledItemsInOrder1');
+    print(printOrdersMap['cancelledItemsInOrder']);
+    subMasterBilledCancellationStats = {};
+    subMasterBilledCancellationStats.addAll({
+      'mapCancelledIndividualItemsStats': itemCancellationMapForServerUpdate
+    });
+    if (captainCancellationMapForServerUpdate.isNotEmpty) {
+      subMasterBilledCancellationStats.addAll(
+          {'mapCancellingCaptainStats': captainCancellationMapForServerUpdate});
+    }
+    if (chefRejectionMapForServerUpdate.isNotEmpty) {
+      subMasterBilledCancellationStats
+          .addAll({'mapRejectingChefStats': chefRejectionMapForServerUpdate});
+    }
+  }
+
+  void checkingDocumentIdAlreadyExistsInOrderHistory() async {
+    try {
+      final docIdCheckSnapshot = await FirebaseFirestore.instance
+          .collection(widget.hotelName)
+          .doc('salesBills')
+          .collection(statisticsYear)
+          .doc(statisticsMonth)
+          .collection(statisticsDay)
+          .doc(orderHistoryDocID)
+          .get()
+          .timeout(Duration(seconds: 5));
+      if (docIdCheckSnapshot == null || !docIdCheckSnapshot.exists) {
+        if (!noItemsInTable) {
+          print('came inside step 4');
           Map<String, dynamic> tableClosureCheckMap =
               baseInfoFromServerMap['billClosingPhoneOrderIdWithTime'];
           if (tableClosureCheckMap.isNotEmpty) {
             String keyPhoneNumberOfUserWhoClosedFirst = '';
-
             Timestamp firstTimeOfClosure = Timestamp.fromDate(DateTime(5000));
             tableClosureCheckMap.forEach((key, value) {
               if (value['timeOfClosure'] != null) {
                 if ((firstTimeOfClosure.compareTo(value['timeOfClosure']) ==
                         1) &&
-                    value['endingOrderId'] == orderIdForCreatingDocId) {
+                    value['endingOrderId'] == orderStartTimeForCreatingDocId) {
 //WeCheckWhetherEndIdAndStartOrderIdAreSameAlongWithLesserTime
 //ThisIsToStopMixUpOfTables...
 // ...WhereSlowNetPhoneAccidentallySendsOldEndOrderIdToNewOrder
@@ -1000,274 +1591,36 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
                           listen: false)
                       .currentUserPhoneNumberFromClass) {
 //ThisMeansThisUserIsClosingTheTable
+                orderHistoryChecked = 'closeBill';
 
-                if (!noItemsInTable) {
-                  Map<String, dynamic>? pastSavedDocument =
-                      docIdCheckSnapshot.data();
-                  if (num.parse(pastSavedDocument!['grandTotalForPrint']
-                          .toString()) >=
-                      totalBillWithTaxes().round()) {
-//ThisMeansThatTheOneInServerHasEitherMoreBillOrSameOrSameBillAsTheOneNow
-//So,WeCanDeleteTheCurrentDocument
-
-                    if (!noItemsInTable) {
-//CheckToEnsureTableIsn'tClearedBySomeoneAndDefinitelyWeHaveToDeleteIt
-                      orderHistoryDocID = '';
-                      statisticsMap = {};
-
-                      statisticsDocID = '';
-                      serialNumber = 0;
-                      toCheckPastOrderHistoryMap = {};
-
-                      FireStoreDeleteFinishedOrderInRunningOrders(
-                              hotelName: widget.hotelName,
-                              eachTableId:
-                                  widget.itemsFromThisDocumentInFirebaseDoc)
-                          .deleteFinishedOrder();
-                      screenPopOutTimerAfterServerUpdate();
-                    }
-                  } else {
-//ThisMeansThisTableIsHigherThanLastTableAndHenceStatisticsNeedsRework
-                    final splitOfItemNames =
-                        pastSavedDocument['distinctItemsForPrint']
-                            .toString()
-                            .split('*');
-
-                    final splitOfItemNumbers =
-                        pastSavedDocument['numberOfEachDistinctItemForPrint']
-                            .toString()
-                            .split('*');
-
-                    splitOfItemNames.removeLast();
-                    splitOfItemNumbers.removeLast();
-                    final splitOfExtraItemNames =
-                        pastSavedDocument['extraItemsDistinctNames'] != null
-                            ? pastSavedDocument['extraItemsDistinctNames']
-                                .toString()
-                                .split('*')
-                            : [];
-
-                    if (splitOfExtraItemNames.isNotEmpty) {
-//ThisAlsoStartsWith*.SoWeNeedToRemoveFirstAndLast
-                      splitOfExtraItemNames.removeAt(0);
-                      splitOfExtraItemNames.removeLast();
-                    }
-
-                    final splitOfExtraItemsNumbers =
-                        pastSavedDocument['extraItemsDistinctNumbers'] != null
-                            ? pastSavedDocument['extraItemsDistinctNumbers']
-                                .toString()
-                                .split('*')
-                            : [];
-                    if (splitOfExtraItemsNumbers.isNotEmpty) {
-                      splitOfExtraItemsNumbers.removeAt(0);
-                      splitOfExtraItemsNumbers.removeLast();
-                    }
-
-                    for (var individualSplitItemName in splitOfItemNames) {
-//FirstWeCheckWhetherSomeItemNeedsToBeTotallyRemovedFromStatistics...
-// ...ThatWasAlreadyPutInTheOldOrderHistory
-                      if (!toCheckPastOrderHistoryMap
-                          .containsKey(individualSplitItemName)) {
-//ThisMeansThereWasAnItemInOldMapButItIsntThereInNewMap
-                        statisticsMap.addAll({
-                          individualSplitItemName: FieldValue.increment(-1 *
-                              (num.parse(splitOfItemNumbers[splitOfItemNames
-                                  .indexOf(individualSplitItemName)])))
-                        });
-                      }
-                    }
-                    if (splitOfExtraItemNames.isNotEmpty) {
-                      for (var individualSplitExtraItemName
-                          in splitOfExtraItemNames) {
-                        if (!toCheckPastOrderHistoryMap
-                            .containsKey(individualSplitExtraItemName)) {
-//ThisMeansThereWasAnItemInOldMapButItIsntThereInNewMap
-                          statisticsMap.addAll({
-                            individualSplitExtraItemName: FieldValue.increment(
-                                -1 *
-                                    (num.parse(splitOfExtraItemsNumbers[
-                                        splitOfExtraItemNames.indexOf(
-                                            individualSplitExtraItemName)])))
-                          });
-                        }
-                      }
-                    }
-
-                    toCheckPastOrderHistoryMap.forEach((key, value) {
-//ThisMeansTheItemHasBeenAlreadyPutAsPartOfLastMapAndThusOnlyThe
-//DifferenceBetweenTheLatestAndTheLastOneNeedsToBePut
-                      if (splitOfItemNames.contains(key)) {
-                        num lastOrderHistoryThisItemStat = num.parse(
-                            splitOfItemNumbers[splitOfItemNames.indexOf(key)]);
-                        statisticsMap[key] = FieldValue.increment(
-                            value - lastOrderHistoryThisItemStat);
-                      } else if (splitOfExtraItemNames.contains(key)) {
-                        num lastOrderHistoryThisItemStat = num.parse(
-                            splitOfExtraItemsNumbers[
-                                splitOfExtraItemNames.indexOf(key)]);
-                        statisticsMap[key] = FieldValue.increment(
-                            value - lastOrderHistoryThisItemStat);
-                      }
-                    });
-//WeNeedToCorrectTotalNumberOfOrdersAndDineInAndTakeAwayToo
-                    statisticsMap['totalnumberoforders'] =
-                        FieldValue.increment(0);
-                    if (pastSavedDocument['takeAwayOrDineInForPrint']
-                            .toString()
-                            .contains('TAKE-AWAY') &&
-                        thisIsParcelTrueElseFalse) {
-//thisMeansThatAlreadyOneParcelHasBeenAdded.WeNeedNotAddAgain
-                      statisticsMap['numberofparcel'] = FieldValue.increment(0);
-                    } else if (pastSavedDocument['takeAwayOrDineInForPrint']
-                            .toString()
-                            .contains('TAKE-AWAY') &&
-                        !thisIsParcelTrueElseFalse) {
-//ThisMeansSomethingThatIsDineInHasBeenLastAddedAsParcel.WeNeedToReduceBy1
-                      statisticsMap['numberofparcel'] =
-                          FieldValue.increment(-1);
-                    }
-
-//IncrementingOnlyTheDifferenceInDiscounts
-                    statisticsMap.addAll({
-                      'totaldiscount': FieldValue.increment(
-                          discount - num.parse(pastSavedDocument['discount']))
-                    });
-//IncrementingOnlyTheDifferenceInTotalBill
-                    statisticsMap.addAll({
-                      'totalbillamounttoday': FieldValue.increment(
-                          totalBillWithTaxes().round() -
-                              num.parse(
-                                  pastSavedDocument['grandTotalForPrint']))
-                    });
-
-////IfBillHadAlreadyBeenPrintedSerialNumberNeedNotBeAdded
-////InTheLatestLogic,WeAreClosingSerialNumberOnlyAfter
-////PaymentDoneIsClicked.So,WeDon'tHaveToDecrementSerialNumber...
-//// ...AsPerBelowCommentedLogic
-//                   if (num.parse(pastSavedDocument['serialNumberForPrint'].toString())
-//                       .toInt() <
-//                       serialNumber) {
-// //ThisMeansWeHaveTakenNewSerialNumberAgain.SoWeReduceTheSerialNumber
-//                     statisticsMap.addAll({'serialNumber': FieldValue.increment(-1)});
-//                   } else {
-//                     statisticsMap.addAll({'serialNumber': FieldValue.increment(0)});
-//                   }
-
-                    serialNumber = num.parse(
-                            pastSavedDocument['serialNumberForPrint']
-                                .toString())
-                        .toInt();
-                    Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-                    tempSerialInStatisticsMap
-                        .addAll({orderHistoryDocID: FieldValue.delete()});
-                    FirebaseFirestore.instance
-                        .collection(widget.hotelName)
-                        .doc('reports')
-                        .collection('dailyReports')
-                        .doc(tempYear)
-                        .collection(tempMonth)
-                        .doc(tempDay)
-                        .set({
-                      'statisticsDocumentIdMap': tempSerialInStatisticsMap
-                    }, SetOptions(merge: true));
-                    // FirebaseFirestore.instance
-                    //     .collection(widget.hotelName)
-                    //     .doc('statistics')
-                    //     .collection('statistics')
-                    //     .doc(statisticsDocID)
-                    //     .set({
-                    //   'statisticsDocumentIdMap': tempSerialInStatisticsMap
-                    // }, SetOptions(merge: true));
-
-//GivenThatThisIsCheckedWeCanGoAheadWithTheUpdate
-                    if (!noItemsInTable) {
-                      serverUpdateOfBillIfBillIdExistsInServer();
-                    }
-                  }
-                } else {
-                  Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-                  tempSerialInStatisticsMap
-                      .addAll({orderHistoryDocID: FieldValue.delete()});
-                  FirebaseFirestore.instance
-                      .collection(widget.hotelName)
-                      .doc('statistics')
-                      .collection('statistics')
-                      .doc(statisticsDocID)
-                      .set({
-                    'statisticsDocumentIdMap': tempSerialInStatisticsMap
-                  }, SetOptions(merge: true));
-                }
+                // serverUpdateOfBill();
               } else {
 //ThisMeansSomebodyOtherThanThisUserIsClosingTheTable
-                //ThisMeansThatTheDataHasReachedTheServer
                 screenPopOutTimerAfterServerUpdate();
               }
-            } else {
-              if (serialNumber == 0) {
-                // ThisMeansThatTheDataHasNotReachedTheServer
-                Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-                tempSerialInStatisticsMap.addAll({
-                  orderHistoryDocID: {
-                    Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .currentUserPhoneNumberFromClass: FieldValue.delete()
-                  }
-                });
-                FirebaseFirestore.instance
-                    .collection(widget.hotelName)
-                    .doc('statistics')
-                    .collection('statistics')
-                    .doc(statisticsDocID)
-                    .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                        SetOptions(merge: true));
-              }
-              clearingCurrentUserBillingTime();
             }
-          } else {
-            if (serialNumber == 0) {
-              // ThisMeansThatTheDataHasNotReachedTheServer
-              Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-              tempSerialInStatisticsMap.addAll({
-                orderHistoryDocID: {
-                  Provider.of<PrinterAndOtherDetailsProvider>(context,
-                          listen: false)
-                      .currentUserPhoneNumberFromClass: FieldValue.delete()
-                }
-              });
-              FirebaseFirestore.instance
-                  .collection(widget.hotelName)
-                  .doc('statistics')
-                  .collection('statistics')
-                  .doc(statisticsDocID)
-                  .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                      SetOptions(merge: true));
-            }
-            clearingCurrentUserBillingTime();
           }
-        }
-      } catch (e) {
-        if (serialNumber == 0) {
-          // ThisMeansThatTheDataHasNotReachedTheServer
+        } else {
+//ThisMeansWeNeedToDeleteTheSerialNumber
+//ThatWeHadSentToStatisticsBecauseTheTableIsAlreadyClosed
           Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-          tempSerialInStatisticsMap.addAll({
-            orderHistoryDocID: {
-              Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                  .currentUserPhoneNumberFromClass: FieldValue.delete()
-            }
-          });
+          tempSerialInStatisticsMap
+              .addAll({orderHistoryDocID: FieldValue.delete()});
           FirebaseFirestore.instance
               .collection(widget.hotelName)
-              .doc('statistics')
-              .collection('statistics')
-              .doc(statisticsDocID)
+              .doc('reports')
+              .collection('dailyReports')
+              .doc(statisticsYear)
+              .collection(statisticsMonth)
+              .doc(statisticsDay)
               .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
                   SetOptions(merge: true));
         }
-        clearingCurrentUserBillingTime();
+      } else {
+//ThisMeansThatBillAlreadyExists.WeNeedToThrowAlertDialogBoxAndCloseTheBill
+
       }
-    } else {
+    } catch (e) {
       if (serialNumber == 0) {
         // ThisMeansThatTheDataHasNotReachedTheServer
         Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
@@ -1279,14 +1632,15 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
         });
         FirebaseFirestore.instance
             .collection(widget.hotelName)
-            .doc('statistics')
-            .collection('statistics')
-            .doc(statisticsDocID)
+            .doc('reports')
+            .collection('dailyReports')
+            .doc(statisticsYear)
+            .collection(statisticsMonth)
+            .doc(statisticsDay)
             .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
                 SetOptions(merge: true));
       }
       clearingCurrentUserBillingTime();
-      show('Please Check Internet Connection & Try Again');
     }
   }
 
@@ -1314,201 +1668,38 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
             ordersMap: tempMasterMap)
         .addOrder();
   }
-//
-//   Future<void> functionToCloseTable() async {
-// //ThisWillCheckWhetherTableCanBeClosedAndWillCloseItCompletely
-//
-//     try {
-//       final docIdCheckSnapshot = await FirebaseFirestore.instance
-//           .collection(widget.hotelName)
-//           .doc('orderhistory')
-//           .collection('orderhistory')
-//           .doc(orderHistoryDocID)
-//           .get()
-//           .timeout(Duration(seconds: 5));
-//
-//       if (docIdCheckSnapshot == null || !docIdCheckSnapshot.exists) {
-//         if (!noItemsInTable) {
-//           serverUpdateOfBill();
-//         }
-//       } else {
-//         if (!noItemsInTable) {
-//           Map<String, dynamic>? pastSavedDocument = docIdCheckSnapshot.data();
-//           if (num.parse(pastSavedDocument!['grandTotalForPrint'].toString()) >=
-//               totalBillWithTaxes().round()) {
-// //ThisMeansThatTheOneInServerHasEitherMoreBillOrSameOrSameBillAsTheOneNow
-// //So,WeCanDeleteTheCurrentDocument
-//
-//             if (!noItemsInTable) {
-// //CheckToEnsureTableIsn'tClearedBySomeoneAndDefinitelyWeHaveToDeleteIt
-//               orderHistoryDocID = '';
-//               statisticsMap = {};
-//
-//               statisticsDocID = '';
-//               serialNumber = 0;
-//               toCheckPastOrderHistoryMap = {};
-//
-//               FireStoreDeleteFinishedOrderInRunningOrders(
-//                       hotelName: widget.hotelName,
-//                       eachTableId: widget.itemsFromThisDocumentInFirebaseDoc)
-//                   .deleteFinishedOrder();
-//               screenPopOutTimerAfterServerUpdate();
-//             }
-//           } else {
-// //ThisMeansThisTableIsHigherThanLastTableAndHenceStatisticsNeedsRework
-//             final splitOfItemNames = pastSavedDocument['distinctItemsForPrint']
-//                 .toString()
-//                 .split('*');
-//
-//             final splitOfItemNumbers =
-//                 pastSavedDocument['numberOfEachDistinctItemForPrint']
-//                     .toString()
-//                     .split('*');
-//
-//             splitOfItemNames.removeLast();
-//             splitOfItemNumbers.removeLast();
-//             final splitOfExtraItemNames =
-//                 pastSavedDocument['extraItemsDistinctNames'] != null
-//                     ? pastSavedDocument['extraItemsDistinctNames']
-//                         .toString()
-//                         .split('*')
-//                     : [];
-//
-//             if (splitOfExtraItemNames.isNotEmpty) {
-// //ThisAlsoStartsWith*.SoWeNeedToRemoveFirstAndLast
-//               splitOfExtraItemNames.removeAt(0);
-//               splitOfExtraItemNames.removeLast();
-//             }
-//
-//             final splitOfExtraItemsNumbers =
-//                 pastSavedDocument['extraItemsDistinctNumbers'] != null
-//                     ? pastSavedDocument['extraItemsDistinctNumbers']
-//                         .toString()
-//                         .split('*')
-//                     : [];
-//             if (splitOfExtraItemsNumbers.isNotEmpty) {
-//               splitOfExtraItemsNumbers.removeAt(0);
-//               splitOfExtraItemsNumbers.removeLast();
-//             }
-//
-//             for (var individualSplitItemName in splitOfItemNames) {
-// //FirstWeCheckWhetherSomeItemNeedsToBeTotallyRemovedFromStatistics...
-// // ...ThatWasAlreadyPutInTheOldOrderHistory
-//               if (!toCheckPastOrderHistoryMap
-//                   .containsKey(individualSplitItemName)) {
-// //ThisMeansThereWasAnItemInOldMapButItIsntThereInNewMap
-//                 statisticsMap.addAll({
-//                   individualSplitItemName: FieldValue.increment(-1 *
-//                       (num.parse(splitOfItemNumbers[
-//                           splitOfItemNames.indexOf(individualSplitItemName)])))
-//                 });
-//               }
-//             }
-//             if (splitOfExtraItemNames.isNotEmpty) {
-//               for (var individualSplitExtraItemName in splitOfExtraItemNames) {
-//                 if (!toCheckPastOrderHistoryMap
-//                     .containsKey(individualSplitExtraItemName)) {
-// //ThisMeansThereWasAnItemInOldMapButItIsntThereInNewMap
-//                   statisticsMap.addAll({
-//                     individualSplitExtraItemName: FieldValue.increment(-1 *
-//                         (num.parse(splitOfExtraItemsNumbers[
-//                             splitOfExtraItemNames
-//                                 .indexOf(individualSplitExtraItemName)])))
-//                   });
-//                 }
-//               }
-//             }
-//
-//             toCheckPastOrderHistoryMap.forEach((key, value) {
-// //ThisMeansTheItemHasBeenAlreadyPutAsPartOfLastMapAndThusOnlyThe
-// //DifferenceBetweenTheLatestAndTheLastOneNeedsToBePut
-//               if (splitOfItemNames.contains(key)) {
-//                 num lastOrderHistoryThisItemStat = num.parse(
-//                     splitOfItemNumbers[splitOfItemNames.indexOf(key)]);
-//                 statisticsMap[key] =
-//                     FieldValue.increment(value - lastOrderHistoryThisItemStat);
-//               } else if (splitOfExtraItemNames.contains(key)) {
-//                 num lastOrderHistoryThisItemStat = num.parse(
-//                     splitOfExtraItemsNumbers[
-//                         splitOfExtraItemNames.indexOf(key)]);
-//                 statisticsMap[key] =
-//                     FieldValue.increment(value - lastOrderHistoryThisItemStat);
-//               }
-//             });
-// //WeNeedToCorrectTotalNumberOfOrdersAndDineInAndTakeAwayToo
-//             statisticsMap['totalnumberoforders'] = FieldValue.increment(0);
-//             if (pastSavedDocument['takeAwayOrDineInForPrint']
-//                     .toString()
-//                     .contains('TAKE-AWAY') &&
-//                 thisIsParcelTrueElseFalse) {
-// //thisMeansThatAlreadyOneParcelHasBeenAdded.WeNeedNotAddAgain
-//               statisticsMap['numberofparcel'] = FieldValue.increment(0);
-//             } else if (pastSavedDocument['takeAwayOrDineInForPrint']
-//                     .toString()
-//                     .contains('TAKE-AWAY') &&
-//                 !thisIsParcelTrueElseFalse) {
-// //ThisMeansSomethingThatIsDineInHasBeenLastAddedAsParcel.WeNeedToReduceBy1
-//               statisticsMap['numberofparcel'] = FieldValue.increment(-1);
-//             }
-//
-// //IncrementingOnlyTheDifferenceInDiscounts
-//             statisticsMap.addAll({
-//               'totaldiscount': FieldValue.increment(
-//                   discount - num.parse(pastSavedDocument['discount']))
-//             });
-// //IncrementingOnlyTheDifferenceInTotalBill
-//             statisticsMap.addAll({
-//               'totalbillamounttoday': FieldValue.increment(
-//                   totalBillWithTaxes().round() -
-//                       num.parse(pastSavedDocument['grandTotalForPrint']))
-//             });
-//
-// //IfBillHadAlreadyBeenPrintedSerialNumberNeedNotBeAdded
-//             if (num.parse(pastSavedDocument['serialNumberForPrint'].toString())
-//                     .toInt() <
-//                 serialNumber) {
-// //ThisMeansWeHaveTakenNewSerialNumberAgain.SoWeReduceTheSerialNumber
-//               statisticsMap.addAll({'serialNumber': FieldValue.increment(-1)});
-//             } else {
-//               statisticsMap.addAll({'serialNumber': FieldValue.increment(0)});
-//             }
-//
-//             serialNumber =
-//                 num.parse(pastSavedDocument['serialNumberForPrint'].toString())
-//                     .toInt();
-//
-// //GivenThatThisIsCheckedWeCanGoAheadWithTheUpdate
-//             if (!noItemsInTable) {
-//               serverUpdateOfBillIfBillIdExistsInServer();
-//             }
-//           }
-//         }
-//       }
-//     } catch (e) {
-//       setState(() {
-//         showSpinner = false;
-//       });
-//
-//       show('Please Check Internet Connection and Try Again');
-//
-//       Map<String, dynamic> tempBaseInfoMap = HashMap();
-//       tempBaseInfoMap.addAll({
-//         'billClosingPhoneOrderIdWithTime': {
-//           Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-//               .currentUserPhoneNumberFromClass: FieldValue.delete()
-//         }
-//       });
-//
-//       Map<String, dynamic> tempMasterMap = HashMap();
-//       tempMasterMap.addAll({'baseInfoMap': tempBaseInfoMap});
-//
-//       FireStoreAddOrderInRunningOrderFolder(
-//               hotelName: widget.hotelName,
-//               seatingNumber: widget.itemsFromThisDocumentInFirebaseDoc,
-//               ordersMap: tempMasterMap)
-//           .addOrder();
-//     }
-//   }
+
+  void timerForNullifyingSerialNumberTimeStampDataInServer() {
+    Timer(Duration(seconds: 5), () {
+      if (gotSerialNumber == false) {
+        secondaryPrintButtonTapCheck = false;
+//thisMeansThatEvenAfterSevenSecondsWeHaven'tGotTheSerialNumber
+//ThisMeansWeHaventGotTheDataEvenAfter5Seconds
+        //ThisMeansThatTheDataHasNotReachedTheServer
+        Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
+        tempSerialInStatisticsMap.addAll({
+          orderHistoryDocID: {
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .currentUserPhoneNumberFromClass: FieldValue.delete()
+          }
+        });
+        FirebaseFirestore.instance
+            .collection(widget.hotelName)
+            .doc('reports')
+            .collection('dailyReports')
+            .doc(statisticsYear)
+            .collection(statisticsMonth)
+            .doc(statisticsDay)
+            .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
+                SetOptions(merge: true));
+        setState(() {
+          showSpinner = false;
+          tappedPrintButton = false;
+        });
+        show('Please check Internet & Reprint bill');
+      }
+    });
+  }
 
   num totalPriceAfterDiscountOfBill() {
     // totalPriceAfterDiscount= totalPriceOfAllItems - discount;
@@ -3184,1408 +3375,591 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     print('location permission is $locationPermissionAccepted');
   }
 
-  void serverUpdateOfBill() async {
-    if (serialNumber != 0) {
-      generalStatsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
-      statisticsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
-      generalStatsMap.addAll({
-        'totalbillamounttoday':
-            FieldValue.increment(totalBillWithTaxes().round())
-      });
-      statisticsMap.addAll({
-        'totalbillamounttoday':
-            FieldValue.increment(totalBillWithTaxes().round())
-      });
+  void serverUpdateOfBillVersionTwo() async {
+    generalStatsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
+    generalStatsMap.addAll({
+      'totalbillamounttoday': FieldValue.increment(totalBillWithTaxes().round())
+    });
 
 //IfBillHadAlreadyBeenPrintedSerialNumberNeedNotBeAdded
-      generalStatsMap.addAll({'serialNumber': FieldValue.increment(1)});
-      statisticsMap.addAll({'serialNumber': FieldValue.increment(1)});
-      statisticsMap.addAll({
-        'statisticsDocumentIdMap': {orderHistoryDocID: FieldValue.delete()}
-      });
+    generalStatsMap.addAll({'serialNumber': FieldValue.increment(1)});
 
-      //  print(widget.printOrdersMap);
-      Map<String, String> updatePrintOrdersMap = HashMap();
-
-      updatePrintOrdersMap = printOrdersMap;
-      updatePrintOrdersMap
-          .addAll({'serialNumberForPrint': serialNumber.toString()});
-      String addingZeroBeforeSerialNumber = '';
-      for (int i = serialNumber.toString().length; i < 10; i++) {
-        addingZeroBeforeSerialNumber += '0';
-      }
-      String dateOfOrderWithSerial =
-          updatePrintOrdersMap[' Date of Order  :'].toString() +
-              ' ' +
-              addingZeroBeforeSerialNumber +
-              serialNumber.toString() +
-              ' as serial number';
-      updatePrintOrdersMap[' Date of Order  :'] = dateOfOrderWithSerial;
-
-      if (discount != 0) {
-        if (discountValueClickedTruePercentageClickedFalse) {
-          updatePrintOrdersMap.addAll({'981*Discount': discount.toString()});
-        } else {
-          updatePrintOrdersMap.addAll(
-              {'981*Discount $discountEnteredValue%': discount.toString()});
-        }
-      }
-      updatePrintOrdersMap
-          .addAll({'985*Total': (totalPriceOfAllItems - discount).toString()});
-      if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                  listen: false)
-              .restaurantInfoDataFromClass)['cgst'] >
-          0) {
-        updatePrintOrdersMap.addAll({
-          '989*CGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
-              (cgstCalculatedForBillFunction()).toString()
-        });
-      }
-      if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                  listen: false)
-              .restaurantInfoDataFromClass)['cgst'] >
-          0) {
-        updatePrintOrdersMap.addAll({
-          '993*SGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
-              (sgstCalculatedForBillFunction()).toString()
-        });
-      }
-      updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
-      updatePrintOrdersMap.addAll({'roundOff': roundOff()});
-      updatePrintOrdersMap
-          .addAll({'997*Total Bill With Taxes': totalBillWithTaxesAsString()});
-      String distinctItemsForPrint = '';
-      String individualPriceOfEachDistinctItemForPrint = '';
-      String numberOfEachDistinctItemForPrint = '';
-      String priceOfEachDistinctItemWithoutTotalForPrint = '';
-      //itIsWronglyAddingTotalAlsoToPriceOfEachDistinctItem.SoRemovingThatWithBelowVariable
-      List<num> updatedPriceOfEachDistinctItemWithoutTotal =
-          totalPriceOfOneDistinctItem;
-      // updatedPriceOfEachDistinctItemWithoutTotal.removeLast();
-
-      for (var distinctItem in distinctItemNames) {
-        distinctItemsForPrint = distinctItemsForPrint + distinctItem;
-        distinctItemsForPrint = distinctItemsForPrint + '*';
-      }
-      for (var individualPrice in individualPriceOfOneDistinctItem) {
-        individualPriceOfEachDistinctItemForPrint =
-            individualPriceOfEachDistinctItemForPrint +
-                individualPrice.toString();
-        individualPriceOfEachDistinctItemForPrint =
-            individualPriceOfEachDistinctItemForPrint + '*';
-      }
-      for (var numberOfEachItem in numberOfOneDistinctItem) {
-        numberOfEachDistinctItemForPrint =
-            numberOfEachDistinctItemForPrint + numberOfEachItem.toString();
-        numberOfEachDistinctItemForPrint =
-            numberOfEachDistinctItemForPrint + '*';
-      }
-      for (var priceOfEachDistinctItem
-          in updatedPriceOfEachDistinctItemWithoutTotal) {
-        priceOfEachDistinctItemWithoutTotalForPrint =
-            priceOfEachDistinctItemWithoutTotalForPrint +
-                priceOfEachDistinctItem.toString();
-        priceOfEachDistinctItemWithoutTotalForPrint =
-            priceOfEachDistinctItemWithoutTotalForPrint + '*';
-      }
-      updatePrintOrdersMap.addAll({
-        'hotelNameForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'addressline1ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'addressline2ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'addressline3ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'gstcodeforprint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['gstcode']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'phoneNumberForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
-      });
-      updatePrintOrdersMap.addAll({'customerNameForPrint': '$customername'});
-      updatePrintOrdersMap
-          .addAll({'customerMobileForPrint': '${customermobileNumber}'});
-      updatePrintOrdersMap
-          .addAll({'customerAddressForPrint': '${customeraddressline1}'});
-      updatePrintOrdersMap.addAll({'dateForPrint': '${printingDate}'});
-
-      updatePrintOrdersMap.addAll(
-          {'totalNumberOfItemsForPrint': '${distinctItemNames.length}'});
-      updatePrintOrdersMap.addAll(
-          {'billNumberForPrint': '${orderHistoryDocID.substring(0, 14)}'});
-      if (thisIsParcelTrueElseFalse) {
-        updatePrintOrdersMap.addAll({
-          'takeAwayOrDineInForPrint':
-              'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
-        });
-      } else {
-        updatePrintOrdersMap.addAll({
-          'takeAwayOrDineInForPrint':
-              'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
-        });
-      }
-      updatePrintOrdersMap
-          .addAll({'distinctItemsForPrint': distinctItemsForPrint});
-      updatePrintOrdersMap.addAll({
-        'individualPriceOfEachDistinctItemForPrint':
-            individualPriceOfEachDistinctItemForPrint
-      });
-      updatePrintOrdersMap.addAll({
-        'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint
-      });
-      updatePrintOrdersMap.addAll({
-        'priceOfEachDistinctItemWithoutTotalForPrint':
-            priceOfEachDistinctItemWithoutTotalForPrint
-      });
-      updatePrintOrdersMap.addAll({'discount': discount.toString()});
-      updatePrintOrdersMap
-          .addAll({'discountEnteredValue': discountEnteredValue.toString()});
-      updatePrintOrdersMap.addAll({
-        'discountValueClickedTruePercentageClickedFalse':
-            discountValueClickedTruePercentageClickedFalse.toString()
-      });
-
-      updatePrintOrdersMap.addAll(
-          {'totalQuantityForPrint': totalQuantityOfAllItems.toString()});
-
-      updatePrintOrdersMap.addAll(
-          {'subTotalForPrint': (totalPriceOfAllItems - discount).toString()});
-      updatePrintOrdersMap.addAll({
-        'cgstPercentageForPrint': json
-            .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
-                .restaurantInfoDataFromClass)['cgst']
-            .toString()
-      });
-      updatePrintOrdersMap.addAll({
-        'cgstCalculatedForPrint': cgstCalculatedForBillFunction().toString()
-      });
-      updatePrintOrdersMap.addAll({
-        'sgstPercentageForPrint': json
-            .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
-                .restaurantInfoDataFromClass)['cgst']
-            .toString()
-      });
-      updatePrintOrdersMap.addAll({
-        'sgstCalculatedForPrint': sgstCalculatedForBillFunction().toString()
-      });
-      updatePrintOrdersMap
-          .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
-      if (billUpdatedInServer == false) {
-        billUpdatedInServer = true;
-        FireStoreBillAndStatisticsInServer(
-                hotelName: widget.hotelName,
-                orderHistoryDocID: orderHistoryDocID,
-                printOrdersMap: updatePrintOrdersMap,
-                statisticsDayUpdateMap: dailyStatisticsMap,
-                year: tempYear,
-                month: tempMonth,
-                day: tempDay)
-            .updateBillAndStatistics();
-
-        // FireStoreUpdateAndStatisticsWithBatch(
-        //         hotelName: widget.hotelName,
-        //         orderHistoryDocID: orderHistoryDocID,
-        //         printOrdersMap: updatePrintOrdersMap,
-        //         statisticsDocID: statisticsDocID,
-        //         statisticsUpdateMap: statisticsMap)
-        //     .updateBillAndStatistics();
-
-        orderHistoryDocID = '';
-        updatePrintOrdersMap = {};
-        statisticsMap = {};
-        statisticsDocID = '';
-        serialNumber = 0;
-        toCheckPastOrderHistoryMap = {};
-
-        FireStoreDeleteFinishedOrderInRunningOrders(
-                hotelName: widget.hotelName,
-                eachTableId: widget.itemsFromThisDocumentInFirebaseDoc)
-            .deleteFinishedOrder();
-
-//ToUpdateStatistics,WeGoThroughEachKeyAndUsingIncrementByFunction,We,,
-//CanIncrementTheNumberThatIsAlreadyThereInTheServer
-//ThisWillHelpToAddToTheStatisticsThat'sAlreadyThere
-        int counterToDeleteTableOrParcelOrderFromFireStore = 1;
-        // statisticsMap.forEach((key, value) {
-        //   counterToDeleteTableOrParcelOrderFromFireStore++;
-        //   double? incrementBy = statisticsMap[key]?.toDouble();
-        //   FireStoreUpdateStatistics(
-        //       hotelName: widget.hotelName,
-        //       docID: statisticsDocID,
-        //       incrementBy: incrementBy,
-        //       key: key)
-        //       .updateStatistics();
-        //   if (counterToDeleteTableOrParcelOrderFromFireStore ==
-        //       statisticsMap.length) {
-        //     FireStoreDeleteFinishedOrderInPresentOrders(
-        //         hotelName: widget.hotelName,
-        //         eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
-        //         .deleteFinishedOrder();
-        //   }
-        // });
-        //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
-        // for (String eachItemId in widget.itemsID) {
-        //   FireStoreDeleteFinishedOrder(
-        //           hotelName: widget.hotelName, eachItemId: eachItemId)
-        //       .deleteFinishedOrder();
-        // }
-
-      }
-      screenPopOutTimerAfterServerUpdate();
-    } else {
-      bool hasInternet = await InternetConnectionChecker().hasConnection;
-      if (hasInternet) {
-        Timer(Duration(seconds: 1), () {
-          serverUpdateAfterSerialNumber();
-        });
-      } else {
-        // ThisMeansThatTheDataHasNotReachedTheServer
-        if (serialNumber == 0) {
-          Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-          tempSerialInStatisticsMap.addAll({
-            orderHistoryDocID: {
+    Map<String, dynamic> updatePrintOrdersMap = HashMap();
+    updatePrintOrdersMap = printOrdersMap;
+    updatePrintOrdersMap
+        .addAll({'serialNumberForPrint': serialNumber.toString()});
+    updatePrintOrdersMap.addAll({'serialNumberNum': serialNumber});
+    updatePrintOrdersMap.addAll({
+      'orderClosingCaptainPhone':
+          Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+              .currentUserPhoneNumberFromClass
+    });
+    updatePrintOrdersMap.addAll({
+      'orderClosingCaptainName': json.decode(
               Provider.of<PrinterAndOtherDetailsProvider>(context,
                       listen: false)
-                  .currentUserPhoneNumberFromClass: FieldValue.delete()
-            }
-          });
-          FirebaseFirestore.instance
-              .collection(widget.hotelName)
-              .doc('statistics')
-              .collection('statistics')
-              .doc(statisticsDocID)
-              .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                  SetOptions(merge: true));
-        }
-        setState(() {
-          pageHasInternet = hasInternet;
-          showSpinner = false;
-        });
-        show('You are Offline!\nPlease turn on Internet&Close bill');
-      }
-    }
-    // int count = 0;
-    // Navigator.of(context).popUntil((_) => count++ >= 2);
-  }
-
-  void serverUpdateOfBillIfBillIdExistsInServer() async {
-    if (serialNumber != 0) {
-      Map<String, String> updatePrintOrdersMap = HashMap();
-
-      updatePrintOrdersMap = printOrdersMap;
-      updatePrintOrdersMap
-          .addAll({'serialNumberForPrint': serialNumber.toString()});
-      String addingZeroBeforeSerialNumber = '';
-      for (int i = serialNumber.toString().length; i < 10; i++) {
-        addingZeroBeforeSerialNumber += '0';
-      }
-      String dateOfOrderWithSerial =
-          updatePrintOrdersMap[' Date of Order  :'].toString() +
-              ' ' +
-              addingZeroBeforeSerialNumber +
-              serialNumber.toString() +
-              ' as serial number';
-      updatePrintOrdersMap[' Date of Order  :'] = dateOfOrderWithSerial;
-
-      if (discount != 0) {
-        if (discountValueClickedTruePercentageClickedFalse) {
-          updatePrintOrdersMap.addAll({'981*Discount': discount.toString()});
-        } else {
-          updatePrintOrdersMap.addAll(
-              {'981*Discount $discountEnteredValue%': discount.toString()});
-        }
-      }
-      updatePrintOrdersMap
-          .addAll({'985*Total': (totalPriceOfAllItems - discount).toString()});
-      if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                  listen: false)
-              .restaurantInfoDataFromClass)['cgst'] >
-          0) {
-        updatePrintOrdersMap.addAll({
-          '989*CGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
-              (cgstCalculatedForBillFunction()).toString()
-        });
-      }
-      if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                  listen: false)
-              .restaurantInfoDataFromClass)['cgst'] >
-          0) {
-        updatePrintOrdersMap.addAll({
-          '993*SGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
-              (sgstCalculatedForBillFunction()).toString()
-        });
-      }
-      updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
-      updatePrintOrdersMap.addAll({'roundOff': roundOff()});
-      updatePrintOrdersMap
-          .addAll({'997*Total Bill With Taxes': totalBillWithTaxesAsString()});
-      String distinctItemsForPrint = '';
-      String individualPriceOfEachDistinctItemForPrint = '';
-      String numberOfEachDistinctItemForPrint = '';
-      String priceOfEachDistinctItemWithoutTotalForPrint = '';
-      //itIsWronglyAddingTotalAlsoToPriceOfEachDistinctItem.SoRemovingThatWithBelowVariable
-      List<num> updatedPriceOfEachDistinctItemWithoutTotal =
-          totalPriceOfOneDistinctItem;
-      // updatedPriceOfEachDistinctItemWithoutTotal.removeLast();
-
-      for (var distinctItem in distinctItemNames) {
-        distinctItemsForPrint = distinctItemsForPrint + distinctItem;
-        distinctItemsForPrint = distinctItemsForPrint + '*';
-      }
-      for (var individualPrice in individualPriceOfOneDistinctItem) {
-        individualPriceOfEachDistinctItemForPrint =
-            individualPriceOfEachDistinctItemForPrint +
-                individualPrice.toString();
-        individualPriceOfEachDistinctItemForPrint =
-            individualPriceOfEachDistinctItemForPrint + '*';
-      }
-      for (var numberOfEachItem in numberOfOneDistinctItem) {
-        numberOfEachDistinctItemForPrint =
-            numberOfEachDistinctItemForPrint + numberOfEachItem.toString();
-        numberOfEachDistinctItemForPrint =
-            numberOfEachDistinctItemForPrint + '*';
-      }
-      for (var priceOfEachDistinctItem
-          in updatedPriceOfEachDistinctItemWithoutTotal) {
-        priceOfEachDistinctItemWithoutTotalForPrint =
-            priceOfEachDistinctItemWithoutTotalForPrint +
-                priceOfEachDistinctItem.toString();
-        priceOfEachDistinctItemWithoutTotalForPrint =
-            priceOfEachDistinctItemWithoutTotalForPrint + '*';
-      }
-      updatePrintOrdersMap.addAll({
-        'hotelNameForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'addressline1ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'addressline2ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'addressline3ForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'gstcodeforprint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['gstcode']}'
-      });
-      updatePrintOrdersMap.addAll({
-        'phoneNumberForPrint':
-            '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
-      });
-      updatePrintOrdersMap.addAll({'customerNameForPrint': '$customername'});
-      updatePrintOrdersMap
-          .addAll({'customerMobileForPrint': '${customermobileNumber}'});
-      updatePrintOrdersMap
-          .addAll({'customerAddressForPrint': '${customeraddressline1}'});
-      updatePrintOrdersMap.addAll({'dateForPrint': '${printingDate}'});
-
-      updatePrintOrdersMap.addAll(
-          {'totalNumberOfItemsForPrint': '${distinctItemNames.length}'});
-      updatePrintOrdersMap.addAll(
-          {'billNumberForPrint': '${orderHistoryDocID.substring(0, 14)}'});
-      if (thisIsParcelTrueElseFalse) {
-        updatePrintOrdersMap.addAll({
-          'takeAwayOrDineInForPrint':
-              'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
-        });
-      } else {
-        updatePrintOrdersMap.addAll({
-          'takeAwayOrDineInForPrint':
-              'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
-        });
-      }
-      updatePrintOrdersMap
-          .addAll({'distinctItemsForPrint': distinctItemsForPrint});
-      updatePrintOrdersMap.addAll({
-        'individualPriceOfEachDistinctItemForPrint':
-            individualPriceOfEachDistinctItemForPrint
-      });
-      updatePrintOrdersMap.addAll({
-        'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint
-      });
-      updatePrintOrdersMap.addAll({
-        'priceOfEachDistinctItemWithoutTotalForPrint':
-            priceOfEachDistinctItemWithoutTotalForPrint
-      });
-      updatePrintOrdersMap.addAll({'discount': discount.toString()});
-      updatePrintOrdersMap
-          .addAll({'discountEnteredValue': discountEnteredValue.toString()});
-      updatePrintOrdersMap.addAll({
-        'discountValueClickedTruePercentageClickedFalse':
-            discountValueClickedTruePercentageClickedFalse.toString()
-      });
-
-      updatePrintOrdersMap.addAll(
-          {'totalQuantityForPrint': totalQuantityOfAllItems.toString()});
-
-      updatePrintOrdersMap.addAll(
-          {'subTotalForPrint': (totalPriceOfAllItems - discount).toString()});
-      updatePrintOrdersMap.addAll({
-        'cgstPercentageForPrint': json
-            .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
-                .restaurantInfoDataFromClass)['cgst']
-            .toString()
-      });
-      updatePrintOrdersMap.addAll({
-        'cgstCalculatedForPrint': cgstCalculatedForBillFunction().toString()
-      });
-      updatePrintOrdersMap.addAll({
-        'sgstPercentageForPrint': json
-            .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                    listen: false)
-                .restaurantInfoDataFromClass)['cgst']
-            .toString()
-      });
-      updatePrintOrdersMap.addAll({
-        'sgstCalculatedForPrint': sgstCalculatedForBillFunction().toString()
-      });
-      updatePrintOrdersMap
-          .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
-
-      statisticsMap.addAll({
-        'statisticsDocumentIdMap': {orderHistoryDocID: FieldValue.delete()}
-      });
-      if (billUpdatedInServer == false) {
-        billUpdatedInServer = true;
-
-        FireStoreUpdateAndStatisticsWithBatchForAlreadyExistingBill(
-                hotelName: widget.hotelName,
-                orderHistoryDocID: orderHistoryDocID,
-                printOrdersMap: updatePrintOrdersMap,
-                statisticsDocID: statisticsDocID,
-                statisticsUpdateMap: statisticsMap)
-            .updateBillAndStatistics();
-
-        orderHistoryDocID = '';
-        updatePrintOrdersMap = {};
-        statisticsMap = {};
-        statisticsDocID = '';
-        serialNumber = 0;
-        toCheckPastOrderHistoryMap = {};
-
-        FireStoreDeleteFinishedOrderInRunningOrders(
-                hotelName: widget.hotelName,
-                eachTableId: widget.itemsFromThisDocumentInFirebaseDoc)
-            .deleteFinishedOrder();
-
-//ToUpdateStatistics,WeGoThroughEachKeyAndUsingIncrementByFunction,We,,
-//CanIncrementTheNumberThatIsAlreadyThereInTheServer
-//ThisWillHelpToAddToTheStatisticsThat'sAlreadyThere
-        int counterToDeleteTableOrParcelOrderFromFireStore = 1;
-        // statisticsMap.forEach((key, value) {
-        //   counterToDeleteTableOrParcelOrderFromFireStore++;
-        //   double? incrementBy = statisticsMap[key]?.toDouble();
-        //   FireStoreUpdateStatistics(
-        //       hotelName: widget.hotelName,
-        //       docID: statisticsDocID,
-        //       incrementBy: incrementBy,
-        //       key: key)
-        //       .updateStatistics();
-        //   if (counterToDeleteTableOrParcelOrderFromFireStore ==
-        //       statisticsMap.length) {
-        //     FireStoreDeleteFinishedOrderInPresentOrders(
-        //         hotelName: widget.hotelName,
-        //         eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
-        //         .deleteFinishedOrder();
-        //   }
-        // });
-        //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
-        // for (String eachItemId in widget.itemsID) {
-        //   FireStoreDeleteFinishedOrder(
-        //           hotelName: widget.hotelName, eachItemId: eachItemId)
-        //       .deleteFinishedOrder();
-        // }
-
-      }
-      screenPopOutTimerAfterServerUpdate();
-    } else {
-      bool hasInternet = await InternetConnectionChecker().hasConnection;
-      if (hasInternet) {
-        serverUpdateAfterSerialNumber();
-      } else {
-        setState(() {
-          pageHasInternet = hasInternet;
-          showSpinner = false;
-        });
-        show('You are Offline!\nPlease turn on Internet&Close bill');
-      }
-    }
-    // int count = 0;
-    // Navigator.of(context).popUntil((_) => count++ >= 2);
-  }
-
-  void serialNumberStatisticsExistsOrNot() async {
-    setState(() {
-      showSpinner = true;
-      tappedPrintButton = true;
-    });
-    bool hasInternet = await InternetConnectionChecker().hasConnection;
-    if (hasInternet) {
-      Map<String, dynamic>? statisticsData = {};
-      try {
-        final statisticsDataCheck = await FirebaseFirestore.instance
-            .collection(widget.hotelName)
-            .doc('reports')
-            .collection('dailyReports')
-            .doc(tempYear)
-            .collection(tempMonth)
-            .doc(tempDay)
-            .get()
-            .timeout(Duration(seconds: 5));
-        // final statisticsDataCheck = await FirebaseFirestore.instance
-        //     .collection(widget.hotelName)
-        //     .doc('statistics')
-        //     .collection('statistics')
-        //     .doc(statisticsDocID)
-        //     .get()
-        //     .timeout(Duration(seconds: 5));
-
-        statisticsData = statisticsDataCheck.data();
-        Map<String, dynamic> statisticsDocumentIdMap =
-            statisticsData!['statisticsDocumentIdMap'];
-
-        if (
-            // !statisticsDocumentIdMap.containsKey(orderHistoryDocID) ||
-            noItemsInTable) {
-//ThisMeansThatTheDataHasReachedTheServer
-          Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-          tempSerialInStatisticsMap
-              .addAll({orderHistoryDocID: FieldValue.delete()});
-          FirebaseFirestore.instance
-              .collection(widget.hotelName)
-              .doc('statistics')
-              .collection('statistics')
-              .doc(statisticsDocID)
-              .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                  SetOptions(merge: true));
-          statisticsData.clear();
-          statisticsDataCheck.data()!.clear();
-          setState(() {
-            showSpinner = true;
-            tappedPrintButton = true;
-          });
-        } else {
-          Map<String, dynamic> thisTableData =
-              statisticsDocumentIdMap[orderHistoryDocID];
-
-          Timestamp timeThisTableWasBilled = Timestamp.fromDate(DateTime(5000));
-          int numberOfOrdersBeforeThisTable = 0;
-//GettingTheMinimumTimeAtWhichThisTableWasBilled
-          thisTableData.forEach((key, value) {
-            if (value['timeOfBilling'] != null) {
-              if (timeThisTableWasBilled.compareTo(value['timeOfBilling']) ==
-                  1) {
-//IfItIsOne,itMeansAsPerTimeStampComparision,ItIsInThPast
-                timeThisTableWasBilled = value['timeOfBilling'];
-              }
-            }
-          });
-
-          if (Timestamp.fromDate(DateTime(5000))
-                  .compareTo(timeThisTableWasBilled) ==
-              1) {
-//ThisMeansThatThereWasAtLeastOneDataWithProperIdAndHence...
-//...TimeThisTableWasBilledIsn'tInitialData
-            if (statisticsDocumentIdMap.length > 1) {
-//ThisMeansThereAreTablesBilledOtherThanThisTable
-              statisticsDocumentIdMap.forEach((key, value) {
-                Map<String, dynamic> timesOfEachOrder = value;
-                if (key != orderHistoryDocID && timesOfEachOrder.isNotEmpty) {
-//ToEnsureWeAren'tCheckingTheSameOrderAndAlsoCheckingIfAnyTableIsEmpty
-//ThisUsuallyHappensIfBcozOfBadInternetWeHadDeletedTheMobileNumberForThatTable
-
-                  Timestamp billedTimeOfEachOrderOtherThanThisOrder =
-                      Timestamp.fromDate(DateTime(5000));
-
-                  timesOfEachOrder.forEach((key, timeOfEachOrdervalue) {
-                    if (billedTimeOfEachOrderOtherThanThisOrder
-                            .compareTo(timeOfEachOrdervalue['timeOfBilling']) ==
-                        1) {
-                      billedTimeOfEachOrderOtherThanThisOrder =
-                          timeOfEachOrdervalue['timeOfBilling'];
-                    }
-                  });
-                  if (timeThisTableWasBilled
-                          .compareTo(billedTimeOfEachOrderOtherThanThisOrder) ==
-                      1) {
-//ThisThatOrderWasBilledBeforeThisTable
-                    numberOfOrdersBeforeThisTable++;
-                  }
-                }
-              });
-            }
-//stoppingRightHere.
-
-            if (serialNumber == 0 && !noItemsInTable) {
-              if (gotSerialNumber == false) {
-                gotSerialNumber = true;
-
-                // statisticsData = value.data();
-                if (statisticsData == null ||
-                    statisticsData!['mapGeneralStatsMap']['serialNumber'] ==
-                        null) {
-                  serialNumber = 1 + numberOfOrdersBeforeThisTable;
-                } else {
-                  serialNumber = num.parse(
-                              (statisticsData!['mapGeneralStatsMap']
-                                      ['serialNumber'])
-                                  .toString())
-                          .toInt() +
-                      1 +
-                      numberOfOrdersBeforeThisTable;
-                }
-// //SinceSerialNumberIsZeroWeWillHaveToIncrementSerialNumberByOneAnyway
-//               FireStoreUpdateStatisticsIndividualField(
-//                       hotelName: widget.hotelName,
-//                       docID: statisticsDocID,
-//                       incrementBy: 1,
-//                       key: 'serialNumber')
-//                   .updateStatistics();
-                statisticsData.clear();
-                statisticsDataCheck.data()!.clear();
-
-                serialNumberUpdateInServerWhenPrintClickedFirstTime();
-                tappedPrintButton = false;
-                startOfCallForPrintingBill();
-              }
-            } else if (serialNumber != 0 && !noItemsInTable) {
-//ThisMeansWeRealisedSuddenlyWhenNetCameThatSerialNumberExists
-//AndHenceCanStraightCall StartOfCallForPrintingBill
-              startOfCallForPrintingBill();
-              statisticsDataCheck.data()!.clear();
-              statisticsData.clear();
-            }
-          } else {
-            //ThisMeansThatTheDataHasNotReachedTheServer
-            Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-            tempSerialInStatisticsMap.addAll({
-              orderHistoryDocID: {
-                Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .currentUserPhoneNumberFromClass: FieldValue.delete()
-              }
-            });
-            FirebaseFirestore.instance
-                .collection(widget.hotelName)
-                .doc('reports')
-                .collection('dailyReports')
-                .doc(tempYear)
-                .collection(tempMonth)
-                .doc(tempDay)
-                .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                    SetOptions(merge: true));
-            // FirebaseFirestore.instance
-            //     .collection(widget.hotelName)
-            //     .doc('statistics')
-            //     .collection('statistics')
-            //     .doc(statisticsDocID)
-            //     .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-            //         SetOptions(merge: true));
-            setState(() {
-              pageHasInternet = hasInternet;
-              showSpinner = false;
-              tappedPrintButton = false;
-            });
-            show('Please check Internet & Reprint bill');
-          }
-        }
-      } catch (e) {
-        print('error Correction');
-        print(e.toString());
-        //ThisMeansThatTheDataHasNotReachedTheServer
-        Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-        tempSerialInStatisticsMap.addAll({
-          orderHistoryDocID: {
-            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-                .currentUserPhoneNumberFromClass: FieldValue.delete()
-          }
-        });
-        FirebaseFirestore.instance
-            .collection(widget.hotelName)
-            .doc('statistics')
-            .collection('statistics')
-            .doc(statisticsDocID)
-            .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                SetOptions(merge: true));
-
-        setState(() {
-          pageHasInternet = hasInternet;
-          showSpinner = false;
-          tappedPrintButton = false;
-        });
-        show('Please check Internet & Reprint bill');
-      }
-    } else {
-      pageHasInternet = hasInternet;
-      //ThisMeansThatTheDataHasReachedTheServerLateAndWeNeedToDeleteIt
-      Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-      tempSerialInStatisticsMap.addAll({
-        orderHistoryDocID: {
+                  .allUserProfilesFromClass)[
           Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-              .currentUserPhoneNumberFromClass: FieldValue.delete()
-        }
-      });
-      FirebaseFirestore.instance
-          .collection(widget.hotelName)
-          .doc('statistics')
-          .collection('statistics')
-          .doc(statisticsDocID)
-          .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-              SetOptions(merge: true));
-      setState(() {
-        pageHasInternet = hasInternet;
-        showSpinner = false;
-        tappedPrintButton = false;
-      });
-      show('You are Offline!\nPlease turn on Internet&Reprint bill');
-    }
-  }
-
-  Future<void> serialNumberDownloadForPrinting() async {
-    final docRef = FirebaseFirestore.instance
-        .collection(widget.hotelName)
-        .doc('reports')
-        .collection('dailyReports')
-        .doc(tempYear)
-        .collection(tempMonth)
-        .doc(tempDay);
-
-    streamSubscriptionForPrinting =
-        docRef.snapshots().listen((statisticsDataCheckSnapshot) {
-      final statisticsData = statisticsDataCheckSnapshot.data();
-      Map<String, dynamic> statisticsDocumentIdMap = HashMap();
-      if (statisticsData != null &&
-          statisticsData.containsKey('statisticsDocumentIdMap')) {
-        statisticsDocumentIdMap = statisticsData!['statisticsDocumentIdMap'];
-      }
-
-      if (
-          // !statisticsDocumentIdMap.containsKey(orderHistoryDocID) ||
-          noItemsInTable) {
-//ThisMeansThatTheDataHasReachedTheServer
-        Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-        tempSerialInStatisticsMap
-            .addAll({orderHistoryDocID: FieldValue.delete()});
-        FirebaseFirestore.instance
-            .collection(widget.hotelName)
-            .doc('statistics')
-            .collection('statistics')
-            .doc(statisticsDocID)
-            .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                SetOptions(merge: true));
-        if (statisticsData != null) {
-          statisticsData.clear();
-        }
-
-        statisticsDataCheckSnapshot.data()!.clear();
-        setState(() {
-          showSpinner = true;
-          tappedPrintButton = true;
-        });
-      } else if (statisticsDocumentIdMap.isNotEmpty) {
-        Map<String, dynamic> thisTableData =
-            statisticsDocumentIdMap[orderHistoryDocID];
-
-        Timestamp timeThisTableWasBilled = Timestamp.fromDate(DateTime(5000));
-        int numberOfOrdersBeforeThisTable = 0;
-//GettingTheMinimumTimeAtWhichThisTableWasBilled
-        thisTableData.forEach((key, value) {
-          if (value['timeOfBilling'] != null) {
-            if (timeThisTableWasBilled.compareTo(value['timeOfBilling']) == 1) {
-//IfItIsOne,itMeansAsPerTimeStampComparision,ItIsInThPast
-              timeThisTableWasBilled = value['timeOfBilling'];
-            }
-          }
-        });
-
-        if (Timestamp.fromDate(DateTime(5000))
-                .compareTo(timeThisTableWasBilled) ==
-            1) {
-//ThisMeansThatThereWasAtLeastOneDataWithProperIdAndHence...
-//...TimeThisTableWasBilledIsn'tInitialData
-          if (statisticsDocumentIdMap.length > 1) {
-//ThisMeansThereAreTablesBilledOtherThanThisTable
-            statisticsDocumentIdMap.forEach((key, value) {
-              Map<String, dynamic> timesOfEachOrder = value;
-              if (key != orderHistoryDocID && timesOfEachOrder.isNotEmpty) {
-//ToEnsureWeAren'tCheckingTheSameOrderAndAlsoCheckingIfAnyTableIsEmpty
-//ThisUsuallyHappensIfBcozOfBadInternetWeHadDeletedTheMobileNumberForThatTable
-
-                Timestamp billedTimeOfEachOrderOtherThanThisOrder =
-                    Timestamp.fromDate(DateTime(5000));
-
-                timesOfEachOrder.forEach((key, timeOfEachOrdervalue) {
-                  if (billedTimeOfEachOrderOtherThanThisOrder
-                          .compareTo(timeOfEachOrdervalue['timeOfBilling']) ==
-                      1) {
-                    billedTimeOfEachOrderOtherThanThisOrder =
-                        timeOfEachOrdervalue['timeOfBilling'];
-                  }
-                });
-                if (timeThisTableWasBilled
-                        .compareTo(billedTimeOfEachOrderOtherThanThisOrder) ==
-                    1) {
-//ThisThatOrderWasBilledBeforeThisTable
-                  numberOfOrdersBeforeThisTable++;
-                }
-              }
-            });
-          }
-//stoppingRightHere.
-
-          if (serialNumber == 0 && !noItemsInTable) {
-            if (gotSerialNumber == false) {
-              gotSerialNumber = true;
-
-              // statisticsData = value.data();
-              if (statisticsData == null ||
-                  statisticsData!['mapGeneralStatsMap']['serialNumber'] ==
-                      null) {
-                serialNumber = 1 + numberOfOrdersBeforeThisTable;
-              } else {
-                serialNumber = num.parse((statisticsData!['mapGeneralStatsMap']
-                                ['serialNumber'])
-                            .toString())
-                        .toInt() +
-                    1 +
-                    numberOfOrdersBeforeThisTable;
-              }
-// //SinceSerialNumberIsZeroWeWillHaveToIncrementSerialNumberByOneAnyway
-//               FireStoreUpdateStatisticsIndividualField(
-//                       hotelName: widget.hotelName,
-//                       docID: statisticsDocID,
-//                       incrementBy: 1,
-//                       key: 'serialNumber')
-//                   .updateStatistics();
-              if (statisticsData != null) {
-                statisticsData.clear();
-              }
-              statisticsDataCheckSnapshot.data()!.clear();
-
-              serialNumberUpdateInServerWhenPrintClickedFirstTime();
-              tappedPrintButton = false;
-              startOfCallForPrintingBill();
-            }
-          } else if (serialNumber != 0 && !noItemsInTable) {
-//ThisMeansWeRealisedSuddenlyWhenNetCameThatSerialNumberExists
-//AndHenceCanStraightCall StartOfCallForPrintingBill
-            startOfCallForPrintingBill();
-            statisticsDataCheckSnapshot.data()!.clear();
-            if (statisticsData != null) {
-              statisticsData.clear();
-            }
-          }
-//ThisMeansWeGotSerialNumberAndHenceWeCanCancelTheStream
-          streamSubscriptionForPrinting?.cancel();
-        }
-      }
+              .currentUserPhoneNumberFromClass]['username']
     });
-  }
 
-  Future<void> serverUpdateAfterSerialNumber() async {
-    Map<String, dynamic>? statisticsData = {};
-    try {
-      final statisticsDataCheck = await FirebaseFirestore.instance
-          .collection(widget.hotelName)
-          .doc('reports')
-          .collection('dailyReports')
-          .doc(tempYear)
-          .collection(tempMonth)
-          .doc(tempDay)
-          .get()
-          .timeout(Duration(seconds: 5));
-      // final statisticsDataCheck = await FirebaseFirestore.instance
-      //     .collection(widget.hotelName)
-      //     .doc('statistics')
-      //     .collection('statistics')
-      //     .doc(statisticsDocID)
-      //     .get()
-      //     .timeout(Duration(seconds: 5));
-      statisticsData = statisticsDataCheck.data();
-      Map<String, dynamic> statisticsDocumentIdMap =
-          statisticsData!['statisticsDocumentIdMap'];
-      if (noItemsInTable) {
-//ThisMeansThatTheDataHasReachedTheServer
-        Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-        tempSerialInStatisticsMap
-            .addAll({orderHistoryDocID: FieldValue.delete()});
-        FirebaseFirestore.instance
-            .collection(widget.hotelName)
-            .doc('statistics')
-            .collection('statistics')
-            .doc(statisticsDocID)
-            .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                SetOptions(merge: true));
+    if (itemsInOrderFromServerMap.isNotEmpty) {
+      updatePrintOrdersMap
+          .addAll({'billedItemsInOrder': itemsInOrderFromServerMap});
+    }
+
+    String addingZeroBeforeSerialNumber = '';
+    for (int i = serialNumber.toString().length; i < 10; i++) {
+      addingZeroBeforeSerialNumber += '0';
+    }
+
+    if (discount != 0) {
+      if (discountValueClickedTruePercentageClickedFalse) {
+        updatePrintOrdersMap.addAll({'981*Discount': discount.toString()});
       } else {
-        Map<String, dynamic> thisTableData =
-            statisticsDocumentIdMap[orderHistoryDocID];
-        Timestamp timeThisTableWasBilled = Timestamp.fromDate(DateTime(5000));
-        int numberOfOrdersBeforeThisTable = 0;
-//GettingTheMinimumTimeAtWhichThisTableWasBilled
-        thisTableData.forEach((key, value) {
-          if (value['timeOfBilling'] != null) {
-            if (timeThisTableWasBilled.compareTo(value['timeOfBilling']) == 1) {
-              print('timeOfBillingthisTable');
-              print(value['timeOfBilling']);
-              timeThisTableWasBilled = value['timeOfBilling'];
-            }
-          }
-        });
-        if (Timestamp.fromDate(DateTime(5000))
-                .compareTo(timeThisTableWasBilled) ==
-            1) {
-//ThisMeansThereWasSomethingThatWasNotNullAndItWasRegistered
-          if (statisticsDocumentIdMap.length > 1) {
-//ThisMeansThereAreTablesBilledOtherThanThisTable
-            statisticsDocumentIdMap.forEach((key, value) {
-              Map<String, dynamic> timesOfEachOrder = value;
-              if (key != orderHistoryDocID && timesOfEachOrder.isNotEmpty) {
-//ToEnsureWeAren'tCheckingTheSameOrderAndAlsoCheckingIfAnyTableIsEmpty
-//ThisUsuallyHappensIfBcozOfBadInternetWeHadDeletedTheMobileNumberForThatTable
+        updatePrintOrdersMap.addAll(
+            {'981*Discount $discountEnteredValue%': discount.toString()});
+      }
+    }
+    updatePrintOrdersMap
+        .addAll({'985*Total': (totalPriceOfAllItems - discount).toString()});
+    if (json.decode(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
+        0) {
+      updatePrintOrdersMap.addAll({
+        '989*CGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
+            (cgstCalculatedForBillFunction()).toString()
+      });
+    }
+    if (json.decode(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
+        0) {
+      updatePrintOrdersMap.addAll({
+        '993*SGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
+            (sgstCalculatedForBillFunction()).toString()
+      });
+    }
+    updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
+    updatePrintOrdersMap.addAll({'roundOff': roundOff()});
+    updatePrintOrdersMap
+        .addAll({'997*Total Bill With Taxes': totalBillWithTaxesAsString()});
+    String distinctItemsForPrint = '';
+    String individualPriceOfEachDistinctItemForPrint = '';
+    String numberOfEachDistinctItemForPrint = '';
+    String priceOfEachDistinctItemWithoutTotalForPrint = '';
+    //itIsWronglyAddingTotalAlsoToPriceOfEachDistinctItem.SoRemovingThatWithBelowVariable
+    List<num> updatedPriceOfEachDistinctItemWithoutTotal =
+        totalPriceOfOneDistinctItem;
+    // updatedPriceOfEachDistinctItemWithoutTotal.removeLast();
 
-                Timestamp billedTimeOfEachOrderOtherThanThisOrder =
-                    Timestamp.fromDate(DateTime(5000));
-                timesOfEachOrder.forEach((key, timeOfEachOrdervalue) {
-                  if (billedTimeOfEachOrderOtherThanThisOrder
-                          .compareTo(timeOfEachOrdervalue['timeOfBilling']) ==
-                      1) {
-                    billedTimeOfEachOrderOtherThanThisOrder =
-                        timeOfEachOrdervalue['timeOfBilling'];
-                  }
-                });
-                if (timeThisTableWasBilled
-                        .compareTo(billedTimeOfEachOrderOtherThanThisOrder) ==
-                    1) {
-//ThisThatOrderWasBilledBeforeThisTable
-                  numberOfOrdersBeforeThisTable++;
-                }
-              }
-            });
-          }
-          if (serialNumber == 0 && !noItemsInTable) {
-            if (gotSerialNumber == false) {
-              gotSerialNumber = true;
-              Map<String, dynamic>? statisticsData = statisticsDataCheck.data();
-              int lastSerialNumber = 0;
-              if (statisticsData!.containsKey('mapGeneralStatsMap')) {
-                Map<String, dynamic> tempGeneralStatsMap =
-                    statisticsData!['mapGeneralStatsMap'];
-                if (tempGeneralStatsMap.containsKey('serialNumber')) {
-                  lastSerialNumber =
-                      num.parse(tempGeneralStatsMap['serialNumber'].toString())
-                          .toInt();
-                }
-              }
-              //
-              // if (statisticsData!['mapGeneralStatsMap']['serialNumber'] !=
-              //     null) {
-              //   print('came inside null check');
-              //   lastSerialNumber = num.parse(
-              //           (statisticsData!['mapGeneralStatsMap']!['serialNumber'])
-              //               .toString())
-              //       .toInt();
-              // }
-              serialNumber =
-                  lastSerialNumber + 1 + numberOfOrdersBeforeThisTable;
-              print('serialNumberrr');
-              print(serialNumber);
+    for (var distinctItem in distinctItemNames) {
+      distinctItemsForPrint = distinctItemsForPrint + distinctItem;
+      distinctItemsForPrint = distinctItemsForPrint + '*';
+    }
+    for (var individualPrice in individualPriceOfOneDistinctItem) {
+      individualPriceOfEachDistinctItemForPrint =
+          individualPriceOfEachDistinctItemForPrint +
+              individualPrice.toString();
+      individualPriceOfEachDistinctItemForPrint =
+          individualPriceOfEachDistinctItemForPrint + '*';
+    }
+    for (var numberOfEachItem in numberOfOneDistinctItem) {
+      numberOfEachDistinctItemForPrint =
+          numberOfEachDistinctItemForPrint + numberOfEachItem.toString();
+      numberOfEachDistinctItemForPrint = numberOfEachDistinctItemForPrint + '*';
+    }
+    for (var priceOfEachDistinctItem
+        in updatedPriceOfEachDistinctItemWithoutTotal) {
+      priceOfEachDistinctItemWithoutTotalForPrint =
+          priceOfEachDistinctItemWithoutTotalForPrint +
+              priceOfEachDistinctItem.toString();
+      priceOfEachDistinctItemWithoutTotalForPrint =
+          priceOfEachDistinctItemWithoutTotalForPrint + '*';
+    }
+    updatePrintOrdersMap.addAll({
+      'hotelNameForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'addressline1ForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'addressline2ForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'addressline3ForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'gstcodeforprint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['gstcode']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'phoneNumberForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
+    });
+    updatePrintOrdersMap.addAll({'customerNameForPrint': '$customername'});
+    updatePrintOrdersMap
+        .addAll({'customerMobileForPrint': '${customermobileNumber}'});
+    updatePrintOrdersMap
+        .addAll({'customerAddressForPrint': '${customeraddressline1}'});
+    updatePrintOrdersMap.addAll({'dateForPrint': '${printingDate}'});
 
-              // if (statisticsData == null
-              //     ||
-              //     statisticsData!['mapGeneralStatsMap']['serialNumber'] ==
-              //         null
-              // ) {
-              //   serialNumber = 1 + numberOfOrdersBeforeThisTable;
-              // } else {
-              //   serialNumber = num.parse((statisticsData![
-              //                   'mapGeneralStatsMap']!['serialNumber'])
-              //               .toString())
-              //           .toInt() +
-              //       1 +
-              //       numberOfOrdersBeforeThisTable;
-              // }
-              statisticsData = {};
-              statisticsDataCheck.data()!.clear();
-              generalStatsMap.addAll({'serialNumber': FieldValue.increment(1)});
-              statisticsMap.addAll({'serialNumber': FieldValue.increment(1)});
-              statisticsMap.addAll({
-                'statisticsDocumentIdMap': {
-                  orderHistoryDocID: FieldValue.delete()
-                }
-              });
-              generalStatsMap
-                  .addAll({'totaldiscount': FieldValue.increment(discount)});
-              generalStatsMap.addAll({
-                'totalbillamounttoday':
-                    FieldValue.increment(totalBillWithTaxes().round())
-              });
-              statisticsMap
-                  .addAll({'totaldiscount': FieldValue.increment(discount)});
-              statisticsMap.addAll({
-                'totalbillamounttoday':
-                    FieldValue.increment(totalBillWithTaxes().round())
-              });
-              dailyStatisticsMap = {
-                'day': num.parse(tempDay),
-                'month': num.parse(tempMonth),
-                'year': num.parse(tempYear)
-              };
-              Map<String, dynamic> tempDailyStatisticsMap = HashMap();
+    updatePrintOrdersMap
+        .addAll({'totalNumberOfItemsForPrint': '${distinctItemNames.length}'});
+    updatePrintOrdersMap.addAll({'billNumberForPrint': '${orderHistoryDocID}'});
+    if (thisIsParcelTrueElseFalse) {
+      updatePrintOrdersMap.addAll({
+        'takeAwayOrDineInForPrint':
+            'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+      });
+    } else {
+      updatePrintOrdersMap.addAll({
+        'takeAwayOrDineInForPrint':
+            'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+      });
+    }
+    updatePrintOrdersMap
+        .addAll({'distinctItemsForPrint': distinctItemsForPrint});
+    updatePrintOrdersMap.addAll({
+      'individualPriceOfEachDistinctItemForPrint':
+          individualPriceOfEachDistinctItemForPrint
+    });
+    updatePrintOrdersMap.addAll(
+        {'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint});
+    updatePrintOrdersMap.addAll({
+      'priceOfEachDistinctItemWithoutTotalForPrint':
+          priceOfEachDistinctItemWithoutTotalForPrint
+    });
+    updatePrintOrdersMap.addAll({'discount': discount.toString()});
+    updatePrintOrdersMap
+        .addAll({'discountEnteredValue': discountEnteredValue.toString()});
+    updatePrintOrdersMap.addAll({
+      'discountValueClickedTruePercentageClickedFalse':
+          discountValueClickedTruePercentageClickedFalse.toString()
+    });
+    updatePrintOrdersMap
+        .addAll({'totalQuantityForPrint': totalQuantityOfAllItems.toString()});
+    updatePrintOrdersMap.addAll(
+        {'subTotalForPrint': (totalPriceOfAllItems - discount).toString()});
+    updatePrintOrdersMap.addAll({
+      'cgstPercentageForPrint': json
+          .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+              .restaurantInfoDataFromClass)['cgst']
+          .toString()
+    });
+    updatePrintOrdersMap.addAll(
+        {'cgstCalculatedForPrint': cgstCalculatedForBillFunction().toString()});
+    updatePrintOrdersMap.addAll({
+      'sgstPercentageForPrint': json
+          .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+              .restaurantInfoDataFromClass)['cgst']
+          .toString()
+    });
+    updatePrintOrdersMap.addAll(
+        {'sgstCalculatedForPrint': sgstCalculatedForBillFunction().toString()});
+    updatePrintOrdersMap
+        .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
 
-              tempDailyStatisticsMap
-                  .addAll({'mapGeneralStatsMap': generalStatsMap});
-              tempDailyStatisticsMap.addAll({
-                'mapMenuIndividualItemsStatsMap': menuIndividualItemsStatsMap
-              });
-              tempDailyStatisticsMap.addAll({
-                'mapExtraIndividualItemsStatsMap': extraIndividualItemsStatsMap
-              });
+    Map<String, dynamic> subMasterSalesIncomeStatistics = HashMap();
+    subMasterSalesIncomeStatistics.addAll({
+      'arraySoldItemsCategoryArray':
+          FieldValue.arrayUnion(arraySoldItemsCategoryArray)
+    });
+    subMasterSalesIncomeStatistics.addAll({
+      'mapEachCaptainOrdersTakenStatsMap': mapEachCaptainOrdersTakenStatsMap
+    });
+    subMasterSalesIncomeStatistics
+        .addAll({'mapGeneralStatsMap': generalStatsMap});
+    subMasterSalesIncomeStatistics
+        .addAll({'menuIndividualItemsStatsMap': menuIndividualItemsStatsMap});
+    subMasterSalesIncomeStatistics.addAll(
+        {'mapExtraIndividualItemsStatsMap': extraIndividualItemsStatsMap});
 
-              tempDailyStatisticsMap.addAll({
-                'arraySoldItemsCategoryArray':
-                    FieldValue.arrayUnion(arraySoldItemsCategoryArray)
-              });
-              tempDailyStatisticsMap.addAll({
-                'mapEachCaptainOrdersTakenStatsMap':
-                    mapEachCaptainOrdersTakenStatsMap
-              });
+    Map<String, dynamic> statisticsDailyStatisticsMap = {
+      'day': num.parse(statisticsDay),
+      'month': num.parse(statisticsMonth),
+      'year': num.parse(statisticsYear),
+      'statisticsDocumentIdMap': {orderHistoryDocID: FieldValue.delete()}
+    };
+    Map<String, dynamic> statisticsMonthlyStatisticsMap = {
+      'month': num.parse(statisticsMonth),
+      'year': num.parse(statisticsYear),
+      'midMonthMilliSecond':
+          DateTime(int.parse(statisticsYear), int.parse(statisticsMonth), 15)
+              .millisecondsSinceEpoch,
+      'cashBalanceData': {
+        statisticsDay: {
+          'dayIncrements': FieldValue.increment(dayIncrementWhileIterating),
+          'previousCashBalance':
+              FieldValue.increment(previousCashBalanceWhileIterating)
+        }
+      }
+    };
+    if (subMasterBilledCancellationStats.isNotEmpty) {
+      statisticsDailyStatisticsMap.addAll(
+          {'billedCancellationStats': subMasterBilledCancellationStats});
+      statisticsMonthlyStatisticsMap.addAll(
+          {'billedCancellationStats': subMasterBilledCancellationStats});
+    }
 
-              dailyStatisticsMap.addAll({
-                'statisticsDocumentIdMap': {
-                  orderHistoryDocID: FieldValue.delete()
-                }
-              });
-              dailyStatisticsMap
-                  .addAll({'salesIncomeStats': tempDailyStatisticsMap});
+    statisticsDailyStatisticsMap
+        .addAll({'salesIncomeStats': subMasterSalesIncomeStatistics});
+    statisticsMonthlyStatisticsMap
+        .addAll({'salesIncomeStats': subMasterSalesIncomeStatistics});
 
-              //  print(widget.printOrdersMap);
-              Map<String, String> updatePrintOrdersMap = HashMap();
+    if (billUpdatedInServer == false) {
+      billUpdatedInServer = true;
+      FireStoreBillAndStatisticsInServerVersionTwo(
+              hotelName: widget.hotelName,
+              printOrdersMap: updatePrintOrdersMap,
+              orderHistoryDocID: orderHistoryDocID,
+              dailyStatisticsUpdateMap: statisticsDailyStatisticsMap,
+              monthlyStatisticsUpdateMap: statisticsMonthlyStatisticsMap,
+              entireCashBalanceChangeSheet: entireCashBalanceChangeSheet,
+              year: statisticsYear,
+              month: statisticsMonth,
+              day: statisticsDay)
+          .updateBillAndStatistics();
 
-              updatePrintOrdersMap = printOrdersMap;
-              updatePrintOrdersMap
-                  .addAll({'serialNumberForPrint': serialNumber.toString()});
-//DoingThisToEnsure2ComesAfter1And10DoesntComeAfter1
-              String addingZeroBeforeSerialNumber = '';
-              for (int i = serialNumber.toString().length; i < 10; i++) {
-                addingZeroBeforeSerialNumber += '0';
-              }
-              String dateOfOrderWithSerial =
-                  updatePrintOrdersMap[' Date of Order  :'].toString() +
-                      ' ' +
-                      addingZeroBeforeSerialNumber +
-                      serialNumber.toString() +
-                      ' as serial number';
-//DoingThisToEnsureItComesInProperOrderInOrderHistory
-              updatePrintOrdersMap[' Date of Order  :'] = dateOfOrderWithSerial;
+      orderHistoryDocID = '';
+      updatePrintOrdersMap = {};
+      statisticsMap = {};
+      statisticsDocID = '';
+      serialNumber = 0;
+      toCheckPastOrderHistoryMap = {};
 
-              if (discount != 0) {
-                if (discountValueClickedTruePercentageClickedFalse) {
-                  updatePrintOrdersMap
-                      .addAll({'981*Discount': discount.toString()});
-                } else {
-                  updatePrintOrdersMap.addAll({
-                    '981*Discount $discountEnteredValue%': discount.toString()
-                  });
-                }
-              }
-              updatePrintOrdersMap.addAll(
-                  {'985*Total': (totalPriceOfAllItems - discount).toString()});
-              if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
-                          context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['cgst'] >
-                  0) {
-                updatePrintOrdersMap.addAll({
-                  '989*CGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
-                      (cgstCalculatedForBillFunction()).toString()
-                });
-              }
-              if (json.decode(Provider.of<PrinterAndOtherDetailsProvider>(
-                          context,
-                          listen: false)
-                      .restaurantInfoDataFromClass)['sgst'] >
-                  0) {
-                updatePrintOrdersMap.addAll({
-                  '993*SGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['sgst']}%':
-                      (sgstCalculatedForBillFunction()).toString()
-                });
-              }
-              updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
-              updatePrintOrdersMap.addAll({'roundOff': roundOff()});
-              updatePrintOrdersMap.addAll(
-                  {'997*Total Bill With Taxes': totalBillWithTaxesAsString()});
-              String distinctItemsForPrint = '';
-              String individualPriceOfEachDistinctItemForPrint = '';
-              String numberOfEachDistinctItemForPrint = '';
-              String priceOfEachDistinctItemWithoutTotalForPrint = '';
-              //itIsWronglyAddingTotalAlsoToPriceOfEachDistinctItem.SoRemovingThatWithBelowVariable
-              List<num> updatedPriceOfEachDistinctItemWithoutTotal =
-                  totalPriceOfOneDistinctItem;
-              // updatedPriceOfEachDistinctItemWithoutTotal.removeLast();
-
-              for (var distinctItem in distinctItemNames) {
-                distinctItemsForPrint = distinctItemsForPrint + distinctItem;
-                distinctItemsForPrint = distinctItemsForPrint + '*';
-              }
-              for (var individualPrice in individualPriceOfOneDistinctItem) {
-                individualPriceOfEachDistinctItemForPrint =
-                    individualPriceOfEachDistinctItemForPrint +
-                        individualPrice.toString();
-                individualPriceOfEachDistinctItemForPrint =
-                    individualPriceOfEachDistinctItemForPrint + '*';
-              }
-              for (var numberOfEachItem in numberOfOneDistinctItem) {
-                numberOfEachDistinctItemForPrint =
-                    numberOfEachDistinctItemForPrint +
-                        numberOfEachItem.toString();
-                numberOfEachDistinctItemForPrint =
-                    numberOfEachDistinctItemForPrint + '*';
-              }
-              for (var priceOfEachDistinctItem
-                  in updatedPriceOfEachDistinctItemWithoutTotal) {
-                priceOfEachDistinctItemWithoutTotalForPrint =
-                    priceOfEachDistinctItemWithoutTotalForPrint +
-                        priceOfEachDistinctItem.toString();
-                priceOfEachDistinctItemWithoutTotalForPrint =
-                    priceOfEachDistinctItemWithoutTotalForPrint + '*';
-              }
-              updatePrintOrdersMap.addAll({
-                'hotelNameForPrint':
-                    '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
-              });
-              updatePrintOrdersMap.addAll({
-                'addressline1ForPrint':
-                    '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
-              });
-              updatePrintOrdersMap.addAll({
-                'addressline2ForPrint':
-                    '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
-              });
-              updatePrintOrdersMap.addAll({
-                'addressline3ForPrint':
-                    '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
-              });
-              updatePrintOrdersMap.addAll({
-                'gstcodeforprint':
-                    '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['gstcode']}'
-              });
-              updatePrintOrdersMap.addAll({
-                'phoneNumberForPrint':
-                    '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
-              });
-              updatePrintOrdersMap
-                  .addAll({'customerNameForPrint': '$customername'});
-              updatePrintOrdersMap.addAll(
-                  {'customerMobileForPrint': '${customermobileNumber}'});
-              updatePrintOrdersMap.addAll(
-                  {'customerAddressForPrint': '${customeraddressline1}'});
-              updatePrintOrdersMap.addAll({'dateForPrint': '${printingDate}'});
-
-              updatePrintOrdersMap.addAll({
-                'totalNumberOfItemsForPrint': '${distinctItemNames.length}'
-              });
-              updatePrintOrdersMap.addAll({
-                'billNumberForPrint': '${orderHistoryDocID.substring(0, 14)}'
-              });
-              if (thisIsParcelTrueElseFalse) {
-                updatePrintOrdersMap.addAll({
-                  'takeAwayOrDineInForPrint':
-                      'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
-                });
-              } else {
-                updatePrintOrdersMap.addAll({
-                  'takeAwayOrDineInForPrint':
-                      'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
-                });
-              }
-              updatePrintOrdersMap
-                  .addAll({'distinctItemsForPrint': distinctItemsForPrint});
-              updatePrintOrdersMap.addAll({
-                'individualPriceOfEachDistinctItemForPrint':
-                    individualPriceOfEachDistinctItemForPrint
-              });
-              updatePrintOrdersMap.addAll({
-                'numberOfEachDistinctItemForPrint':
-                    numberOfEachDistinctItemForPrint
-              });
-              updatePrintOrdersMap.addAll({
-                'priceOfEachDistinctItemWithoutTotalForPrint':
-                    priceOfEachDistinctItemWithoutTotalForPrint
-              });
-              updatePrintOrdersMap.addAll({'discount': discount.toString()});
-              updatePrintOrdersMap.addAll(
-                  {'discountEnteredValue': discountEnteredValue.toString()});
-              updatePrintOrdersMap.addAll({
-                'discountValueClickedTruePercentageClickedFalse':
-                    discountValueClickedTruePercentageClickedFalse.toString()
-              });
-
-              updatePrintOrdersMap.addAll({
-                'totalQuantityForPrint': totalQuantityOfAllItems.toString()
-              });
-
-              updatePrintOrdersMap.addAll({
-                'subTotalForPrint': (totalPriceOfAllItems - discount).toString()
-              });
-              updatePrintOrdersMap.addAll({
-                'cgstPercentageForPrint': json
-                    .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .restaurantInfoDataFromClass)['cgst']
-                    .toString()
-              });
-              updatePrintOrdersMap.addAll({
-                'cgstCalculatedForPrint':
-                    cgstCalculatedForBillFunction().toString()
-              });
-              updatePrintOrdersMap.addAll({
-                'sgstPercentageForPrint': json
-                    .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
-                            listen: false)
-                        .restaurantInfoDataFromClass)['sgst']
-                    .toString()
-              });
-              updatePrintOrdersMap.addAll({
-                'sgstCalculatedForPrint':
-                    sgstCalculatedForBillFunction().toString()
-              });
-              updatePrintOrdersMap
-                  .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
-              if (billUpdatedInServer == false) {
-                billUpdatedInServer = true;
-                FireStoreBillAndStatisticsInServer(
-                        hotelName: widget.hotelName,
-                        orderHistoryDocID: orderHistoryDocID,
-                        printOrdersMap: updatePrintOrdersMap,
-                        statisticsDayUpdateMap: dailyStatisticsMap,
-                        year: tempYear,
-                        month: tempMonth,
-                        day: tempDay)
-                    .updateBillAndStatistics();
-                // FireStoreUpdateAndStatisticsWithBatch(
-                //         hotelName: widget.hotelName,
-                //         orderHistoryDocID: orderHistoryDocID,
-                //         printOrdersMap: updatePrintOrdersMap,
-                //         statisticsDocID: statisticsDocID,
-                //         statisticsUpdateMap: statisticsMap)
-                //     .updateBillAndStatistics();
-
-                orderHistoryDocID = '';
-                updatePrintOrdersMap = {};
-                statisticsMap = {};
-                statisticsDocID = '';
-                serialNumber = 0;
-                statisticsDataCheck.data()!.clear();
-                statisticsData.clear();
-
-                FireStoreDeleteFinishedOrderInRunningOrders(
-                        hotelName: widget.hotelName,
-                        eachTableId: widget.itemsFromThisDocumentInFirebaseDoc)
-                    .deleteFinishedOrder();
+      FireStoreDeleteFinishedOrderInRunningOrders(
+              hotelName: widget.hotelName,
+              eachTableId: widget.itemsFromThisDocumentInFirebaseDoc)
+          .deleteFinishedOrder();
 
 //ToUpdateStatistics,WeGoThroughEachKeyAndUsingIncrementByFunction,We,,
 //CanIncrementTheNumberThatIsAlreadyThereInTheServer
 //ThisWillHelpToAddToTheStatisticsThat'sAlreadyThere
+      int counterToDeleteTableOrParcelOrderFromFireStore = 1;
+      // statisticsMap.forEach((key, value) {
+      //   counterToDeleteTableOrParcelOrderFromFireStore++;
+      //   double? incrementBy = statisticsMap[key]?.toDouble();
+      //   FireStoreUpdateStatistics(
+      //       hotelName: widget.hotelName,
+      //       docID: statisticsDocID,
+      //       incrementBy: incrementBy,
+      //       key: key)
+      //       .updateStatistics();
+      //   if (counterToDeleteTableOrParcelOrderFromFireStore ==
+      //       statisticsMap.length) {
+      //     FireStoreDeleteFinishedOrderInPresentOrders(
+      //         hotelName: widget.hotelName,
+      //         eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
+      //         .deleteFinishedOrder();
+      //   }
+      // });
+      //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
+      // for (String eachItemId in widget.itemsID) {
+      //   FireStoreDeleteFinishedOrder(
+      //           hotelName: widget.hotelName, eachItemId: eachItemId)
+      //       .deleteFinishedOrder();
+      // }
 
-              }
-              screenPopOutTimerAfterServerUpdate();
-            }
-          } else {
-//ThisMeansThatWhenNetCameWeRealisedThereWasSerialNumber
-            serverUpdateOfBill();
-          }
-        } else {
-//ThisMeansNetIsn'tWorking
-          // ThisMeansThatTheDataHasNotReachedTheServer
-          if (serialNumber == 0) {
-            Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-            tempSerialInStatisticsMap.addAll({
-              orderHistoryDocID: {
-                Provider.of<PrinterAndOtherDetailsProvider>(context,
-                        listen: false)
-                    .currentUserPhoneNumberFromClass: FieldValue.delete()
-              }
-            });
-            FirebaseFirestore.instance
-                .collection(widget.hotelName)
-                .doc('reports')
-                .collection('dailyReports')
-                .doc(tempYear)
-                .collection(tempMonth)
-                .doc(tempDay)
-                .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                    SetOptions(merge: true));
-            // FirebaseFirestore.instance
-            //     .collection(widget.hotelName)
-            //     .doc('statistics')
-            //     .collection('statistics')
-            //     .doc(statisticsDocID)
-            //     .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-            //         SetOptions(merge: true));
-          }
-
-          setState(() {
-            showSpinner = false;
-            tappedPrintButton = false;
-          });
-          show('Please check Internet & Close bill1');
-        }
-      }
-    } catch (e) {
-      print('error ky hei?');
-      print(e.toString());
-      // ThisMeansThatTheDataHasNotReachedTheServer
-      if (serialNumber == 0) {
-        Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-        tempSerialInStatisticsMap.addAll({
-          orderHistoryDocID: {
-            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
-                .currentUserPhoneNumberFromClass: FieldValue.delete()
-          }
-        });
-        FirebaseFirestore.instance
-            .collection(widget.hotelName)
-            .doc('statistics')
-            .collection('statistics')
-            .doc(statisticsDocID)
-            .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                SetOptions(merge: true));
-      }
-      setState(() {
-        showSpinner = false;
-        tappedPrintButton = false;
-      });
-      show('Please check Internet & Close bill');
     }
+    screenPopOutTimerAfterServerUpdate();
+
+    // int count = 0;
+    // Navigator.of(context).popUntil((_) => count++ >= 2);
+  }
+
+  void serverUpdateOfBill() async {
+    generalStatsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
+    statisticsMap.addAll({'totaldiscount': FieldValue.increment(discount)});
+    generalStatsMap.addAll({
+      'totalbillamounttoday': FieldValue.increment(totalBillWithTaxes().round())
+    });
+    statisticsMap.addAll({
+      'totalbillamounttoday': FieldValue.increment(totalBillWithTaxes().round())
+    });
+
+//IfBillHadAlreadyBeenPrintedSerialNumberNeedNotBeAdded
+    generalStatsMap.addAll({'serialNumber': FieldValue.increment(1)});
+    statisticsMap.addAll({'serialNumber': FieldValue.increment(1)});
+    statisticsMap.addAll({
+      'statisticsDocumentIdMap': {orderHistoryDocID: FieldValue.delete()}
+    });
+
+    //  print(widget.printOrdersMap);
+    Map<String, dynamic> updatePrintOrdersMap = HashMap();
+
+    updatePrintOrdersMap = printOrdersMap;
+    updatePrintOrdersMap
+        .addAll({'serialNumberForPrint': serialNumber.toString()});
+    printOrdersMap.addAll(
+        {'serialNumberNum': num.parse(baseInfoFromServerMap['serialNumber'])});
+    printOrdersMap.addAll({
+      'orderClosingCaptainPhone':
+          Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+              .currentUserPhoneNumberFromClass
+    });
+    printOrdersMap.addAll({
+      'orderClosingCaptainName': json.decode(
+              Provider.of<PrinterAndOtherDetailsProvider>(context,
+                      listen: false)
+                  .allUserProfilesFromClass)[
+          Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+              .currentUserPhoneNumberFromClass]['username']
+    });
+    if (cancelledItemsInOrderFromServerMap.isNotEmpty) {
+      printOrdersMap.addAll(cancelledItemsInOrderFromServerMap);
+    }
+
+    String addingZeroBeforeSerialNumber = '';
+    for (int i = serialNumber.toString().length; i < 10; i++) {
+      addingZeroBeforeSerialNumber += '0';
+    }
+    String dateOfOrderWithSerial =
+        updatePrintOrdersMap[' Date of Order  :'].toString() +
+            ' ' +
+            addingZeroBeforeSerialNumber +
+            serialNumber.toString() +
+            ' as serial number';
+    updatePrintOrdersMap[' Date of Order  :'] = dateOfOrderWithSerial;
+
+    if (discount != 0) {
+      if (discountValueClickedTruePercentageClickedFalse) {
+        updatePrintOrdersMap.addAll({'981*Discount': discount.toString()});
+      } else {
+        updatePrintOrdersMap.addAll(
+            {'981*Discount $discountEnteredValue%': discount.toString()});
+      }
+    }
+    updatePrintOrdersMap
+        .addAll({'985*Total': (totalPriceOfAllItems - discount).toString()});
+    if (json.decode(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
+        0) {
+      updatePrintOrdersMap.addAll({
+        '989*CGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
+            (cgstCalculatedForBillFunction()).toString()
+      });
+    }
+    if (json.decode(
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .restaurantInfoDataFromClass)['cgst'] >
+        0) {
+      updatePrintOrdersMap.addAll({
+        '993*SGST@${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['cgst']}%':
+            (sgstCalculatedForBillFunction()).toString()
+      });
+    }
+    updatePrintOrdersMap.addAll({'995*Round Off': roundOff()});
+    updatePrintOrdersMap.addAll({'roundOff': roundOff()});
+    updatePrintOrdersMap
+        .addAll({'997*Total Bill With Taxes': totalBillWithTaxesAsString()});
+    String distinctItemsForPrint = '';
+    String individualPriceOfEachDistinctItemForPrint = '';
+    String numberOfEachDistinctItemForPrint = '';
+    String priceOfEachDistinctItemWithoutTotalForPrint = '';
+    //itIsWronglyAddingTotalAlsoToPriceOfEachDistinctItem.SoRemovingThatWithBelowVariable
+    List<num> updatedPriceOfEachDistinctItemWithoutTotal =
+        totalPriceOfOneDistinctItem;
+    // updatedPriceOfEachDistinctItemWithoutTotal.removeLast();
+
+    for (var distinctItem in distinctItemNames) {
+      distinctItemsForPrint = distinctItemsForPrint + distinctItem;
+      distinctItemsForPrint = distinctItemsForPrint + '*';
+    }
+    for (var individualPrice in individualPriceOfOneDistinctItem) {
+      individualPriceOfEachDistinctItemForPrint =
+          individualPriceOfEachDistinctItemForPrint +
+              individualPrice.toString();
+      individualPriceOfEachDistinctItemForPrint =
+          individualPriceOfEachDistinctItemForPrint + '*';
+    }
+    for (var numberOfEachItem in numberOfOneDistinctItem) {
+      numberOfEachDistinctItemForPrint =
+          numberOfEachDistinctItemForPrint + numberOfEachItem.toString();
+      numberOfEachDistinctItemForPrint = numberOfEachDistinctItemForPrint + '*';
+    }
+    for (var priceOfEachDistinctItem
+        in updatedPriceOfEachDistinctItemWithoutTotal) {
+      priceOfEachDistinctItemWithoutTotalForPrint =
+          priceOfEachDistinctItemWithoutTotalForPrint +
+              priceOfEachDistinctItem.toString();
+      priceOfEachDistinctItemWithoutTotalForPrint =
+          priceOfEachDistinctItemWithoutTotalForPrint + '*';
+    }
+    updatePrintOrdersMap.addAll({
+      'hotelNameForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['hotelname']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'addressline1ForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline1']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'addressline2ForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline2']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'addressline3ForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['addressline3']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'gstcodeforprint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['gstcode']}'
+    });
+    updatePrintOrdersMap.addAll({
+      'phoneNumberForPrint':
+          '${json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).restaurantInfoDataFromClass)['phonenumber']}'
+    });
+    updatePrintOrdersMap.addAll({'customerNameForPrint': '$customername'});
+    updatePrintOrdersMap
+        .addAll({'customerMobileForPrint': '${customermobileNumber}'});
+    updatePrintOrdersMap
+        .addAll({'customerAddressForPrint': '${customeraddressline1}'});
+    updatePrintOrdersMap.addAll({'dateForPrint': '${printingDate}'});
+
+    updatePrintOrdersMap
+        .addAll({'totalNumberOfItemsForPrint': '${distinctItemNames.length}'});
+    updatePrintOrdersMap.addAll({'billNumberForPrint': '${orderHistoryDocID}'});
+    if (thisIsParcelTrueElseFalse) {
+      updatePrintOrdersMap.addAll({
+        'takeAwayOrDineInForPrint':
+            'TYPE: TAKE-AWAY:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+      });
+    } else {
+      updatePrintOrdersMap.addAll({
+        'takeAwayOrDineInForPrint':
+            'TYPE: DINE-IN:${tableorparcel}:${tableorparcelnumber}${parentOrChild}'
+      });
+    }
+    updatePrintOrdersMap
+        .addAll({'distinctItemsForPrint': distinctItemsForPrint});
+    updatePrintOrdersMap.addAll({
+      'individualPriceOfEachDistinctItemForPrint':
+          individualPriceOfEachDistinctItemForPrint
+    });
+    updatePrintOrdersMap.addAll(
+        {'numberOfEachDistinctItemForPrint': numberOfEachDistinctItemForPrint});
+    updatePrintOrdersMap.addAll({
+      'priceOfEachDistinctItemWithoutTotalForPrint':
+          priceOfEachDistinctItemWithoutTotalForPrint
+    });
+    updatePrintOrdersMap.addAll({'discount': discount.toString()});
+    updatePrintOrdersMap
+        .addAll({'discountEnteredValue': discountEnteredValue.toString()});
+    updatePrintOrdersMap.addAll({
+      'discountValueClickedTruePercentageClickedFalse':
+          discountValueClickedTruePercentageClickedFalse.toString()
+    });
+
+    updatePrintOrdersMap
+        .addAll({'totalQuantityForPrint': totalQuantityOfAllItems.toString()});
+
+    updatePrintOrdersMap.addAll(
+        {'subTotalForPrint': (totalPriceOfAllItems - discount).toString()});
+    updatePrintOrdersMap.addAll({
+      'cgstPercentageForPrint': json
+          .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+              .restaurantInfoDataFromClass)['cgst']
+          .toString()
+    });
+    updatePrintOrdersMap.addAll(
+        {'cgstCalculatedForPrint': cgstCalculatedForBillFunction().toString()});
+    updatePrintOrdersMap.addAll({
+      'sgstPercentageForPrint': json
+          .decode(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+              .restaurantInfoDataFromClass)['cgst']
+          .toString()
+    });
+    updatePrintOrdersMap.addAll(
+        {'sgstCalculatedForPrint': sgstCalculatedForBillFunction().toString()});
+    updatePrintOrdersMap
+        .addAll({'grandTotalForPrint': totalBillWithTaxesAsString()});
+    if (billUpdatedInServer == false) {
+      billUpdatedInServer = true;
+      // FireStoreBillAndStatisticsInServer(
+      //         hotelName: widget.hotelName,
+      //         orderHistoryDocID: orderHistoryDocID,
+      //         printOrdersMap: updatePrintOrdersMap,
+      //         statisticsDayUpdateMap: dailyStatisticsMap,
+      //         year: billYear,
+      //         month: billMonth,
+      //         day: billDay)
+      //     .updateBillAndStatistics();
+
+      // FireStoreUpdateAndStatisticsWithBatch(
+      //         hotelName: widget.hotelName,
+      //         orderHistoryDocID: orderHistoryDocID,
+      //         printOrdersMap: updatePrintOrdersMap,
+      //         statisticsDocID: statisticsDocID,
+      //         statisticsUpdateMap: statisticsMap)
+      //     .updateBillAndStatistics();
+
+      orderHistoryDocID = '';
+      updatePrintOrdersMap = {};
+      statisticsMap = {};
+      statisticsDocID = '';
+      serialNumber = 0;
+      toCheckPastOrderHistoryMap = {};
+
+      FireStoreDeleteFinishedOrderInRunningOrders(
+              hotelName: widget.hotelName,
+              eachTableId: widget.itemsFromThisDocumentInFirebaseDoc)
+          .deleteFinishedOrder();
+
+//ToUpdateStatistics,WeGoThroughEachKeyAndUsingIncrementByFunction,We,,
+//CanIncrementTheNumberThatIsAlreadyThereInTheServer
+//ThisWillHelpToAddToTheStatisticsThat'sAlreadyThere
+      int counterToDeleteTableOrParcelOrderFromFireStore = 1;
+      // statisticsMap.forEach((key, value) {
+      //   counterToDeleteTableOrParcelOrderFromFireStore++;
+      //   double? incrementBy = statisticsMap[key]?.toDouble();
+      //   FireStoreUpdateStatistics(
+      //       hotelName: widget.hotelName,
+      //       docID: statisticsDocID,
+      //       incrementBy: incrementBy,
+      //       key: key)
+      //       .updateStatistics();
+      //   if (counterToDeleteTableOrParcelOrderFromFireStore ==
+      //       statisticsMap.length) {
+      //     FireStoreDeleteFinishedOrderInPresentOrders(
+      //         hotelName: widget.hotelName,
+      //         eachItemId: widget.itemsFromThisDocumentInFirebaseDoc)
+      //         .deleteFinishedOrder();
+      //   }
+      // });
+      //ThenFinallyWeGoThroughEachItemIdAndDeleteItOutOfCurrentOrders
+      // for (String eachItemId in widget.itemsID) {
+      //   FireStoreDeleteFinishedOrder(
+      //           hotelName: widget.hotelName, eachItemId: eachItemId)
+      //       .deleteFinishedOrder();
+      // }
+
+    }
+    screenPopOutTimerAfterServerUpdate();
+
+    // int count = 0;
+    // Navigator.of(context).popUntil((_) => count++ >= 2);
   }
 
   void serialNumberUpdateInServerWhenPrintClickedFirstTime() {
     Map<String, dynamic> tempBaseInfoMap = HashMap();
     tempBaseInfoMap.addAll({'serialNumber': serialNumber.toString()});
-    tempBaseInfoMap.addAll({'billDay': tempDay.toString()});
-    tempBaseInfoMap.addAll({'billHour': tempHour.toString()});
-    tempBaseInfoMap.addAll({'billMinute': tempMinute.toString()});
-    tempBaseInfoMap.addAll({'billMonth': tempMonth.toString()});
-    tempBaseInfoMap.addAll({'billSecond': tempSecond.toString()});
-    tempBaseInfoMap.addAll({'billYear': tempYear.toString()});
+    tempBaseInfoMap.addAll({'billDay': billDay.toString()});
+    tempBaseInfoMap.addAll({'billHour': billHour.toString()});
+    tempBaseInfoMap.addAll({'billMinute': billMinute.toString()});
+    tempBaseInfoMap.addAll({'billMonth': billMonth.toString()});
+    tempBaseInfoMap.addAll({'billSecond': billSecond.toString()});
+    tempBaseInfoMap.addAll({'billYear': billYear.toString()});
 
     Map<String, dynamic> tempMasterMap = HashMap();
     tempMasterMap.addAll({'baseInfoMap': tempBaseInfoMap});
@@ -4613,169 +3987,234 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
     });
   }
 
-  void paymentDoneBillClosureDataNotReceived() {
-    Timer(Duration(seconds: 7), () {
-      if (paymentDoneClicked == true) {
-//ThisMeansThatWeHaveClickedPaymentDoneButTheDataFor
-//BillClosureOnWhoClosedTheMapYetToBeReceivedBecauseOfPoorNet
-//WeNeedStopThePaymentDoneIn5Seconds
-        setState(() {
-          paymentDoneClicked = false;
-        });
-        if (serialNumber == 0) {
-          // ThisMeansThatTheDataHasNotReachedTheServer
-          Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
-          tempSerialInStatisticsMap.addAll({
-            orderHistoryDocID: {
-              Provider.of<PrinterAndOtherDetailsProvider>(context,
-                      listen: false)
-                  .currentUserPhoneNumberFromClass: FieldValue.delete()
-            }
-          });
-          FirebaseFirestore.instance
-              .collection(widget.hotelName)
-              .doc('statistics')
-              .collection('statistics')
-              .doc(statisticsDocID)
-              .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
-                  SetOptions(merge: true));
+  void timerForClosingTableAfterDataReady() {
+    Timer(Duration(milliseconds: 500), () {
+      closingCheckCounter++;
+      if (closingCheckCounter <= 14) {
+        if (orderHistoryChecked == 'closeBill' &&
+            gotCashIncrementData &&
+            gotSerialNumber) {
+          billUpdateTried = true;
+          serverUpdateOfBillVersionTwo();
+        } else {
+          timerForClosingTableAfterDataReady();
         }
-        clearingCurrentUserBillingTime();
+      } else {
+        billUpdateTried = false;
+        paymentDoneBillClosureDataNotReceived();
       }
     });
   }
 
+  void paymentDoneBillClosureDataNotReceived() {
+//ThisMeansThatWeHaveClickedPaymentDoneButTheDataFor
+//BillClosureOnWhoClosedTheMapYetToBeReceivedBecauseOfPoorNet
+//WeNeedStopThePaymentDoneIn5Seconds
+    if (serialNumber == 0) {
+      // ThisMeansThatTheDataHasNotReachedTheServer
+      Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
+      tempSerialInStatisticsMap.addAll({
+        orderHistoryDocID: {
+          Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+              .currentUserPhoneNumberFromClass: FieldValue.delete()
+        }
+      });
+      FirebaseFirestore.instance
+          .collection(widget.hotelName)
+          .doc('reports')
+          .collection('dailyReports')
+          .doc(statisticsYear)
+          .collection(statisticsMonth)
+          .doc(statisticsDay)
+          .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
+              SetOptions(merge: true));
+    }
+    clearingCurrentUserBillingTime();
+    setState(() {
+      paymentDoneClicked = false;
+      gotCashIncrementData = false;
+    });
+    Timer(Duration(seconds: 2), () {
+      paymentClosingBottomBar(false);
+    });
+  }
+
 //ThisIsTheBottomBarWeUseOnceThePaymentIsClicked
-  void paymentClosingBottomBar() {
-    paymentClosingMap = {};
+  void paymentClosingBottomBar(
+      bool newlyCallingPaymentClosingMapTrueElseFalse) {
+    if (newlyCallingPaymentClosingMapTrueElseFalse) {
+      bottomBarPaymentClosingMap = {};
 //ThisWillOnlyBeNeededIfMoreThanOnePaymentMethodIsNeededToCloseTheBill
-    List<int> paymentSorterList = [];
+      paymentSorterList = [];
 //PaymentClosingMapKeysAreTheTimeInWhichThePaymentWasStarted
 //ThisWillHelpToArrangeInBottomBarEveryTimeSplitPaymentIsClicked
-    paymentClosingMap.addAll({
-      DateTime.now().millisecondsSinceEpoch: {
+      bottomBarPaymentClosingMap.addAll({
+        DateTime.now().millisecondsSinceEpoch: {
 //HereItWillBeChoosePaymentBecauseThatIsTheFirstValue
-        'chosenPaymentMethod': paymentMethod.first,
-        'amountSentInThisPaymentMethod': totalBillWithTaxes().round(),
-        'addedPaymentMethod': '',
-        'amountSentInThisPaymentMethodInString':
-            totalBillWithTaxes().round().toString()
-      }
-    });
+          'chosenPaymentMethod': paymentMethod.first,
+          'amountSentInThisPaymentMethod': totalBillWithTaxes().round(),
+          'addedPaymentMethod': '',
+          'amountSentInThisPaymentMethodInString':
+              totalBillWithTaxes().round().toString()
+        }
+      });
+    }
 
     showModalBottomSheet(
         isScrollControlled: true,
         context: context,
         builder: (BuildContext buildContext) {
           return StatefulBuilder(builder: (context, setStateSB) {
-            return Padding(
-              padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: paymentClosingMap.entries.map((entry) {
-                    final paymentMethodTime = entry.key;
-                    final Map<String, dynamic> paymentMethodValueMap =
-                        entry.value;
-                    String tempNewPaymentMethod = '';
-                    String tempPaymentAmountInMethodAsString =
-                        paymentClosingMap[paymentMethodTime]
-                            ['amountSentInThisPaymentMethodInString'];
-                    TextEditingController paymentAmountInMethodController =
-                        TextEditingController(
-                            text: tempPaymentAmountInMethodAsString);
-                    paymentAmountInMethodController.selection =
-                        TextSelection.collapsed(
-                            offset: tempPaymentAmountInMethodAsString.length);
-                    // final focusNodePaymentMethod = FocusNode();
-                    // final focusNodeAmount = FocusNode();
-                    return Column(
-                      children: [
-                        SizedBox(height: 10),
-                        Visibility(
-                            visible:
-                                paymentSorterList.length > 1 ? true : false,
-                            child: Text(
-                              'Payment Method ${paymentSorterList.indexOf(paymentMethodTime) + 1}',
-                              style: TextStyle(fontSize: 15),
-                            )),
-                        SizedBox(height: 10),
-                        ListTile(
-                          leading: Text('Payment Method',
-                              style: TextStyle(fontSize: 20)),
-                          title: Container(
-                            decoration: BoxDecoration(
-                                color: Colors.green,
-                                borderRadius: BorderRadius.circular(30)),
-                            width: 200,
-                            height: 50,
-                            // height: 200,
-                            child: Center(
-                              child: DropdownButtonFormField(
-                                decoration:
-                                    InputDecoration.collapsed(hintText: ''),
-                                isExpanded: true,
-                                // underline: Container(),
-                                dropdownColor: Colors.green,
-                                value: paymentMethodValueMap[
-                                    'chosenPaymentMethod'],
-                                onChanged: (value) {
-                                  setStateSB(() {
-                                    paymentClosingMap[paymentMethodTime]
-                                            ['chosenPaymentMethod'] =
-                                        value.toString();
-                                    if (value.toString() !=
-                                        'New Payment Method') {
-                                      paymentClosingMap[paymentMethodTime]
-                                          ['addedPaymentMethod'] = '';
-                                      tempNewPaymentMethod = '';
-                                    }
-                                  });
-                                },
-                                items: paymentMethod.map((title) {
+            return ModalProgressHUD(
+              inAsyncCall: showSpinner,
+              child: Padding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: bottomBarPaymentClosingMap.entries.map((entry) {
+                      final paymentMethodTime = entry.key;
+                      final Map<String, dynamic> paymentMethodValueMap =
+                          entry.value;
+                      String tempNewPaymentMethod = '';
+                      String tempPaymentAmountInMethodAsString =
+                          bottomBarPaymentClosingMap[paymentMethodTime]
+                              ['amountSentInThisPaymentMethodInString'];
+                      TextEditingController paymentAmountInMethodController =
+                          TextEditingController(
+                              text: tempPaymentAmountInMethodAsString);
+                      paymentAmountInMethodController.selection =
+                          TextSelection.collapsed(
+                              offset: tempPaymentAmountInMethodAsString.length);
+
+                      return Column(
+                        children: [
+                          SizedBox(height: 10),
+                          Visibility(
+                              visible:
+                                  paymentSorterList.length > 1 ? true : false,
+                              child: Text(
+                                'Payment Method ${paymentSorterList.indexOf(paymentMethodTime) + 1}',
+                                style: TextStyle(fontSize: 15),
+                              )),
+                          SizedBox(height: 10),
+                          ListTile(
+                            leading:
+                                Text('Method', style: TextStyle(fontSize: 20)),
+                            title: Container(
+                              decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(30)),
+                              width: 200,
+                              height: 50,
+                              // height: 200,
+                              child: Center(
+                                child: DropdownButtonFormField(
+                                  decoration:
+                                      InputDecoration.collapsed(hintText: ''),
+                                  isExpanded: true,
+                                  // underline: Container(),
+                                  dropdownColor: Colors.green,
+                                  value: paymentMethodValueMap[
+                                      'chosenPaymentMethod'],
+                                  onChanged: (value) {
+                                    setStateSB(() {
+                                      bottomBarPaymentClosingMap[
+                                                  paymentMethodTime]
+                                              ['chosenPaymentMethod'] =
+                                          value.toString();
+                                      if (value.toString() != 'New') {
+                                        bottomBarPaymentClosingMap[
+                                                paymentMethodTime]
+                                            ['addedPaymentMethod'] = '';
+                                        tempNewPaymentMethod = '';
+                                      }
+                                    });
+                                  },
+                                  items: paymentMethod.map((title) {
 //DropDownMenuItemWillHaveOneByOneItems,WePutThatAsList
 //ValueWillBeEachTitle
-                                  return DropdownMenuItem(
-                                    alignment: Alignment.center,
-                                    child: Text(title,
-                                        style: const TextStyle(
-                                            fontSize: 15, color: Colors.white)),
-                                    value: title,
-                                  );
-                                }).toList(),
+                                    return DropdownMenuItem(
+                                      alignment: Alignment.center,
+                                      child: Text(title,
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              color: Colors.white)),
+                                      value: title,
+                                    );
+                                  }).toList(),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: 10),
-                        Visibility(
-                          visible: paymentClosingMap[paymentMethodTime]
-                                      ['chosenPaymentMethod'] ==
-                                  'New Payment Method'
-                              ? true
-                              : false,
-                          child: ListTile(
-                            leading: Text('Payment Method',
-                                style: TextStyle(fontSize: 20)),
+                          SizedBox(height: 10),
+                          Visibility(
+                            visible:
+                                bottomBarPaymentClosingMap[paymentMethodTime]
+                                            ['chosenPaymentMethod'] ==
+                                        'New'
+                                    ? true
+                                    : false,
+                            child: ListTile(
+                              leading: Text('Method\nName',
+                                  style: TextStyle(fontSize: 20)),
+                              title: Container(
+                                child: TextField(
+                                  maxLength: 40,
+                                  onChanged: (value) {
+                                    tempNewPaymentMethod = value;
+                                    setStateSB(() {
+                                      bottomBarPaymentClosingMap[
+                                                  paymentMethodTime]
+                                              ['addedPaymentMethod'] =
+                                          tempNewPaymentMethod;
+                                    });
+                                  },
+                                  decoration:
+                                      // kTextFieldInputDecoration,
+                                      InputDecoration(
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          hintText: 'Enter New Payment Method',
+                                          hintStyle:
+                                              TextStyle(color: Colors.grey),
+                                          enabledBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.all(
+                                                  Radius.circular(10)),
+                                              borderSide: BorderSide(
+                                                  color: Colors.green)),
+                                          focusedBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.all(
+                                                  Radius.circular(10)),
+                                              borderSide: BorderSide(
+                                                  color: Colors.green))),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          ListTile(
+                            leading:
+                                Text('Amount', style: TextStyle(fontSize: 20)),
                             title: Container(
                               child: TextField(
-                                // focusNode: focusNodePaymentMethod,
-                                maxLength: 40,
+                                maxLength: 10,
+                                controller: paymentAmountInMethodController,
+                                keyboardType: TextInputType.numberWithOptions(
+                                    decimal: true),
                                 onChanged: (value) {
-                                  tempNewPaymentMethod = value;
-                                  setStateSB(() {
-                                    paymentClosingMap[paymentMethodTime]
-                                            ['addedPaymentMethod'] =
-                                        tempNewPaymentMethod;
-                                  });
+                                  tempPaymentAmountInMethodAsString = value;
+                                  bottomBarPaymentClosingMap[paymentMethodTime][
+                                          'amountSentInThisPaymentMethodInString'] =
+                                      tempPaymentAmountInMethodAsString;
                                 },
                                 decoration:
                                     // kTextFieldInputDecoration,
                                     InputDecoration(
                                         filled: true,
                                         fillColor: Colors.white,
-                                        hintText: 'Enter New Payment Method',
+                                        hintText: 'Enter Amount',
                                         hintStyle:
                                             TextStyle(color: Colors.grey),
                                         enabledBorder: OutlineInputBorder(
@@ -4791,205 +4230,815 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
                               ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: 10),
-                        ListTile(
-                          leading:
-                              Text('Amount', style: TextStyle(fontSize: 20)),
-                          title: Container(
-                            child: TextField(
-                              // focusNode: focusNodeAmount,
-                              maxLength: 10,
-                              controller: paymentAmountInMethodController,
-                              keyboardType: TextInputType.numberWithOptions(
-                                  decimal: true),
-                              onChanged: (value) {
-                                tempPaymentAmountInMethodAsString = value;
-
-                                paymentClosingMap[paymentMethodTime][
-                                        'amountSentInThisPaymentMethodInString'] =
-                                    tempPaymentAmountInMethodAsString;
-                              },
-                              decoration:
-                                  // kTextFieldInputDecoration,
-                                  InputDecoration(
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      hintText: 'Enter Amount',
-                                      hintStyle: TextStyle(color: Colors.grey),
-                                      enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.all(
-                                              Radius.circular(10)),
-                                          borderSide:
-                                              BorderSide(color: Colors.green)),
-                                      focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.all(
-                                              Radius.circular(10)),
-                                          borderSide:
-                                              BorderSide(color: Colors.green))),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 20),
-                        Row(
-                          mainAxisAlignment: paymentSorterList.length > 1
-                              ? MainAxisAlignment.spaceEvenly
-                              : MainAxisAlignment.center,
-                          children: [
-                            Visibility(
+                          SizedBox(height: 5),
+                          Row(
+                            mainAxisAlignment: paymentSorterList.length > 1
+                                ? MainAxisAlignment.spaceEvenly
+                                : MainAxisAlignment.center,
+                            children: [
+                              Visibility(
 //WeWillHaveAccessToDeleteButtonOnlyIfMoreThanOnePaymentMethodIsThere
-                              visible:
-                                  paymentSorterList.length > 1 ? true : false,
-                              child: ElevatedButton(
+                                visible:
+                                    paymentSorterList.length > 1 ? true : false,
+                                child: ElevatedButton(
+                                    style: ButtonStyle(
+                                      backgroundColor:
+                                          MaterialStateProperty.all<Color>(
+                                              Colors.red),
+                                    ),
+                                    onPressed: () {
+//ToRemoveThePaymentMethodFromTheMap
+                                      setStateSB(() {
+                                        bottomBarPaymentClosingMap
+                                            .remove(paymentMethodTime);
+                                        paymentSorterList
+                                            .remove(paymentMethodTime);
+                                      });
+                                    },
+                                    child: Text('Delete')),
+                              ),
+                              ElevatedButton(
                                   style: ButtonStyle(
                                     backgroundColor:
                                         MaterialStateProperty.all<Color>(
-                                            Colors.red),
+                                            Colors.green),
                                   ),
                                   onPressed: () {
-//ToRemoveThePaymentMethodFromTheMap
-                                    setStateSB(() {
-                                      paymentClosingMap
-                                          .remove(paymentMethodTime);
-                                      paymentSorterList
-                                          .remove(paymentMethodTime);
-                                    });
-                                  },
-                                  child: Text('Delete')),
-                            ),
-                            ElevatedButton(
-                                style: ButtonStyle(
-                                  backgroundColor:
-                                      MaterialStateProperty.all<Color>(
-                                          Colors.green),
-                                ),
-                                onPressed: () {
 //ThisIsToEnsureTheKeyboardCloses
-//                                   focusNodeAmount.unfocus();
-//                                   focusNodePaymentMethod.unfocus();
-                                  if (paymentClosingMap[paymentMethodTime]
-                                          ['chosenPaymentMethod'] ==
-                                      'Choose Payment Method') {
-                                    errorMessage =
-                                        'Please Choose Payment Method';
-                                    errorAlertDialogBox();
-                                  } else if ((paymentClosingMap[
-                                                  paymentMethodTime]
-                                              ['chosenPaymentMethod'] ==
-                                          'New Payment Method') &&
-                                      (paymentClosingMap[paymentMethodTime]
-                                              ['addedPaymentMethod'] ==
-                                          '')) {
-                                    errorMessage =
-                                        'Please Enter The New Payment Method';
-                                    errorAlertDialogBox();
-                                  } else if ((paymentClosingMap[
-                                                  paymentMethodTime][
-                                              'amountSentInThisPaymentMethodInString'] ==
-                                          '') ||
-                                      (paymentClosingMap[paymentMethodTime][
-                                              'amountSentInThisPaymentMethodInString'] ==
-                                          '0')) {
-                                    errorMessage =
-                                        'Please Enter The Amount for this Payment Method';
-                                    errorAlertDialogBox();
-                                  } else {
-//WeNeedToCheckWhetherPaymentValueIsHigherThanTotalValue
-                                    num totalAmountFromAllPaymentMethods = 0;
-//ThisWillCalculateAllThePaymentsThatHasBeenEnteredTillNow
-                                    paymentClosingMap.forEach((key, value) {
-                                      totalAmountFromAllPaymentMethods +=
-                                          num.parse(value[
-                                              'amountSentInThisPaymentMethodInString']);
-                                    });
-                                    if (totalAmountFromAllPaymentMethods >
-                                        totalBillWithTaxes().round()) {
+
+                                    if (bottomBarPaymentClosingMap[
+                                                paymentMethodTime]
+                                            ['chosenPaymentMethod'] ==
+                                        'Choose') {
                                       errorMessage =
-                                          'Entered Amounts Higher than Bill. Please Check';
+                                          'Please Choose Payment Method';
                                       errorAlertDialogBox();
-                                    } else if (totalAmountFromAllPaymentMethods ==
-                                        totalBillWithTaxes().round()) {
+                                    } else if ((bottomBarPaymentClosingMap[
+                                                    paymentMethodTime]
+                                                ['chosenPaymentMethod'] ==
+                                            'New') &&
+                                        (bottomBarPaymentClosingMap[
+                                                    paymentMethodTime]
+                                                ['addedPaymentMethod'] ==
+                                            '')) {
                                       errorMessage =
-                                          'Entered Amounts Equal to Final Bill. Can\'t Split More';
+                                          'Please Enter The New Payment Method';
+                                      errorAlertDialogBox();
+                                    } else if ((bottomBarPaymentClosingMap[
+                                                    paymentMethodTime][
+                                                'amountSentInThisPaymentMethodInString'] ==
+                                            '') ||
+                                        (bottomBarPaymentClosingMap[
+                                                    paymentMethodTime][
+                                                'amountSentInThisPaymentMethodInString'] ==
+                                            '0')) {
+                                      errorMessage =
+                                          'Please Enter The Amount for this Payment Method';
                                       errorAlertDialogBox();
                                     } else {
-//WeNeedToAddToThePaymentMethodListSoThatItComesInOrder
-                                      if (!paymentSorterList
-                                          .contains(paymentMethodTime)) {
-//ThisWillEnsureWeWillOnlyAddInOrder
-                                        paymentSorterList
-                                            .add(paymentMethodTime);
-                                      }
-                                      int tempNextPaymentMethodTime =
-                                          DateTime.now().millisecondsSinceEpoch;
-                                      paymentSorterList
-                                          .add(tempNextPaymentMethodTime);
-                                      paymentClosingMap.addAll({
-                                        tempNextPaymentMethodTime: {
-//HereItWillBeChoosePaymentBecauseThatIsTheFirstValue
-                                          'chosenPaymentMethod':
-                                              paymentMethod.first,
-                                          'amountSentInThisPaymentMethod':
-                                              (totalBillWithTaxes().round() -
-                                                  totalAmountFromAllPaymentMethods),
-                                          'addedPaymentMethod': '',
-                                          'amountSentInThisPaymentMethodInString':
-                                              (totalBillWithTaxes().round() -
-                                                      totalAmountFromAllPaymentMethods)
-                                                  .toString()
-                                        }
+//WeNeedToCheckWhetherPaymentValueIsHigherThanTotalValue
+                                      num totalAmountFromAllPaymentMethods = 0;
+//ThisWillCalculateAllThePaymentsThatHasBeenEnteredTillNow
+                                      bottomBarPaymentClosingMap
+                                          .forEach((key, value) {
+                                        totalAmountFromAllPaymentMethods +=
+                                            num.parse(value[
+                                                'amountSentInThisPaymentMethodInString']);
                                       });
-                                      setStateSB(() {});
+                                      if (totalAmountFromAllPaymentMethods >
+                                          totalBillWithTaxes().round()) {
+                                        errorMessage =
+                                            'Entered Amounts Higher than Bill. Please Check';
+                                        errorAlertDialogBox();
+                                      } else if (totalAmountFromAllPaymentMethods ==
+                                          totalBillWithTaxes().round()) {
+                                        errorMessage =
+                                            'Entered Amounts Equal to Final Bill. Can\'t Split More';
+                                        errorAlertDialogBox();
+                                      } else {
+//WeNeedToAddToThePaymentMethodListSoThatItComesInOrder
+                                        if (!paymentSorterList
+                                            .contains(paymentMethodTime)) {
+//ThisWillEnsureWeWillOnlyAddInOrder
+                                          paymentSorterList
+                                              .add(paymentMethodTime);
+                                        }
+                                        int tempNextPaymentMethodTime =
+                                            DateTime.now()
+                                                .millisecondsSinceEpoch;
+                                        paymentSorterList
+                                            .add(tempNextPaymentMethodTime);
+                                        bottomBarPaymentClosingMap.addAll({
+                                          tempNextPaymentMethodTime: {
+//HereItWillBeChoosePaymentBecauseThatIsTheFirstValue
+                                            'chosenPaymentMethod':
+                                                paymentMethod.first,
+                                            'amountSentInThisPaymentMethod':
+                                                (totalBillWithTaxes().round() -
+                                                    totalAmountFromAllPaymentMethods),
+                                            'addedPaymentMethod': '',
+                                            'amountSentInThisPaymentMethodInString':
+                                                (totalBillWithTaxes().round() -
+                                                        totalAmountFromAllPaymentMethods)
+                                                    .toString()
+                                          }
+                                        });
+                                        setStateSB(() {});
+                                      }
                                     }
-                                  }
-                                },
-                                child: Text('Split'))
-                          ],
-                        ),
-                        Divider(thickness: 3),
-                        ((paymentSorterList.isNotEmpty &&
-                                    paymentSorterList.last ==
-                                        paymentMethodTime) ||
-                                paymentSorterList.isEmpty)
-                            ? Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  ElevatedButton(
-                                      style: ButtonStyle(
-                                        backgroundColor:
-                                            MaterialStateProperty.all<Color>(
-                                                Colors.orangeAccent),
+                                  },
+                                  child: Text('Split'))
+                            ],
+                          ),
+                          Divider(thickness: 2),
+                          ((paymentSorterList.isNotEmpty &&
+                                      paymentSorterList.last ==
+                                          paymentMethodTime) ||
+                                  paymentSorterList.isEmpty)
+                              ? Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: BottomButton(
+                                            onTap: () {
+                                              Navigator.pop(context);
+                                            },
+                                            buttonTitle: 'Cancel',
+                                            buttonColor: Colors.orangeAccent),
                                       ),
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                      },
-                                      child: Text('Cancel',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                          ))),
-                                  ElevatedButton(
-                                      style: ButtonStyle(
-                                        backgroundColor:
-                                            MaterialStateProperty.all<Color>(
-                                                Colors.green),
+                                    ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: BottomButton(
+                                            onTap: () async {
+                                              bool hasInternet =
+                                                  await InternetConnectionChecker()
+                                                      .hasConnection;
+                                              if (hasInternet) {
+                                                bool paymentMethodNotChosen =
+                                                    false;
+                                                bool
+                                                    paymentMethodValueNotGiven =
+                                                    false;
+                                                num totalAmountFromAllPaymentMethods =
+                                                    0;
+                                                bottomBarPaymentClosingMap
+                                                    .forEach((key, value) {
+                                                  if (value[
+                                                          'chosenPaymentMethod'] ==
+                                                      paymentMethod.first) {
+//thisMeansTheyHaven'tChosenPaymentMethodSomewhere
+                                                    paymentMethodNotChosen =
+                                                        true;
+                                                  }
+                                                  if (value['amountSentInThisPaymentMethodInString'] ==
+                                                          '0' ||
+                                                      value['amountSentInThisPaymentMethodInString'] ==
+                                                          '') {
+                                                    paymentMethodValueNotGiven =
+                                                        true;
+                                                  } else {
+                                                    totalAmountFromAllPaymentMethods +=
+                                                        num.parse(value[
+                                                            'amountSentInThisPaymentMethodInString']);
+                                                  }
+                                                });
+                                                if (paymentMethodNotChosen) {
+                                                  errorMessage =
+                                                      'Please Choose Payment Method';
+                                                  errorAlertDialogBox();
+                                                } else if (paymentMethodValueNotGiven) {
+                                                  errorMessage =
+                                                      'Please Enter Value for all Payment Methods';
+                                                  errorAlertDialogBox();
+                                                } else if (totalAmountFromAllPaymentMethods !=
+                                                    totalBillWithTaxes()
+                                                        .round()) {
+                                                  errorMessage =
+                                                      'Payment Value and Bill Not Matching';
+                                                  errorAlertDialogBox();
+                                                } else {
+//ThisMeansThereAreNoErrors
+                                                  documentStatisticsRegistryDateMaker();
+                                                  finalNewPaymentMethod = [];
+                                                  finalPaymentClosingMap = {};
+                                                  finalCashierClosingMap = {};
+                                                  paymentMethodsInThisPeriod =
+                                                      [];
+                                                  gotCashIncrementData = false;
+
+                                                  Map<String, dynamic>
+                                                      tempFinalPaymentClosingMap =
+                                                      HashMap();
+                                                  valueToIncrementInCashInCashBalance =
+                                                      0;
+                                                  bottomBarPaymentClosingMap
+                                                      .forEach((key, value) {
+                                                    if (value[
+                                                            'chosenPaymentMethod'] ==
+                                                        'Cash Payment') {
+                                                      valueToIncrementInCashInCashBalance +=
+                                                          num.parse(value[
+                                                              'amountSentInThisPaymentMethodInString']);
+                                                    }
+                                                    if (value[
+                                                            'chosenPaymentMethod'] !=
+                                                        'New') {
+                                                      if (tempFinalPaymentClosingMap
+                                                          .containsKey(value[
+                                                              'chosenPaymentMethod'])) {
+//ThisMeansTwoPeopleFromSameGroupPaidViaSamePaymentMethodButSeparately
+                                                        tempFinalPaymentClosingMap[
+                                                            value[
+                                                                'chosenPaymentMethod']] = {
+                                                          'totalAmount': tempFinalPaymentClosingMap[
+                                                                      value[
+                                                                          'chosenPaymentMethod']]
+                                                                  [
+                                                                  'totalAmount'] +
+                                                              num.parse(value[
+                                                                  'amountSentInThisPaymentMethodInString']),
+                                                          'numberOfTimes':
+                                                              tempFinalPaymentClosingMap[
+                                                                          value[
+                                                                              'chosenPaymentMethod']]
+                                                                      [
+                                                                      'numberOfTimes'] +
+                                                                  1
+                                                        };
+                                                      } else {
+                                                        paymentMethodsInThisPeriod
+                                                            .add(value[
+                                                                'chosenPaymentMethod']);
+                                                        tempFinalPaymentClosingMap
+                                                            .addAll({
+                                                          value['chosenPaymentMethod']:
+                                                              {
+                                                            'totalAmount':
+                                                                num.parse(value[
+                                                                    'amountSentInThisPaymentMethodInString']),
+                                                            'numberOfTimes': 1
+                                                          }
+                                                        });
+                                                      }
+                                                    } else {
+                                                      if (!finalNewPaymentMethod
+                                                              .contains(value[
+                                                                  'addedPaymentMethod']) &&
+                                                          !paymentMethod
+                                                              .contains(value[
+                                                                  'addedPaymentMethod'])) {
+//OnlyIfItIsAbsolutelyNewPaymentMethod,ItWillBeAdded
+                                                        finalNewPaymentMethod
+                                                            .add(value[
+                                                                'addedPaymentMethod']);
+                                                      }
+                                                      if (tempFinalPaymentClosingMap
+                                                          .containsKey(value[
+                                                              'addedPaymentMethod'])) {
+//ThisMeansTwoPeopleFromSameGroupPaidViaSamePaymentMethodButSeparately
+                                                        tempFinalPaymentClosingMap[
+                                                            value[
+                                                                'addedPaymentMethod']] = {
+                                                          'totalAmount': tempFinalPaymentClosingMap[
+                                                                      value[
+                                                                          'addedPaymentMethod']]
+                                                                  [
+                                                                  'totalAmount'] +
+                                                              num.parse(value[
+                                                                  'amountSentInThisPaymentMethodInString']),
+                                                          'numberOfTimes':
+                                                              tempFinalPaymentClosingMap[
+                                                                          value[
+                                                                              'addedPaymentMethod']]
+                                                                      [
+                                                                      'numberOfTimes'] +
+                                                                  1
+                                                        };
+                                                      } else {
+                                                        tempFinalPaymentClosingMap
+                                                            .addAll({
+                                                          value['addedPaymentMethod']:
+                                                              {
+                                                            'totalAmount':
+                                                                num.parse(value[
+                                                                    'amountSentInThisPaymentMethodInString']),
+                                                            'numberOfTimes': 1
+                                                          }
+                                                        });
+                                                      }
+                                                    }
+                                                  });
+                                                  currentGeneratedIncrementRandomNumber =
+                                                      (1000000 +
+                                                          Random().nextInt(
+                                                              9999999 -
+                                                                  1000000));
+                                                  thisMonthStatisticsStreamToCheckInternet();
+                                                  cashBalanceWithQueriedMonthToLatestDataCheck(
+                                                      DateTime(
+                                                          int.parse(
+                                                              statisticsYear),
+                                                          int.parse(
+                                                              statisticsMonth),
+                                                          int.parse(
+                                                              statisticsDay)),
+                                                      currentGeneratedIncrementRandomNumber);
+                                                  if (finalNewPaymentMethod
+                                                      .isNotEmpty) {
+//ToAddNewPaymentMethodInServer
+                                                    addingNewPaymentMethod();
+                                                  }
+                                                  tempFinalPaymentClosingMap
+                                                      .forEach((key, value) {
+                                                    finalPaymentClosingMap
+                                                        .addAll({
+                                                      key: {
+                                                        'totalAmountInThisPaymentMethod':
+                                                            FieldValue.increment(
+                                                                value[
+                                                                    'totalAmount']),
+                                                        'numberOfTimesInThisPaymentMethod':
+                                                            FieldValue.increment(
+                                                                value[
+                                                                    'numberOfTimes'])
+                                                      }
+                                                    });
+                                                  });
+//ThisIsFinalClosingMapForCashierAddingThePaymentMethodsForThisCashier
+                                                  Map<String, dynamic>
+                                                      tempFinalCashierClosingMap =
+                                                      HashMap();
+                                                  tempFinalCashierClosingMap
+                                                      .addAll({
+                                                    'numberOfOrdersClosed':
+                                                        FieldValue.increment(1),
+                                                    'totalAmountClosed':
+                                                        FieldValue.increment(
+                                                            totalBillWithTaxes()
+                                                                .round()),
+                                                    'paymentMethodStats':
+                                                        finalPaymentClosingMap
+                                                  });
+                                                  finalCashierClosingMap.addAll(
+                                                      finalPaymentClosingMap);
+                                                  finalCashierClosingMap
+                                                      .addAll({
+                                                    'numberOfTablesClosed':
+                                                        FieldValue.increment(1)
+                                                  });
+                                                  finalCashierClosingMap
+                                                      .addAll({
+                                                    Provider.of<PrinterAndOtherDetailsProvider>(
+                                                                context,
+                                                                listen: false)
+                                                            .currentUserPhoneNumberFromClass:
+                                                        tempFinalCashierClosingMap
+                                                  });
+                                                  setState(() {
+                                                    showSpinner = true;
+                                                  });
+                                                  paymentDoneClicked = true;
+                                                  orderHistoryChecked =
+                                                      'checking';
+                                                  billUpdateTried = false;
+                                                  Map<String, dynamic>
+                                                      tempBaseInfoMap =
+                                                      HashMap();
+                                                  tempBaseInfoMap.addAll({
+                                                    'billClosingPhoneOrderIdWithTime':
+                                                        {
+                                                      Provider.of<PrinterAndOtherDetailsProvider>(
+                                                              context,
+                                                              listen: false)
+                                                          .currentUserPhoneNumberFromClass: {
+                                                        'timeOfClosure': FieldValue
+                                                            .serverTimestamp(),
+                                                        'endingOrderId':
+                                                            orderStartTimeForCreatingDocId
+                                                      }
+                                                    }
+                                                  });
+
+                                                  Map<String, dynamic>
+                                                      tempMasterMap = HashMap();
+                                                  tempMasterMap.addAll({
+                                                    'baseInfoMap':
+                                                        tempBaseInfoMap
+                                                  });
+
+                                                  FireStoreAddOrderInRunningOrderFolder(
+                                                          hotelName:
+                                                              widget.hotelName,
+                                                          seatingNumber: widget
+                                                              .itemsFromThisDocumentInFirebaseDoc,
+                                                          ordersMap:
+                                                              tempMasterMap)
+                                                      .addOrder();
+                                                  if (serialNumber == 0) {
+//ForMakingSerialNumberIfItIsNotThere
+                                                    Map<String, dynamic>
+                                                        tempSerialInStatisticsMap =
+                                                        HashMap();
+                                                    tempSerialInStatisticsMap
+                                                        .addAll({
+                                                      orderHistoryDocID: {
+                                                        Provider.of<PrinterAndOtherDetailsProvider>(
+                                                                context,
+                                                                listen: false)
+                                                            .currentUserPhoneNumberFromClass: {
+                                                          'timeOfBilling':
+                                                              FieldValue
+                                                                  .serverTimestamp()
+                                                        }
+                                                      }
+                                                    });
+                                                    FirebaseFirestore.instance
+                                                        .collection(
+                                                            widget.hotelName)
+                                                        .doc('reports')
+                                                        .collection(
+                                                            'dailyReports')
+                                                        .doc(statisticsYear)
+                                                        .collection(
+                                                            statisticsMonth)
+                                                        .doc(statisticsDay)
+                                                        .set({
+                                                      'statisticsDocumentIdMap':
+                                                          tempSerialInStatisticsMap
+                                                    }, SetOptions(merge: true));
+                                                  }
+                                                  closingCheckCounter = 0;
+                                                  timerForClosingTableAfterDataReady();
+                                                  Navigator.pop(context);
+                                                }
+                                              } else {
+                                                show(
+                                                    'Please Check Internet and Try Again');
+                                              }
+                                            },
+                                            buttonTitle: 'Done',
+                                            buttonColor: Colors.green),
                                       ),
-                                      onPressed: () {},
-                                      child: Text('Done',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                          )))
-                                ],
-                              )
-                            : SizedBox.shrink(),
-                      ],
-                    );
-                  }).toList(),
+                                    ),
+                                  ],
+                                )
+                              : SizedBox.shrink(),
+                        ],
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             );
           });
         });
+  }
+
+  List<String> dynamicTokensToStringToken() {
+    List<String> tokensList = [];
+    Map<String, dynamic> allUsersTokenMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .allUserTokensFromClass);
+    for (var tokens in allUsersTokenMap.values) {
+      tokensList.add(tokens.toString());
+    }
+    return tokensList;
+  }
+
+  void addingNewPaymentMethod() {
+    final fcmProvider =
+        Provider.of<NotificationProvider>(context, listen: false);
+    //NewPaymentMethod
+    Map<String, dynamic> tempPaymentMethodMap =
+        expensesSegregationMap['paymentMethod'];
+    num newPaymentMethodKey = 111111111;
+    if (tempPaymentMethodMap.isNotEmpty) {
+      List<num> currentPaymentMethodKey = [];
+      tempPaymentMethodMap.forEach((key, value) {
+        currentPaymentMethodKey.add(num.parse(key));
+      });
+      newPaymentMethodKey = currentPaymentMethodKey.reduce(max) + 1;
+    }
+//WeAreGettingTheMaxValueOfTheKeyWeHaveInCategoriesAndAddingItByOne
+    //ThisIsForLocalUpdate
+    Map<String, dynamic> tempExpensesSegregationUpdateMap = HashMap();
+    for (var eachNewPaymentMethod in finalNewPaymentMethod) {
+      tempPaymentMethodMap
+          .addAll({newPaymentMethodKey.toString(): eachNewPaymentMethod});
+      tempExpensesSegregationUpdateMap
+          .addAll({newPaymentMethodKey.toString(): eachNewPaymentMethod});
+      newPaymentMethodKey++;
+    }
+    expensesSegregationMap['paymentMethod'] = tempPaymentMethodMap;
+//WeNeedToUpdateInServerNext
+    int expensesUpdateTimeInMilliseconds =
+        DateTime.now().millisecondsSinceEpoch;
+    var batch = _fireStore.batch();
+    var expensesPaymentMethodRef =
+        _fireStore.collection(widget.hotelName).doc('expensesSegregation');
+    var expensesDateUpdationRef =
+        _fireStore.collection(widget.hotelName).doc('basicinfo');
+    batch.set(
+        expensesPaymentMethodRef,
+        {'paymentMethod': tempExpensesSegregationUpdateMap},
+        SetOptions(merge: true));
+    batch.set(
+        expensesDateUpdationRef,
+        {
+          'updateTimes': {
+            'expensesSegregation': expensesUpdateTimeInMilliseconds
+          }
+        },
+        SetOptions(merge: true));
+    batch.commit();
+    fcmProvider.sendNotification(
+        token: dynamicTokensToStringToken(),
+        title:
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .chosenRestaurantDatabaseFromClass,
+        restaurantNameForNotification: json.decode(
+                Provider.of<PrinterAndOtherDetailsProvider>(context,
+                        listen: false)
+                    .allUserProfilesFromClass)[
+            Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+                .currentUserPhoneNumberFromClass]['restaurantName'],
+        body: '*restaurantInfoUpdated*');
+    Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+        .expensesSegregationTimeStampSaving(expensesUpdateTimeInMilliseconds,
+            json.encode(expensesSegregationMap));
+    paymentMethodFromExpensesSegregationData();
+  }
+
+  void documentStatisticsRegistryDateMaker() {
+    DateTime now = DateTime.now();
+//WeEnsureWeTakeTheMonth,Day,Hour,MinuteAsString
+//ifItIsLessThan10,WeSaveItWithZeroInTheFront
+//ThisWillEnsure,ItIsAlwaysIn2Digits,AndWithoutPuttingItInTwoDigits,,
+//ItWon'tComeInAscendingOrder
+    if (baseInfoFromServerMap['billYear'] == '') {
+      billYear = now.year.toString();
+    } else {
+//thisMeansThatWeHavePutItInServerWithThisYearWhilePrinting
+      billYear = baseInfoFromServerMap['billYear'];
+    }
+    if (baseInfoFromServerMap['billMonth'] == '') {
+      billMonth = now.month < 10
+          ? '0${now.month.toString()}'
+          : '${now.month.toString()}';
+    } else {
+      billMonth = baseInfoFromServerMap['billMonth'];
+    }
+    if (baseInfoFromServerMap['billDay'] == '') {
+      billDay =
+          now.day < 10 ? '0${now.day.toString()}' : '${now.day.toString()}';
+    } else {
+      billDay = baseInfoFromServerMap['billDay'];
+    }
+    if (baseInfoFromServerMap['billHour'] == '') {
+      billHour =
+          now.hour < 10 ? '0${now.hour.toString()}' : '${now.hour.toString()}';
+    } else {
+      billHour = baseInfoFromServerMap['billHour'];
+    }
+    if (baseInfoFromServerMap['billMinute'] == '') {
+      billMinute = now.minute < 10
+          ? '0${now.minute.toString()}'
+          : '${now.minute.toString()}';
+    } else {
+      billMinute = baseInfoFromServerMap['billMinute'];
+    }
+    if (baseInfoFromServerMap['billSecond'] == '') {
+      billSecond = now.second < 10
+          ? '0${now.second.toString()}'
+          : '${now.second.toString()}';
+    } else {
+      billSecond = baseInfoFromServerMap['billSecond'];
+    }
+
+//ThisCouldBeEitherNowTimeOrPrintedTime
+    DateTime dateTimeFromBaseInfo = DateTime(
+        int.parse(billYear),
+        int.parse(billMonth),
+        int.parse(billDay),
+        int.parse(billHour),
+        int.parse(billMinute),
+        int.parse(billSecond));
+
+    closingHour = 0;
+    statisticsYear = '';
+    statisticsMonth = '';
+    statisticsDay = '';
+
+    restaurantInfoMap = json.decode(
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .restaurantInfoDataFromClass);
+    if (restaurantInfoMap.containsKey('restaurantClosingHour')) {
+      String tempClosingHour = restaurantInfoMap['restaurantClosingHour'];
+      if (tempClosingHour.substring(0, 2) != '12') {
+//TwelveIsAnywayZeroOnly
+        closingHour = int.parse(tempClosingHour.substring(0, 2));
+      }
+    }
+    if (dateTimeFromBaseInfo.millisecondsSinceEpoch >=
+        (DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day,
+                closingHour))
+            .millisecondsSinceEpoch) {
+//WeAreCheckingWhetherItIsGreaterThanTheClosingTime
+      statisticsYear = billYear;
+      statisticsMonth = billMonth;
+      statisticsDay = billDay;
+    } else {
+//ThisMeansTheBillShouldGoIntoYesterday
+      if (dateTimeFromBaseInfo.millisecondsSinceEpoch >=
+          DateTime(dateTimeFromBaseInfo.year, dateTimeFromBaseInfo.month,
+                  dateTimeFromBaseInfo.day, closingHour)
+              .millisecondsSinceEpoch) {
+//thisMeansOnTheBilledDateItsHigherThanClosingHourAndHenceAgain
+//ThatDayIsStatisticsYearMonthDay
+        statisticsYear = billYear;
+        statisticsMonth = billMonth;
+        statisticsDay = billDay;
+      } else {
+//TheDocumentShouldBePreviousDayInTheBilledDate
+      }
+      DateTime yesterdayToBilledDay = DateTime(dateTimeFromBaseInfo.year,
+              dateTimeFromBaseInfo.month, dateTimeFromBaseInfo.day)
+          .subtract(Duration(days: 1));
+      statisticsYear = yesterdayToBilledDay.year.toString();
+      statisticsMonth = yesterdayToBilledDay.month.toString().length > 1
+          ? yesterdayToBilledDay.month.toString()
+          : '0${yesterdayToBilledDay.month.toString()}';
+      statisticsDay = yesterdayToBilledDay.day.toString().length > 1
+          ? yesterdayToBilledDay.day.toString()
+          : '0${yesterdayToBilledDay.day.toString()}';
+    }
+  }
+
+  Future<void> serialNumberStreamForPrinting() async {
+    streamSubscriptionForPrintingOnTrueOffFalse = true;
+    final docRef = FirebaseFirestore.instance
+        .collection(widget.hotelName)
+        .doc('reports')
+        .collection('dailyReports')
+        .doc(statisticsYear)
+        .collection(statisticsMonth)
+        .doc(statisticsDay);
+
+    _streamSubscriptionForPrinting =
+        docRef.snapshots().listen((statisticsDataCheckSnapshot) {
+      final statisticsData = statisticsDataCheckSnapshot.data();
+      Map<String, dynamic> statisticsDocumentIdMap = HashMap();
+      if (statisticsData != null &&
+          statisticsData.containsKey('statisticsDocumentIdMap')) {
+        statisticsDocumentIdMap = statisticsData!['statisticsDocumentIdMap'];
+      }
+
+      if (
+          // !statisticsDocumentIdMap.containsKey(orderHistoryDocID) ||
+          noItemsInTable) {
+//ThisMeansThatTheBillHasAlreadyReachedTheServer
+        Map<String, dynamic> tempSerialInStatisticsMap = HashMap();
+        tempSerialInStatisticsMap
+            .addAll({orderHistoryDocID: FieldValue.delete()});
+        FirebaseFirestore.instance
+            .collection(widget.hotelName)
+            .doc('reports')
+            .collection('dailyReports')
+            .doc(statisticsYear)
+            .collection(statisticsMonth)
+            .doc(statisticsDay)
+            .set({'statisticsDocumentIdMap': tempSerialInStatisticsMap},
+                SetOptions(merge: true));
+        if (statisticsData != null) {
+          statisticsData.clear();
+        }
+
+        statisticsDataCheckSnapshot.data()!.clear();
+        setState(() {
+          showSpinner = true;
+          tappedPrintButton = true;
+        });
+      } else if (statisticsDocumentIdMap.isNotEmpty &&
+          statisticsDocumentIdMap.containsKey(orderHistoryDocID)) {
+        Map<String, dynamic> thisTableData =
+            statisticsDocumentIdMap[orderHistoryDocID];
+
+        Timestamp timeThisTableWasBilled = Timestamp.fromDate(DateTime(5000));
+        int numberOfOrdersBeforeThisTable = 0;
+//GettingTheMinimumTimeAtWhichThisTableWasBilled
+        thisTableData.forEach((key, value) {
+          if (value['timeOfBilling'] != null) {
+            if (timeThisTableWasBilled.compareTo(value['timeOfBilling']) == 1) {
+//IfItIsOne,itMeansAsPerTimeStampComparision,ItIsInThPast
+              timeThisTableWasBilled = value['timeOfBilling'];
+            }
+          }
+        });
+
+        if (Timestamp.fromDate(DateTime(5000))
+                .compareTo(timeThisTableWasBilled) ==
+            1) {
+//ThisMeansThatThereWasAtLeastOneDataWithProperIdAndHence...
+//...TimeThisTableWasBilledIsn'tInitialData
+          if (statisticsDocumentIdMap.length > 1) {
+//ThisMeansThereAreTablesBilledOtherThanThisTable
+            statisticsDocumentIdMap.forEach((key, value) {
+              Map<String, dynamic> timesOfEachOrder = value;
+              if (key != orderHistoryDocID && timesOfEachOrder.isNotEmpty) {
+//ToEnsureWeAren'tCheckingTheSameOrderAndAlsoCheckingIfAnyTableIsEmpty
+//ThisUsuallyHappensIfBcozOfBadInternetWeHadDeletedTheMobileNumberForThatTable
+
+                Timestamp billedTimeOfEachOrderOtherThanThisOrder =
+                    Timestamp.fromDate(DateTime(5000));
+
+                timesOfEachOrder.forEach((key, timeOfEachOrdervalue) {
+                  if (billedTimeOfEachOrderOtherThanThisOrder
+                          .compareTo(timeOfEachOrdervalue['timeOfBilling']) ==
+                      1) {
+                    billedTimeOfEachOrderOtherThanThisOrder =
+                        timeOfEachOrdervalue['timeOfBilling'];
+                  }
+                });
+                if (timeThisTableWasBilled
+                        .compareTo(billedTimeOfEachOrderOtherThanThisOrder) ==
+                    1) {
+//ThisThatOrderWasBilledBeforeThisTable
+                  numberOfOrdersBeforeThisTable++;
+                }
+              }
+            });
+          }
+//stoppingRightHere.
+
+          if (serialNumber == 0 && !noItemsInTable) {
+            if (gotSerialNumber == false) {
+              gotSerialNumber = true;
+              Map<String,dynamic> tempSalesIncomeStats = HashMap();
+              Map<String,dynamic> tempGeneralStats = HashMap();
+              if(statisticsData!.containsKey('salesIncomeStats')){
+                tempSalesIncomeStats = statisticsData['salesIncomeStats'];
+                if(tempSalesIncomeStats.containsKey('mapGeneralStatsMap')){
+                  tempGeneralStats = tempSalesIncomeStats['mapGeneralStatsMap'];
+                }
+              }
+
+              // statisticsData = value.data();
+              if (tempSalesIncomeStats.isEmpty || tempGeneralStats.isEmpty ||
+                  !tempGeneralStats.containsKey('serialNumber')) {
+                serialNumber = 1 + numberOfOrdersBeforeThisTable;
+              } else {
+                serialNumber = num.parse((statisticsData!['salesIncomeStats']
+                                ['mapGeneralStatsMap']['serialNumber'])
+                            .toString())
+                        .toInt() +
+                    1 +
+                    numberOfOrdersBeforeThisTable;
+              }
+// //SinceSerialNumberIsZeroWeWillHaveToIncrementSerialNumberByOneAnyway
+//               FireStoreUpdateStatisticsIndividualField(
+//                       hotelName: widget.hotelName,
+//                       docID: statisticsDocID,
+//                       incrementBy: 1,
+//                       key: 'serialNumber')
+//                   .updateStatistics();
+              if (statisticsData != null) {
+                statisticsData.clear();
+              }
+              statisticsDataCheckSnapshot.data()!.clear();
+
+              if (secondaryPrintButtonTapCheck) {
+                secondaryPrintButtonTapCheck = false;
+                serialNumberUpdateInServerWhenPrintClickedFirstTime();
+                tappedPrintButton = false;
+                startOfCallForPrintingBill();
+              }
+            }
+          } else if (serialNumber != 0 && !noItemsInTable) {
+            gotSerialNumber = true;
+//ThisMeansWeRealisedSuddenlyWhenNetCameThatSerialNumberExists
+//AndHenceCanStraightCall StartOfCallForPrintingBill
+            if (secondaryPrintButtonTapCheck) {
+              secondaryPrintButtonTapCheck = false;
+              startOfCallForPrintingBill();
+            }
+
+            statisticsDataCheckSnapshot.data()!.clear();
+            if (statisticsData != null) {
+              statisticsData.clear();
+            }
+          }
+//ThisMeansWeGotSerialNumberAndHenceWeCanCancelTheStream
+
+          streamSubscriptionForPrintingOnTrueOffFalse = false;
+          _streamSubscriptionForPrinting?.cancel();
+        }
+      }
+    });
   }
 
   @override
@@ -5109,6 +5158,10 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
 
                           var output = snapshot.data!.data();
                           baseInfoFromServerMap = output!['baseInfoMap'];
+                          if (output.containsKey('cancelledItemsInOrder')) {
+                            cancelledItemsInOrderFromServerMap =
+                                output!['cancelledItemsInOrder'];
+                          }
                           itemsInOrderFromServerMap =
                               output!['itemsInOrderMap'];
                           if (orderIdCheckedWhenEnteringScreen == false) {
@@ -5431,7 +5484,7 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
 //                                                               FieldValue
 //                                                                   .serverTimestamp(),
 //                                                           'endingOrderId':
-//                                                               orderIdForCreatingDocId
+//                                                               orderStartTimeForCreatingDocId
 //                                                         }
 //                                                       }
 //                                                     });
@@ -5526,7 +5579,7 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
                                           child: Expanded(
                                             child: BottomButton(
                                               onTap: () async {
-                                                paymentClosingBottomBar();
+                                                paymentClosingBottomBar(true);
                                               },
                                               buttonTitle: 'Payment',
                                               buttonColor: Colors.green,
@@ -5599,6 +5652,13 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
                                                               0) {
                                                             startOfCallForPrintingBill();
                                                           } else {
+                                                            documentStatisticsRegistryDateMaker();
+                                                            secondaryPrintButtonTapCheck =
+                                                                true;
+                                                            if (streamSubscriptionForPrintingOnTrueOffFalse ==
+                                                                false) {
+                                                              serialNumberStreamForPrinting();
+                                                            }
                                                             Map<String, dynamic>
                                                                 tempSerialInStatisticsMap =
                                                                 HashMap();
@@ -5621,12 +5681,15 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
                                                                 .instance
                                                                 .collection(widget
                                                                     .hotelName)
-                                                                .doc(
-                                                                    'statistics')
+                                                                .doc('reports')
                                                                 .collection(
-                                                                    'statistics')
+                                                                    'dailyReports')
                                                                 .doc(
-                                                                    statisticsDocID)
+                                                                    statisticsYear)
+                                                                .collection(
+                                                                    statisticsMonth)
+                                                                .doc(
+                                                                    statisticsDay)
                                                                 .set(
                                                                     {
                                                                   'statisticsDocumentIdMap':
@@ -5644,7 +5707,8 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
                                                                 Duration(
                                                                     seconds: 1),
                                                                 () {
-                                                              serialNumberDownloadForPrinting();
+                                                              timerForNullifyingSerialNumberTimeStampDataInServer();
+
                                                               // serialNumberStatisticsExistsOrNot();
                                                             });
                                                           }
@@ -5708,7 +5772,7 @@ class _BillPrintWithStatsCheckState extends State<BillPrintWithStatsCheck> {
                 width: 20.0,
               ),
               Text(
-                'Order Date: $tempDay-$tempMonth-$tempYear',
+                'Order Date: $billDay-$billMonth-$billYear',
                 style: TextStyle(fontSize: 20.0),
               ),
             ],

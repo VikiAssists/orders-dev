@@ -125,14 +125,9 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
   String beforeEditSgstValue = '';
   String beforeEditTotalPriceWithTaxes = '';
   StreamSubscription<QuerySnapshot>? _streamSubscriptionForThisMonth;
-  StreamSubscription<QuerySnapshot>? _streamSubscriptionForSomePastMonthToNow;
-  StreamSubscription<QuerySnapshot>?
-      _streamSubscriptionForSomePastMonthMinusSixMonthsToNow;
-  StreamSubscription<QuerySnapshot>? _streamSubscriptionForAllMonths;
 
   List<String> expenseOrIncome = ['Expense', 'Income'];
   String tempExpenseOrIncome = 'Expense';
-  num numberOfMilliSecondsInOneDay = 86400000;
   num valueToIncrementInCashInCashBalance = 0;
   num beforeEditValueToIncrementInCashBalance = 0;
   num valueToIncrementInCashInExpenses = 0;
@@ -152,9 +147,6 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
   void dispose() {
     // TODO: implement dispose
     _streamSubscriptionForThisMonth?.cancel();
-    _streamSubscriptionForSomePastMonthToNow?.cancel();
-    _streamSubscriptionForSomePastMonthMinusSixMonthsToNow?.cancel();
-    _streamSubscriptionForAllMonths?.cancel();
     super.dispose();
   }
 
@@ -973,6 +965,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
     bool noPreviousCashBalanceDataInThisPeriod = false;
     bool gotSomeData = false;
     bool calledNextFunction = false;
+    bool gotToTheQueriedDate= false;
     Timer(Duration(seconds: 2), () {
       if (gotSomeData == false) {
         calledNextFunction = true;
@@ -1005,11 +998,11 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
       Map<String, dynamic> entireCashBalanceChangeSheet = HashMap();
       for (var eachMonthDocument in queriedMonthToEndStatisticsSnapshot.docs) {
         monthsCheckCounter++;
-        if (monthsCheckCounter == 1) {
-//SoThatWeCheckOnlyTheFirstDocumentTimePeriod
+
+//ThisMeansTheFirstMonthDocumentItselfIsDurationHigherThanTheQueriedMonth
           if (eachMonthDocument['midMonthMilliSecond'] >
               DateTime(dateToQuery.year, dateToQuery.month, 15)
-                  .millisecondsSinceEpoch) {
+                  .millisecondsSinceEpoch && gotToTheQueriedDate == false) {
 //ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
 //WeNeedToCheckTheYearFunctionThen
             print('came Into exiting loop2');
@@ -1017,9 +1010,8 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
             calledNextFunction = true;
             cashBalanceWithPreviousYearDataCheck(
                 dateToQuery, randomNumberForThisButtonPress);
-            return;
           }
-        }
+
         print('iterating thru each doc');
         Map<String, dynamic> iteratingMonthCashBalanceData =
             eachMonthDocument['cashBalanceData'];
@@ -1050,6 +1042,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                   .millisecondsSinceEpoch) {
 //ThisMeansThisIsTheDayInWhichWeNeedToAdd
             if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+              gotToTheQueriedDate= true;
 //ThisMeansTheDayAlreadyExistsAndWeOnlyHaveToAddTheIncrementsToDayIncrements
               changeOfEachMonthCashBalanceData.addAll({
                 dayAsString: {
@@ -1066,8 +1059,9 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                 calledNextFunction = true;
                 cashBalanceWithPreviousYearDataCheck(
                     dateToQuery, randomNumberForThisButtonPress);
-                return;
+
               } else {
+                gotToTheQueriedDate= true;
                 //ThisMeansTheDayDoesntExistsAndWeNeedToAddPreviousCashBalanceAndThenDayIncrement
                 changeOfEachMonthCashBalanceData.addAll({
                   dayAsString: {
@@ -1095,9 +1089,22 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
             }
           }
         }
+
         if (changeOfEachMonthCashBalanceData.isNotEmpty) {
           entireCashBalanceChangeSheet
               .addAll({monthYearDocId: changeOfEachMonthCashBalanceData});
+        }
+
+        if(monthsCheckCounter == queriedMonthToEndStatisticsSnapshot.docs.length && gotToTheQueriedDate == false
+            &&
+            eachMonthDocument['midMonthMilliSecond'] <
+                DateTime(dateToQuery.year, dateToQuery.month, 15)
+                    .millisecondsSinceEpoch
+        ){
+//ThisMeansWeHaveReachedTheEndOfDocumentButTheQueriedDateDidn'tCome
+          calledNextFunction = true;
+          cashBalanceWithPreviousYearDataCheck(
+              dateToQuery, randomNumberForThisButtonPress);
         }
       }
       if (entireCashBalanceChangeSheet.isNotEmpty &&
@@ -1142,6 +1149,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
       DateTime dateToQuery, int randomNumberForThisButtonPress) async {
     bool gotSomeData = false;
     bool calledNextFunction = false;
+    bool gotToTheQueriedDate= false;
     Timer(Duration(seconds: 5), () {
       if (gotSomeData == false) {
         calledNextFunction = true;
@@ -1156,22 +1164,19 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
         }
       }
     });
-    num milliSecondsSeventyDaysPreviousToPickedDate =
-        DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day)
-                .millisecondsSinceEpoch -
-            (380 * numberOfMilliSecondsInOneDay);
-    final pastMonthToNowCollectionRef = FirebaseFirestore.instance
+    num milliSecondsYearPreviousToPickedDate = DateTime(dateToQuery.year, dateToQuery.month, dateToQuery.day).subtract(Duration(days:380)).millisecondsSinceEpoch;
+    final pastYearToNowCollectionRef = FirebaseFirestore.instance
         .collection(
             Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
                 .chosenRestaurantDatabaseFromClass)
         .doc('reports')
         .collection('monthlyReports')
         .where('midMonthMilliSecond',
-            isGreaterThan: milliSecondsSeventyDaysPreviousToPickedDate)
+            isGreaterThan: milliSecondsYearPreviousToPickedDate)
         .orderBy('midMonthMilliSecond', descending: false);
 //WantInAscendingOrderSoThatWeCanCheckPreviousDayBalanceWhileIterating
     final pastYearToNowStatisticsSnapshot =
-        await pastMonthToNowCollectionRef.get();
+        await pastYearToNowCollectionRef.get();
     if (pastYearToNowStatisticsSnapshot.docs.length >= 1) {
       gotSomeData = true;
       int monthsCheckCounter = 0;
@@ -1180,30 +1185,67 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
       Map<String, dynamic> entireCashBalanceChangeSheet = HashMap();
       for (var eachMonthDocument in pastYearToNowStatisticsSnapshot.docs) {
         monthsCheckCounter++;
-        if (monthsCheckCounter == 1) {
+
 //SoThatWeCheckOnlyTheFirstDocumentTimePeriod
           if (eachMonthDocument['midMonthMilliSecond'] >
               DateTime(dateToQuery.year, dateToQuery.month, 15)
-                  .millisecondsSinceEpoch) {
+                  .millisecondsSinceEpoch && gotToTheQueriedDate == false) {
+            if (
+            previousCashBalanceWhileIterating == -9999999 &&
+                dayIncrementWhileIterating == -1111111
+            )  {
 //ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
 //So,WeHaveToAddFirstDocumentOurselvesForThatMonth
-            String monthString = dateToQuery.month.toString().length > 1
-                ? dateToQuery.month.toString()
-                : '0${dateToQuery.month.toString()}';
-            String dayString = dateToQuery.day.toString().length > 1
-                ? dateToQuery.day.toString()
-                : '0${dateToQuery.day.toString()}';
-            entireCashBalanceChangeSheet.addAll({
-              '${dateToQuery.year.toString()}*$monthString': {
-                dayString: {
-                  'previousCashBalance': FieldValue.increment(0),
-                  'dayIncrements':
-                      FieldValue.increment(valueToIncrementInCashInCashBalance)
+              String monthString = dateToQuery.month
+                  .toString()
+                  .length > 1
+                  ? dateToQuery.month.toString()
+                  : '0${dateToQuery.month.toString()}';
+              String dayString = dateToQuery.day
+                  .toString()
+                  .length > 1
+                  ? dateToQuery.day.toString()
+                  : '0${dateToQuery.day.toString()}';
+              entireCashBalanceChangeSheet.addAll({
+                '${dateToQuery.year.toString()}*$monthString': {
+                  dayString: {
+                    'previousCashBalance': FieldValue.increment(0),
+                    'dayIncrements':
+                    FieldValue.increment(valueToIncrementInCashInCashBalance)
+                  }
                 }
-              }
-            });
+              });
+              gotToTheQueriedDate = true;
+            }else
+            {
+//ThisMeansItsAnMiddleMonthWithNonExistentData.ThereIsDataBeforeTheMonth
+//AndThereIsDataAfterTheMonth
+              gotToTheQueriedDate= true;
+              String monthString = dateToQuery.month
+                  .toString()
+                  .length > 1
+                  ? dateToQuery.month.toString()
+                  : '0${dateToQuery.month.toString()}';
+              String dayString = dateToQuery.day
+                  .toString()
+                  .length > 1
+                  ? dateToQuery.day.toString()
+                  : '0${dateToQuery.day.toString()}';
+              entireCashBalanceChangeSheet.addAll({
+                '${dateToQuery.year.toString()}*$monthString': {
+                  dayString: {
+                    'previousCashBalance': FieldValue.increment(
+                        previousCashBalanceWhileIterating +
+                            dayIncrementWhileIterating
+                    ),
+                    'dayIncrements':
+                    FieldValue.increment(valueToIncrementInCashInCashBalance)
+                  }
+                }
+              });
+            }
           }
-        }
+
         Map<String, dynamic> iteratingMonthCashBalanceData =
             eachMonthDocument['cashBalanceData'];
         String monthYearDocId = eachMonthDocument.id;
@@ -1232,6 +1274,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                   .millisecondsSinceEpoch) {
 //ThisMeansThisIsTheDayInWhichWeNeedToAdd
             if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
+              gotToTheQueriedDate= true;
 //ThisMeansTheDayAlreadyExistsAndWeOnlyHaveToAddTheIncrementsToDayIncrements
               changeOfEachMonthCashBalanceData.addAll({
                 dayAsString: {
@@ -1244,6 +1287,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
 //ThisMeansTheDayDoesntExistsAndWeNeedToAddPreviousCashBalanceAndThenDayIncrement
               if (previousCashBalanceWhileIterating == -9999999 &&
                   dayIncrementWhileIterating == -1111111) {
+                gotToTheQueriedDate= true;
                 print('came into this loop 46');
 //ThisMeansThatWeHaven'tGotPreviousCashBalanceTillNow.So,WeNeedToPutTheCashBalance
 //ForThatDayAsZeroAndJustDoDayIncrementsFromThere
@@ -1255,6 +1299,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                   }
                 });
               } else {
+                gotToTheQueriedDate= true;
                 changeOfEachMonthCashBalanceData.addAll({
                   dayAsString: {
                     'previousCashBalance': previousCashBalanceWhileIterating +
@@ -1285,7 +1330,69 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
           entireCashBalanceChangeSheet
               .addAll({monthYearDocId: changeOfEachMonthCashBalanceData});
         }
+        if(monthsCheckCounter == pastYearToNowStatisticsSnapshot.docs.length
+            && gotToTheQueriedDate == false &&
+            eachMonthDocument['midMonthMilliSecond'] <
+                DateTime(dateToQuery.year, dateToQuery.month, 15)
+                    .millisecondsSinceEpoch
+        ) {
+//ThisMeansItsLastDocumentAndStillQueriedDateIsNotThere
+//AndTheLastDocumentIsLesserMonthThanQueriedMonth
+          if (
+          previousCashBalanceWhileIterating == -9999999 &&
+              dayIncrementWhileIterating == -1111111
+          )  {
+//ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//So,WeHaveToAddFirstDocumentOurselvesForThatMonth
+            String monthString = dateToQuery.month
+                .toString()
+                .length > 1
+                ? dateToQuery.month.toString()
+                : '0${dateToQuery.month.toString()}';
+            String dayString = dateToQuery.day
+                .toString()
+                .length > 1
+                ? dateToQuery.day.toString()
+                : '0${dateToQuery.day.toString()}';
+            entireCashBalanceChangeSheet.addAll({
+              '${dateToQuery.year.toString()}*$monthString': {
+                dayString: {
+                  'previousCashBalance': FieldValue.increment(0),
+                  'dayIncrements':
+                  FieldValue.increment(valueToIncrementInCashInCashBalance)
+                }
+              }
+            });
+            gotToTheQueriedDate = true;
+          }else
+          {
+            gotToTheQueriedDate= true;
+            String monthString = dateToQuery.month
+                .toString()
+                .length > 1
+                ? dateToQuery.month.toString()
+                : '0${dateToQuery.month.toString()}';
+            String dayString = dateToQuery.day
+                .toString()
+                .length > 1
+                ? dateToQuery.day.toString()
+                : '0${dateToQuery.day.toString()}';
+            entireCashBalanceChangeSheet.addAll({
+              '${dateToQuery.year.toString()}*$monthString': {
+                dayString: {
+                  'previousCashBalance': FieldValue.increment(
+                      previousCashBalanceWhileIterating +
+                          dayIncrementWhileIterating
+                  ),
+                  'dayIncrements':
+                  FieldValue.increment(valueToIncrementInCashInCashBalance)
+                }
+              }
+            });
+          }
+        }
       }
+
       if (entireCashBalanceChangeSheet.isNotEmpty &&
               randomNumberForThisButtonPress ==
                   currentGeneratedIncrementRandomNumber &&
@@ -1329,7 +1436,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
             : '0${dateToQuery.month.toString()}';
         String dayForIncrementing = dateToQuery.day.toString().length > 1
             ? dateToQuery.day.toString()
-            : '0${dateToQuery.day.toString().length > 1}';
+            : '0${dateToQuery.day.toString()}';
         Map<String, dynamic> firstIncrementData = {
           'cashBalanceData': {
             dayForIncrementing: {
@@ -1373,6 +1480,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
     bool noPreviousCashBalanceDataInThisPeriod = false;
     bool gotSomeData = false;
     bool calledNextFunction = false;
+    bool gotToTheQueriedDate= false;
     Timer(Duration(seconds: 2), () {
       if (gotSomeData == false) {
         calledNextFunction = true;
@@ -1408,11 +1516,11 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
       Map<String, dynamic> entireCashBalanceChangeSheet = HashMap();
       for (var eachMonthDocument in queriedMonthToEndStatisticsSnapshot.docs) {
         monthsCheckCounter++;
-        if (monthsCheckCounter == 1) {
+
 //SoThatWeCheckOnlyTheFirstDocumentTimePeriod
           if (eachMonthDocument['midMonthMilliSecond'] >
               DateTime(afterEditDate.year, afterEditDate.month, 15)
-                  .millisecondsSinceEpoch) {
+                  .millisecondsSinceEpoch && gotToTheQueriedDate == false) {
 //ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
 //WeNeedToCheckTheYearFunctionThen
             print('came Into exiting loop2');
@@ -1420,9 +1528,8 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
             calledNextFunction = true;
             cashBalanceWithPreviousYearDataCheckForEditing(
                 afterEditDate, beforeEditDate, randomNumberForThisButtonPress);
-            return;
           }
-        }
+
         print('iterating thru each doc');
         Map<String, dynamic> iteratingMonthCashBalanceData =
             eachMonthDocument['cashBalanceData'];
@@ -1442,16 +1549,16 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
 //ThisMeansItsADayBeforeTheDayOfQuery
             if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
               previousCashBalanceWhileIterating =
-                  iteratingMonthCashBalanceData[dayAsString]
-                      ['previousCashBalance'];
+              iteratingMonthCashBalanceData[dayAsString]
+              ['previousCashBalance'];
               dayIncrementWhileIterating =
-                  iteratingMonthCashBalanceData[dayAsString]['dayIncrements'];
-            }
+              iteratingMonthCashBalanceData[dayAsString]['dayIncrements'];
+
             if (DateTime(eachMonthDocument['year'], eachMonthDocument['month'],
-                        i)
-                    .millisecondsSinceEpoch ==
+                i)
+                .millisecondsSinceEpoch ==
                 DateTime(beforeEditDate.year, beforeEditDate.month,
-                        beforeEditDate.day)
+                    beforeEditDate.day)
                     .millisecondsSinceEpoch) {
 //ThisMeansBasedOnBeforeEditDateThisNeedsToBeAltered
 //IfItsSameDay,ThenWeWouldHaveAddedInDayIncrements
@@ -1464,10 +1571,10 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                 }
               });
             } else if (DateTime(eachMonthDocument['year'],
-                        eachMonthDocument['month'], i)
-                    .millisecondsSinceEpoch >
+                eachMonthDocument['month'], i)
+                .millisecondsSinceEpoch >
                 DateTime(beforeEditDate.year, beforeEditDate.month,
-                        beforeEditDate.day)
+                    beforeEditDate.day)
                     .millisecondsSinceEpoch) {
 //IfItsHigherDay,ThenWeWouldHaveAddedInPreviousCashBalance
               previousCashBalanceWhileIterating +=
@@ -1479,6 +1586,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                 }
               });
             }
+          }
           } else if (DateTime(
                       eachMonthDocument['year'], eachMonthDocument['month'], i)
                   .millisecondsSinceEpoch ==
@@ -1486,8 +1594,23 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                       afterEditDate.day)
                   .millisecondsSinceEpoch) {
 //ThisMeansThisIsTheDayInWhichWeNeedToAdd
+          gotToTheQueriedDate = true;
             if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
-              if (DateTime(eachMonthDocument['year'],
+             if (DateTime(eachMonthDocument['year'],
+                eachMonthDocument['month'], i)
+                .millisecondsSinceEpoch <
+                DateTime(beforeEditDate.year, beforeEditDate.month,
+                    beforeEditDate.day)
+                    .millisecondsSinceEpoch) {
+//ThenTheAfterEditDayIsLessThanBeforeEditDay
+//AndHenceWeShouldIncrementWithoutBeforeEditValues
+               changeOfEachMonthCashBalanceData.addAll({
+                 dayAsString: {
+                   'dayIncrements': FieldValue.increment(
+                       valueToIncrementInCashInCashBalance)
+                 }
+               });
+            }else if (DateTime(eachMonthDocument['year'],
                           eachMonthDocument['month'], i)
                       .millisecondsSinceEpoch ==
                   DateTime(beforeEditDate.year, beforeEditDate.month,
@@ -1529,9 +1652,25 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                 calledNextFunction = true;
                 cashBalanceWithPreviousYearDataCheckForEditing(afterEditDate,
                     beforeEditDate, randomNumberForThisButtonPress);
-                return;
               } else {
                 if (DateTime(eachMonthDocument['year'],
+                    eachMonthDocument['month'], i)
+                    .millisecondsSinceEpoch <
+                    DateTime(beforeEditDate.year, beforeEditDate.month,
+                        beforeEditDate.day)
+                        .millisecondsSinceEpoch){
+//ThisMeansPreviousDataExistsButBeforeDateIsAfterThisOnly
+// WeNeedToIncrementWithoutBeforeDate
+                  changeOfEachMonthCashBalanceData.addAll({
+                    dayAsString: {
+                      'previousCashBalance': FieldValue.increment(
+                          previousCashBalanceWhileIterating +
+                              dayIncrementWhileIterating),
+                      'dayIncrements': FieldValue.increment(
+                          valueToIncrementInCashInCashBalance)
+                    }
+                  });
+                }else if (DateTime(eachMonthDocument['year'],
                             eachMonthDocument['month'], i)
                         .millisecondsSinceEpoch ==
                     DateTime(beforeEditDate.year, beforeEditDate.month,
@@ -1578,6 +1717,19 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
             if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
 //ThisMeansThatThisDayExistsAndWeNeedToIncrementPreviousCashBalanceAlone
               if (DateTime(eachMonthDocument['year'],
+                  eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch <
+                  DateTime(beforeEditDate.year, beforeEditDate.month,
+                      beforeEditDate.day)
+                      .millisecondsSinceEpoch){
+//ThisMeansThisIsAfterAfterEditDateButBeforeBeforeEditDate
+                changeOfEachMonthCashBalanceData.addAll({
+                  dayAsString: {
+                    'previousCashBalance': FieldValue.increment(
+                        valueToIncrementInCashInCashBalance)
+                  }
+                });
+              }else if (DateTime(eachMonthDocument['year'],
                           eachMonthDocument['month'], i)
                       .millisecondsSinceEpoch ==
                   DateTime(beforeEditDate.year, beforeEditDate.month,
@@ -1593,7 +1745,8 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                         beforeEditValueToIncrementInCashBalance)
                   }
                 });
-              } else if (DateTime(eachMonthDocument['year'],
+              }
+              else if (DateTime(eachMonthDocument['year'],
                           eachMonthDocument['month'], i)
                       .millisecondsSinceEpoch >
                   DateTime(beforeEditDate.year, beforeEditDate.month,
@@ -1612,9 +1765,21 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
             }
           }
         }
+
         if (changeOfEachMonthCashBalanceData.isNotEmpty) {
           entireCashBalanceChangeSheet
               .addAll({monthYearDocId: changeOfEachMonthCashBalanceData});
+        }
+        if (monthsCheckCounter ==
+            queriedMonthToEndStatisticsSnapshot.docs.length &&
+            gotToTheQueriedDate == false  &&
+            eachMonthDocument['midMonthMilliSecond'] <
+                DateTime(afterEditDate.year, afterEditDate.month, 15)
+                    .millisecondsSinceEpoch) {
+//ThisMeansWeHaveReachedTheEndOfDocumentButTheQueriedDateDidn'tCome
+          calledNextFunction = true;
+          cashBalanceWithPreviousYearDataCheckForEditing(
+              afterEditDate, beforeEditDate, randomNumberForThisButtonPress);
         }
       }
       if (entireCashBalanceChangeSheet.isNotEmpty &&
@@ -1659,6 +1824,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
       DateTime beforeEditDate, int randomNumberForThisButtonPress) async {
     bool gotSomeData = false;
     bool calledNextFunction = false;
+    bool gotToTheQueriedDate= false;
     Timer(Duration(seconds: 5), () {
       if (gotSomeData == false) {
         calledNextFunction = true;
@@ -1677,13 +1843,10 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                 .millisecondsSinceEpoch <
             afterEditDate.millisecondsSinceEpoch
         ? DateTime(beforeEditDate.year, beforeEditDate.month,
-                    beforeEditDate.day)
-                .millisecondsSinceEpoch -
-            (380 * numberOfMilliSecondsInOneDay)
-        : DateTime(afterEditDate.year, afterEditDate.month, afterEditDate.day)
-                .millisecondsSinceEpoch -
-            (380 * numberOfMilliSecondsInOneDay);
-    final pastMonthToNowCollectionRef = FirebaseFirestore.instance
+                    beforeEditDate.day).subtract(Duration(days:365)).millisecondsSinceEpoch
+
+        : DateTime(afterEditDate.year, afterEditDate.month, afterEditDate.day).subtract(Duration(days:365)).millisecondsSinceEpoch;
+    final pastYearToNowCollectionRef = FirebaseFirestore.instance
         .collection(
             Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
                 .chosenRestaurantDatabaseFromClass)
@@ -1694,7 +1857,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
         .orderBy('midMonthMilliSecond', descending: false);
 //WantInAscendingOrderSoThatWeCanCheckPreviousDayBalanceWhileIterating
     final pastYearToNowStatisticsSnapshot =
-        await pastMonthToNowCollectionRef.get();
+        await pastYearToNowCollectionRef.get();
     if (pastYearToNowStatisticsSnapshot.docs.length >= 1) {
       gotSomeData = true;
       int monthsCheckCounter = 0;
@@ -1703,30 +1866,63 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
       Map<String, dynamic> entireCashBalanceChangeSheet = HashMap();
       for (var eachMonthDocument in pastYearToNowStatisticsSnapshot.docs) {
         monthsCheckCounter++;
-        if (monthsCheckCounter == 1) {
 //SoThatWeCheckOnlyTheFirstDocumentTimePeriod
           if (eachMonthDocument['midMonthMilliSecond'] >
               DateTime(afterEditDate.year, afterEditDate.month, 15)
-                  .millisecondsSinceEpoch) {
+                  .millisecondsSinceEpoch
+              && gotToTheQueriedDate == false
+          ) {
 //ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
 //So,WeHaveToAddFirstDocumentOurselvesForThatMonth
-            String monthString = afterEditDate.month.toString().length > 1
-                ? afterEditDate.month.toString()
-                : '0${afterEditDate.month.toString()}';
-            String dayString = afterEditDate.day.toString().length > 1
-                ? afterEditDate.day.toString()
-                : '0${afterEditDate.day.toString()}';
-            entireCashBalanceChangeSheet.addAll({
-              '${afterEditDate.year.toString()}*$monthString': {
-                dayString: {
-                  'previousCashBalance': FieldValue.increment(0),
-                  'dayIncrements':
-                      FieldValue.increment(valueToIncrementInCashInCashBalance)
+            if (
+            previousCashBalanceWhileIterating == -9999999 &&
+                dayIncrementWhileIterating == -1111111
+            )  {
+//ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//So,WeHaveToAddFirstDocumentOurselvesForThatMonth
+              String monthString = afterEditDate.month.toString().length > 1
+                  ? afterEditDate.month.toString()
+                  : '0${afterEditDate.month.toString()}';
+              String dayString = afterEditDate.day.toString().length > 1
+                  ? afterEditDate.day.toString()
+                  : '0${afterEditDate.day.toString()}';
+              entireCashBalanceChangeSheet.addAll({
+                '${afterEditDate.year.toString()}*$monthString': {
+                  dayString: {
+                    'previousCashBalance': FieldValue.increment(0),
+                    'dayIncrements':
+                    FieldValue.increment(valueToIncrementInCashInCashBalance)
+                  }
                 }
-              }
-            });
+              });
+              gotToTheQueriedDate = true;
+            }else{
+              gotToTheQueriedDate= true;
+              String monthString = afterEditDate.month
+                  .toString()
+                  .length > 1
+                  ? afterEditDate.month.toString()
+                  : '0${afterEditDate.month.toString()}';
+              String dayString = afterEditDate.day
+                  .toString()
+                  .length > 1
+                  ? afterEditDate.day.toString()
+                  : '0${afterEditDate.day.toString()}';
+              entireCashBalanceChangeSheet.addAll({
+                '${afterEditDate.year.toString()}*$monthString': {
+                  dayString: {
+                    'previousCashBalance': FieldValue.increment(
+                        previousCashBalanceWhileIterating +
+                            dayIncrementWhileIterating
+                    ),
+                    'dayIncrements':
+                    FieldValue.increment(valueToIncrementInCashInCashBalance)
+                  }
+                }
+              });
+            }
           }
-        }
+
         Map<String, dynamic> iteratingMonthCashBalanceData =
             eachMonthDocument['cashBalanceData'];
         String monthYearDocId = eachMonthDocument.id;
@@ -1788,9 +1984,26 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
               DateTime(afterEditDate.year, afterEditDate.month,
                       afterEditDate.day)
                   .millisecondsSinceEpoch) {
+            gotToTheQueriedDate = true;
 //ThisMeansThisIsTheDayInWhichWeNeedToAdd
             if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
 //ThisMeansTheDayAlreadyExistsAndWeOnlyHaveToAddTheIncrementsToDayIncrements
+
+              if (DateTime(eachMonthDocument['year'],
+                  eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch <
+                  DateTime(beforeEditDate.year, beforeEditDate.month,
+                      beforeEditDate.day)
+                      .millisecondsSinceEpoch) {
+//ThenTheAfterEditDayIsLessThanBeforeEditDay
+//AndHenceWeShouldIncrementWithoutBeforeEditValues
+                changeOfEachMonthCashBalanceData.addAll({
+                  dayAsString: {
+                    'dayIncrements': FieldValue.increment(
+                        valueToIncrementInCashInCashBalance)
+                  }
+                });
+              }else
               if (DateTime(eachMonthDocument['year'],
                           eachMonthDocument['month'], i)
                       .millisecondsSinceEpoch ==
@@ -1840,6 +2053,23 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                 });
               } else {
                 if (DateTime(eachMonthDocument['year'],
+                    eachMonthDocument['month'], i)
+                    .millisecondsSinceEpoch <
+                    DateTime(beforeEditDate.year, beforeEditDate.month,
+                        beforeEditDate.day)
+                        .millisecondsSinceEpoch){
+//ThisMeansPreviousDataExistsButBeforeDateIsAfterThisOnly
+// WeNeedToIncrementWithoutBeforeDate
+                  changeOfEachMonthCashBalanceData.addAll({
+                    dayAsString: {
+                      'previousCashBalance': FieldValue.increment(
+                          previousCashBalanceWhileIterating +
+                              dayIncrementWhileIterating),
+                      'dayIncrements': FieldValue.increment(
+                          valueToIncrementInCashInCashBalance)
+                    }
+                  });
+                }else if (DateTime(eachMonthDocument['year'],
                             eachMonthDocument['month'], i)
                         .millisecondsSinceEpoch ==
                     DateTime(beforeEditDate.year, beforeEditDate.month,
@@ -1887,6 +2117,19 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
             if (iteratingMonthCashBalanceData.containsKey(dayAsString)) {
 //ThisMeansThatThisDayExistsAndWeNeedToIncrementPreviousCashBalanceAlone
               if (DateTime(eachMonthDocument['year'],
+                  eachMonthDocument['month'], i)
+                  .millisecondsSinceEpoch <
+                  DateTime(beforeEditDate.year, beforeEditDate.month,
+                      beforeEditDate.day)
+                      .millisecondsSinceEpoch){
+//ThisMeansThisIsAfterAfterEditDateButBeforeBeforeEditDate
+                changeOfEachMonthCashBalanceData.addAll({
+                  dayAsString: {
+                    'previousCashBalance': FieldValue.increment(
+                        valueToIncrementInCashInCashBalance)
+                  }
+                });
+              }else if (DateTime(eachMonthDocument['year'],
                           eachMonthDocument['month'], i)
                       .millisecondsSinceEpoch ==
                   DateTime(beforeEditDate.year, beforeEditDate.month,
@@ -1924,6 +2167,68 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
         if (changeOfEachMonthCashBalanceData.isNotEmpty) {
           entireCashBalanceChangeSheet
               .addAll({monthYearDocId: changeOfEachMonthCashBalanceData});
+        }
+        if(monthsCheckCounter == pastYearToNowStatisticsSnapshot.docs.length
+            && gotToTheQueriedDate == false &&
+            eachMonthDocument['midMonthMilliSecond'] <
+                DateTime(afterEditDate.year, afterEditDate.month, 15)
+                    .millisecondsSinceEpoch
+
+        ) {
+//ThisMeansItsLastDocumentAndStillQueriedDateIsNotThere
+//AndTheLastDocumentIsLesserMonthThanQueriedMonth
+          if (
+          previousCashBalanceWhileIterating == -9999999 &&
+              dayIncrementWhileIterating == -1111111
+          )  {
+//ThisMeansTheFirstDocumentItselfIsBiggerThanTheDateWeHaveToRegister
+//So,WeHaveToAddFirstDocumentOurselvesForThatMonth
+            String monthString = afterEditDate.month
+                .toString()
+                .length > 1
+                ? afterEditDate.month.toString()
+                : '0${afterEditDate.month.toString()}';
+            String dayString = afterEditDate.day
+                .toString()
+                .length > 1
+                ? afterEditDate.day.toString()
+                : '0${afterEditDate.day.toString()}';
+            entireCashBalanceChangeSheet.addAll({
+              '${afterEditDate.year.toString()}*$monthString': {
+                dayString: {
+                  'previousCashBalance': FieldValue.increment(0),
+                  'dayIncrements':
+                  FieldValue.increment(valueToIncrementInCashInCashBalance)
+                }
+              }
+            });
+            gotToTheQueriedDate = true;
+          }else
+          {
+            gotToTheQueriedDate= true;
+            String monthString = afterEditDate.month
+                .toString()
+                .length > 1
+                ? afterEditDate.month.toString()
+                : '0${afterEditDate.month.toString()}';
+            String dayString = afterEditDate.day
+                .toString()
+                .length > 1
+                ? afterEditDate.day.toString()
+                : '0${afterEditDate.day.toString()}';
+            entireCashBalanceChangeSheet.addAll({
+              '${afterEditDate.year.toString()}*$monthString': {
+                dayString: {
+                  'previousCashBalance': FieldValue.increment(
+                      previousCashBalanceWhileIterating +
+                          dayIncrementWhileIterating
+                  ),
+                  'dayIncrements':
+                  FieldValue.increment(valueToIncrementInCashInCashBalance)
+                }
+              }
+            });
+          }
         }
       }
       if (entireCashBalanceChangeSheet.isNotEmpty &&
@@ -1969,7 +2274,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
             : '0${afterEditDate.month.toString()}';
         String dayForIncrementing = afterEditDate.day.toString().length > 1
             ? afterEditDate.day.toString()
-            : '0${afterEditDate.day.toString().length > 1}';
+            : '0${afterEditDate.day.toString()}';
         Map<String, dynamic> firstIncrementData = {
           'cashBalanceData': {
             dayForIncrementing: {
@@ -4317,10 +4622,9 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
 
                                     if (tempPaymentMethod != 'Cash Payment') {
                                       valueToIncrementInCashInCashBalance = 0;
-                                    } else {
-                                      setState(() {
-                                        showSpinner = true;
-                                      });
+                                    } else
+                                    {
+
                                       if (tempExpenseOrIncome == 'Expense') {
                                         valueToIncrementInCashInCashBalance =
                                             num.parse(
@@ -4332,6 +4636,9 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
                                                 tempTotalExpenseWithTaxesInString);
                                       }
                                     }
+                                    setState(() {
+                                      showSpinner = true;
+                                    });
                                     thisMonthStatisticsStreamToCheckInternet();
                                     cashBalanceWithQueriedMonthToLatestDataCheck(
                                         pickedDateTimeStamp,
