@@ -1111,10 +1111,91 @@ class _StatisticsWithExpensesAndIncomeState
                     style: ButtonStyle(
                         backgroundColor:
                             MaterialStateProperty.all<Color>(Colors.green)),
-                    onPressed: () {
-                      statisticsReportsQueryGenerationVersionTwo();
-                      viewClicked = true;
-                      showSpinner = true;
+                    onPressed: () async {
+                      // statisticsReportsQueryGenerationVersionTwo();
+                      // viewClicked = true;
+                      // showSpinner = true;
+                      // setState(() {});
+                      String tempString = '';
+                      num counter = 0;
+                      List<String> documentIdSetOne = ['1', '2', '3', '4', '5'];
+                      Query dayQuery = FirebaseFirestore.instance
+                              .collection(
+                                  Provider.of<PrinterAndOtherDetailsProvider>(
+                                          context,
+                                          listen: false)
+                                      .chosenRestaurantDatabaseFromClass)
+                              .doc('reports')
+                              .collection('dailyReports')
+                              .doc('2024')
+                              .collection('07')
+                              .where(FieldPath.documentId,
+                                  whereIn: documentIdSetOne)
+
+                          // .where('tutututututu', isEqualTo: 1)
+                          ;
+                      // _streamSubscriptionDataCheck =
+                      //     dayQuery.snapshots().listen((dataSnapshot) {
+                      //   Timer(Duration(seconds: 2), () {
+                      //     for (var eachMonthStat in dataSnapshot.docs) {
+                      //       counter++;
+                      //       String tempTempString =
+                      //           eachMonthStat.data().toString();
+                      //       tempString += tempTempString;
+                      //       _streamSubscriptionDataCheck?.cancel();
+                      //       _salesIncomeStatsText.text =
+                      //           '${counter}Counter.$tempString';
+                      //       setState(() {});
+                      //     }
+                      //   });
+                      // });
+                      final querySnapshot = await dayQuery.get();
+                      if (querySnapshot.docs.length > 0) {
+                        for (var eachdocs in querySnapshot.docs) {
+                          counter++;
+                          String tempTempString =
+                              '${counter.toString()}.${eachdocs.data().toString()}';
+                          tempString += tempTempString;
+                        }
+                      }
+                      List<String> documentIdSetTwo = [
+                        '11',
+                        '12',
+                        '13',
+                        '14',
+                        '15',
+                        '16',
+                        '17',
+                        '18',
+                        '19',
+                        '20'
+                      ];
+                      Query dayQueryTwo = FirebaseFirestore.instance
+                          .collection(
+                              Provider.of<PrinterAndOtherDetailsProvider>(
+                                      context,
+                                      listen: false)
+                                  .chosenRestaurantDatabaseFromClass)
+                          .doc('reports')
+                          .collection('dailyReports')
+                          .doc('2024')
+                          .collection('07')
+                          .where(FieldPath.documentId,
+                              whereIn: documentIdSetTwo);
+                      // .where('tutututututu', isEqualTo: 1)
+                      ;
+                      // final querySnapshotTwo = await dayQueryTwo.get();
+                      // if (querySnapshotTwo.docs.length > 0) {
+                      //   for (var eachdocs in querySnapshotTwo.docs) {
+                      //     counter++;
+                      //     String tempTempString =
+                      //         '${counter.toString()}.${eachdocs.data().toString()}';
+                      //     tempString += tempTempString;
+                      //   }
+                      // }
+
+                      _salesIncomeStatsText.text =
+                          '${counter}Counter.$tempString';
                       setState(() {});
                     },
                     child: Text('View', style: TextStyle(fontSize: 15))),

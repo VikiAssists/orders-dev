@@ -14,6 +14,8 @@ import 'package:orders_dev/Providers/printer_and_other_details_provider.dart';
 import 'package:orders_dev/Screens/bill_print_screen_12.dart';
 import 'package:orders_dev/Screens/bill_print_screen_14.dart';
 import 'package:orders_dev/Screens/bill_print_screen_15.dart';
+import 'package:orders_dev/Screens/bill_print_screen_16.dart';
+import 'package:orders_dev/Screens/bill_print_screen_17.dart';
 
 import 'package:orders_dev/Screens/menu_page_add_items_6.dart';
 import 'package:orders_dev/Screens/tableOrParcelSplit_3.dart';
@@ -1558,13 +1560,13 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                     tempIndividualItemsRejected[value['itemName']]
                             ['numberOfIndividualItems'] +
                         value['numberOfItem'],
-                'totalAmount': tempIndividualItemsRejected[value['itemName']]
+                'totalAmountOfIndividualItems': tempIndividualItemsRejected[value['itemName']]
                         ['totalAmountOfIndividualItems'] +
                     (value['numberOfItem'] * value['itemPrice'])
               };
             } else {
               tempIndividualItemsRejected.addAll({
-                value['itemName']: {
+                value['itemName'].toString(): {
                   'numberOfIndividualItems': value['numberOfItem'],
                   'totalAmountOfIndividualItems':
                       value['numberOfItem'] * value['itemPrice']
@@ -1587,7 +1589,7 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                 'numberOfItems': [value['numberOfItem']],
                 'totalAmount': [value['numberOfItem'] * value['itemPrice']],
                 'individualItemsRejected': {
-                  value['itemName']: {
+                  value['itemName'].toString(): {
                     'numberOfIndividualItems': value['numberOfItem'],
                     'totalAmountOfIndividualItems':
                         value['numberOfItem'] * value['itemPrice']
@@ -1634,7 +1636,8 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                 .add(value['numberOfItem'] * value['itemPrice']);
             captainCancellationMap[value['cancellingCaptainPhone']]
                 ['individualItemsCancelled'] = tempIndividualItemsCancelled;
-          } else {
+          } else
+          {
             captainCancellationMap.addAll({
               value['cancellingCaptainPhone']: {
                 'numberOfTimes': [1],
@@ -1729,12 +1732,15 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                   }
 
                   itemCancellationMapForServerUpdate.addAll({
+//NTC-NumberOfTimesCancelled
+//NIC-numberOfItemsCancelled
+//TAC-totalCancelledAmount
                     key: {
-                      'numberOfTimes': FieldValue.increment(
+                      'NTC': FieldValue.increment(
                           numberOfTimes.reduce((a, b) => a + b)),
-                      'numberOfItems': FieldValue.increment(
+                      'NIC': FieldValue.increment(
                           numberOfItems.reduce((a, b) => a + b)),
-                      'totalAmount': FieldValue.increment(
+                      'TAC': FieldValue.increment(
                           totalAmount.reduce((a, b) => a + b)),
                     }
                   });
@@ -1758,14 +1764,18 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                         .map((e) => num.parse(e.toString()))
                         .toList();
                     captainCancellationMapForServerUpdate.addAll({
+//TCC-TimesCaptain/ChefCancelled
+//NCC-NumberOfItemsCaptain/ChefCancelled
+//ACC-TotalAmountCaptain/ChefCancelled
+//IICC-IndividualItemsCaptain/ChefCancelled
                       key: {
-                        'numberOfTimes': FieldValue.increment(
+                        'TCC': FieldValue.increment(
                             numberOfTimes.reduce((a, b) => a + b)),
-                        'numberOfItems': FieldValue.increment(
+                        'NCC': FieldValue.increment(
                             numberOfItems.reduce((a, b) => a + b)),
-                        'totalAmount': FieldValue.increment(
+                        'ACC': FieldValue.increment(
                             totalAmount.reduce((a, b) => a + b)),
-                        'individualItemsCancelled': updateMapWithIncrements(
+                        'IICC': updateMapWithIncrements(
                             tempIndividualItemsCancelled)
                       }
                     });
@@ -1790,14 +1800,18 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                         .map((e) => num.parse(e.toString()))
                         .toList();
                     chefRejectionMapForServerUpdate.addAll({
+//TCR-TimesCaptain/ChefRejected
+//NCR-NumberOfItemsCaptain/ChefRejected
+//ACR-TotalAmountCaptain/ChefRejected
+//IICR-IndividualItemsCaptain/ChefRejected
                       key: {
-                        'numberOfTimes': FieldValue.increment(
+                        'TCR': FieldValue.increment(
                             numberOfTimes.reduce((a, b) => a + b)),
-                        'numberOfItems': FieldValue.increment(
+                        'NCR': FieldValue.increment(
                             numberOfItems.reduce((a, b) => a + b)),
-                        'totalAmount': FieldValue.increment(
+                        'ACR': FieldValue.increment(
                             totalAmount.reduce((a, b) => a + b)),
-                        'individualItemsRejected':
+                        'IICR':
                             updateMapWithIncrements(tempIndividualItemsRejected)
                       }
                     });
@@ -1811,9 +1825,10 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                   'serialNumberNum':
                       num.parse(baseInfoFromServerMap['serialNumber'])
                 });
-                printOrdersMap.addAll({'dateForPrint':
-                '${billDay}/${billMonth}/${billYear} at ${billHour}:${billMinute}'});
-
+                printOrdersMap.addAll({
+                  'dateForPrint':
+                      '${billDay}/${billMonth}/${billYear} at ${billHour}:${billMinute}'
+                });
 
                 printOrdersMap.addAll({
                   'orderClosingCaptainPhone':
@@ -1875,42 +1890,55 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                     'mapRejectingChefStats': chefRejectionMapForServerUpdate
                   });
                 }
-                Map<String, dynamic> statisticsDailyExpensesMap = {
+                Map<String, dynamic> statisticsDailyGeneralStatsMap = {
                   'day': num.parse(statisticsDay),
                   'month': num.parse(statisticsMonth),
                   'year': num.parse(statisticsYear)
                 };
-                Map<String, dynamic> statisticsMonthlyExpensesMap = {
-                  'cashBalanceData': {
-                    statisticsDay: {
-                      'dayIncrements': FieldValue.increment(0),
-                      'previousCashBalance': FieldValue.increment(
-                          previousCashBalanceWhileIterating)
-                    }
-                  },
+                Map<String, dynamic> statisticsMonthlyGeneralStatsMap = {
                   'month': num.parse(statisticsMonth),
                   'year': num.parse(statisticsYear),
                   'midMonthMilliSecond': DateTime(int.parse(statisticsYear),
                           int.parse(statisticsMonth), 15)
                       .millisecondsSinceEpoch
                 };
-                statisticsDailyExpensesMap.addAll(
+                statisticsDailyGeneralStatsMap.addAll(
                     {'billedCancellationStats': subMasterCancellationStats});
-                statisticsMonthlyExpensesMap.addAll(
+                statisticsMonthlyGeneralStatsMap.addAll(
                     {'billedCancellationStats': subMasterCancellationStats});
+                //
+                // FireStoreBillAndStatisticsInServerVersionTwo(
+                //         hotelName: widget.hotelName,
+                //         dailyStatisticsUpdateMap: statisticsDailyExpensesMap,
+                //         monthlyStatisticsUpdateMap:
+                //             statisticsMonthlyExpensesMap,
+                //         entireCashBalanceChangeSheet: {},
+                //         day: statisticsDay,
+                //         month: statisticsMonth,
+                //         year: statisticsYear,
+                //         orderHistoryDocID: billIdOfThisOrder(),
+                //         printOrdersMap: printOrdersMap)
+                //     .updateBillAndStatistics();
 
-                FireStoreBillAndStatisticsInServerVersionTwo(
+                FireStoreBillAndStatisticsInServerVersionThree(
                         hotelName: widget.hotelName,
-                        dailyStatisticsUpdateMap: statisticsDailyExpensesMap,
-                        monthlyStatisticsUpdateMap:
-                            statisticsMonthlyExpensesMap,
+                        dailyGeneralStatisticsUpdateMap:
+                            statisticsDailyGeneralStatsMap,
+                        monthlyGeneralStatisticsUpdateMap:
+                            statisticsMonthlyGeneralStatsMap,
+                        dailyIndividualItemsStatisticsUpdateMap: {},
+                        monthlyIndividualItemsStatisticsUpdateMap: {},
+                        dailyCaptainStatisticsUpdateMap: {},
+                        monthlyCaptainStatisticsUpdateMap: {},
                         entireCashBalanceChangeSheet: {},
+                        versionOneStatisticsUpdateMap: {},
                         day: statisticsDay,
                         month: statisticsMonth,
                         year: statisticsYear,
                         orderHistoryDocID: billIdOfThisOrder(),
                         printOrdersMap: printOrdersMap)
                     .updateBillAndStatistics();
+
                 setState(() {
                   showSpinner = false;
                 });
@@ -1934,13 +1962,17 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
             } catch (e) {
               show('Please Check Internet and Try Again');
             }
-          } else {
+          }
+          else {
             Map<String, dynamic> itemCancellationMap =
                 cancellationUpdateMaps[0];
             Map<String, dynamic> captainCancellationMap =
                 cancellationUpdateMaps[1];
             Map<String, dynamic> chefRejectionMap = cancellationUpdateMaps[2];
-
+            print('captainCancellationMap');
+            print(captainCancellationMap);
+            print('chefRejectionMap');
+            print(chefRejectionMap);
             Map<String, dynamic> itemCancellationMapForServerUpdate = HashMap();
             itemCancellationMap.forEach((key, value) {
               List<dynamic> tempNumberOfTimes = value['numberOfTimes'];
@@ -1957,11 +1989,14 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
 
               itemCancellationMapForServerUpdate.addAll({
                 key: {
-                  'numberOfTimes': FieldValue.increment(
+//NTC-NumberOfTimesCancelled
+//NIC-numberOfItemsCancelled
+//TAC-totalCancelledAmount
+                  'NTC': FieldValue.increment(
                       numberOfTimes.reduce((a, b) => a + b)),
-                  'numberOfItems': FieldValue.increment(
+                  'NIC': FieldValue.increment(
                       numberOfItems.reduce((a, b) => a + b)),
-                  'totalAmount':
+                  'TAC':
                       FieldValue.increment(totalAmount.reduce((a, b) => a + b)),
                 }
               });
@@ -1986,14 +2021,18 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                     .toList();
 
                 captainCancellationMapForServerUpdate.addAll({
+//TCC-TimesCaptain/ChefCancelled
+//NCC-NumberOfItemsCaptain/ChefCancelled
+//ACC-TotalAmountCaptain/ChefCancelled
+//IICC-IndividualItemsCaptain/ChefCancelled
                   key: {
-                    'numberOfTimes': FieldValue.increment(
+                    'TCC': FieldValue.increment(
                         numberOfTimes.reduce((a, b) => a + b)),
-                    'numberOfItems': FieldValue.increment(
+                    'NCC': FieldValue.increment(
                         numberOfItems.reduce((a, b) => a + b)),
-                    'totalAmount': FieldValue.increment(
+                    'ACC': FieldValue.increment(
                         totalAmount.reduce((a, b) => a + b)),
-                    'individualItemsCancelled':
+                    'IICC':
                         updateMapWithIncrements(tempIndividualItemsCancelled)
                   }
                 });
@@ -2006,7 +2045,7 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                 List<dynamic> tempNumberOfItems = value['numberOfItems'];
                 List<dynamic> tempTotalAmount = value['totalAmount'];
                 Map<String, dynamic> tempIndividualItemsRejected =
-                    value['individualItemsRejected'];
+                value['individualItemsRejected'];
                 List<num> numberOfTimes = tempNumberOfTimes
                     .map((e) => num.parse(e.toString()))
                     .toList();
@@ -2017,15 +2056,18 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                     .map((e) => num.parse(e.toString()))
                     .toList();
                 chefRejectionMapForServerUpdate.addAll({
+//TCR-TimesCaptain/ChefRejected
+//NCR-NumberOfItemsCaptain/ChefRejected
+//ACR-TotalAmountCaptain/ChefRejected
+//IICR-IndividualItemsCaptain/ChefRejected
                   key: {
-                    'numberOfTimes': FieldValue.increment(
+                    'TCR': FieldValue.increment(
                         numberOfTimes.reduce((a, b) => a + b)),
-                    'numberOfItems': FieldValue.increment(
+                    'NCR': FieldValue.increment(
                         numberOfItems.reduce((a, b) => a + b)),
-                    'totalAmount': FieldValue.increment(
+                    'ACR': FieldValue.increment(
                         totalAmount.reduce((a, b) => a + b)),
-                    'individualItemsRejected':
-                        updateMapWithIncrements(tempIndividualItemsRejected)
+                    'IICR': updateMapWithIncrements(tempIndividualItemsRejected)
                   }
                 });
               });
@@ -2046,36 +2088,35 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
               subMasterCancellationStats.addAll(
                   {'mapRejectingChefStats': chefRejectionMapForServerUpdate});
             }
-            Map<String, dynamic> statisticsDailyExpensesMap = {
+            Map<String, dynamic> statisticsDailyGeneralStatsMap = {
               'day': num.parse(statisticsDay),
               'month': num.parse(statisticsMonth),
               'year': num.parse(statisticsYear)
             };
-            Map<String, dynamic> statisticsMonthlyExpensesMap = {
-              'cashBalanceData': {
-                statisticsDay: {
-                  'dayIncrements': FieldValue.increment(0),
-//SinceWeAreCancelling,NoMatterWhatDayIncrementsShouldBeZeroOnly
-                  'previousCashBalance':
-                      FieldValue.increment(previousCashBalanceWhileIterating)
-                }
-              },
+            Map<String, dynamic> statisticsMonthlyGeneralStatsMap = {
               'month': num.parse(statisticsMonth),
               'year': num.parse(statisticsYear),
               'midMonthMilliSecond': DateTime(
                       int.parse(statisticsYear), int.parse(statisticsMonth), 15)
                   .millisecondsSinceEpoch
             };
-            statisticsDailyExpensesMap.addAll(
+            statisticsDailyGeneralStatsMap.addAll(
                 {'nonBilledCancellationStats': subMasterCancellationStats});
-            statisticsMonthlyExpensesMap.addAll(
+            statisticsMonthlyGeneralStatsMap.addAll(
                 {'nonBilledCancellationStats': subMasterCancellationStats});
 
-            FireStoreBillAndStatisticsInServerVersionTwo(
+            FireStoreBillAndStatisticsInServerVersionThree(
                     hotelName: widget.hotelName,
-                    dailyStatisticsUpdateMap: statisticsDailyExpensesMap,
-                    monthlyStatisticsUpdateMap: statisticsMonthlyExpensesMap,
+                    dailyGeneralStatisticsUpdateMap:
+                        statisticsDailyGeneralStatsMap,
+                    monthlyGeneralStatisticsUpdateMap:
+                        statisticsMonthlyGeneralStatsMap,
+                    dailyIndividualItemsStatisticsUpdateMap: {},
+                    monthlyIndividualItemsStatisticsUpdateMap: {},
+                    dailyCaptainStatisticsUpdateMap: {},
+                    monthlyCaptainStatisticsUpdateMap: {},
                     entireCashBalanceChangeSheet: {},
+                    versionOneStatisticsUpdateMap: {},
                     day: statisticsDay,
                     month: statisticsMonth,
                     year: statisticsYear,
@@ -2101,13 +2142,47 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
       }
     }
 
+    void cashBalanceDataToServer(
+        DateTime dateToAdd, num previousCash, num dayIncrement) {
+      String yearForIncrementing = dateToAdd.year.toString();
+      String monthForIncrementing = dateToAdd.month.toString().length > 1
+          ? dateToAdd.month.toString()
+          : '0${dateToAdd.month.toString()}';
+      String dayForIncrementing = dateToAdd.day.toString().length > 1
+          ? dateToAdd.day.toString()
+          : '0${dateToAdd.day.toString()}';
+      Map<String, dynamic> firstIncrementData = {
+        'cashBalanceData': {
+          dayForIncrementing: {
+            'previousCashBalance': FieldValue.increment(previousCash),
+            'dayIncrements': FieldValue.increment(dayIncrement)
+          }
+        }
+      };
+      Map<String, dynamic> masterMonthMap = {
+        'year': dateToAdd.year,
+        'month': dateToAdd.month,
+        'midMonthMilliSecond':
+            DateTime(dateToAdd.year, dateToAdd.month, 15).millisecondsSinceEpoch
+      };
+      masterMonthMap.addAll(firstIncrementData);
+      _fireStore
+          .collection(Provider.of<PrinterAndOtherDetailsProvider>(context,
+                  listen: false)
+              .chosenRestaurantDatabaseFromClass)
+          .doc('reports')
+          .collection('monthlyCashBalanceReports')
+          .doc('$yearForIncrementing*$monthForIncrementing')
+          .set(masterMonthMap, SetOptions(merge: true));
+    }
+
     void thisMonthStatisticsStreamToCheckInternet() {
       final thisMonthCollectionRef = FirebaseFirestore.instance
           .collection(Provider.of<PrinterAndOtherDetailsProvider>(context,
                   listen: false)
               .chosenRestaurantDatabaseFromClass)
           .doc('reports')
-          .collection('monthlyReports')
+          .collection('monthlyCashBalanceReports')
           .where('midMonthMilliSecond',
               isEqualTo: DateTime(DateTime.now().year, DateTime.now().month, 15)
                   .millisecondsSinceEpoch);
@@ -2151,7 +2226,7 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                   listen: false)
               .chosenRestaurantDatabaseFromClass)
           .doc('reports')
-          .collection('monthlyReports')
+          .collection('monthlyCashBalanceReports')
           .where('midMonthMilliSecond',
               isGreaterThan: milliSecondsYearPreviousToPickedDate)
           .orderBy('midMonthMilliSecond', descending: false);
@@ -2187,6 +2262,8 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                       dayIncrementWhileIterating;
               dayIncrementWhileIterating = 0;
             }
+            cashBalanceDataToServer(dateToQuery,
+                previousCashBalanceWhileIterating, dayIncrementWhileIterating);
           }
 
           Map<String, dynamic> iteratingMonthCashBalanceData =
@@ -2240,6 +2317,10 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                   gotCancellingIncrements = true;
                   gotToTheQueriedDate = true;
                 }
+                cashBalanceDataToServer(
+                    dateToQuery,
+                    previousCashBalanceWhileIterating,
+                    dayIncrementWhileIterating);
               }
             }
           }
@@ -2265,6 +2346,8 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                       dayIncrementWhileIterating;
               dayIncrementWhileIterating = 0;
             }
+            cashBalanceDataToServer(dateToQuery,
+                previousCashBalanceWhileIterating, dayIncrementWhileIterating);
           }
         }
         if (gotCancellingIncrements &&
@@ -2291,10 +2374,11 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
 // ThatTheLackOfDataIsn'tBecauseOfInternet
           previousCashBalanceWhileIterating = 0;
           dayIncrementWhileIterating = 0;
+          cashBalanceDataToServer(dateToQuery,
+              previousCashBalanceWhileIterating, dayIncrementWhileIterating);
           _streamSubscriptionForThisMonth?.cancel();
           currentGeneratedIncrementRandomNumber = 0;
           calledNextFunction = true;
-          print('callingFromhere2');
           allItemsCancellingUpdateInServer(
               lastItemIdForCancelling, lastItemStatusForCancelling);
         }
@@ -2323,7 +2407,7 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                   listen: false)
               .chosenRestaurantDatabaseFromClass)
           .doc('reports')
-          .collection('monthlyReports')
+          .collection('monthlyCashBalanceReports')
           .where('midMonthMilliSecond',
               isGreaterThanOrEqualTo: milliSecondsPickedDateMonth)
           .orderBy('midMonthMilliSecond', descending: false);
@@ -2409,6 +2493,10 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                           dayIncrementWhileIterating;
                   dayIncrementWhileIterating = 0;
                   gotCancellingIncrements = true;
+                  cashBalanceDataToServer(
+                      dateToQuery,
+                      previousCashBalanceWhileIterating,
+                      dayIncrementWhileIterating);
                 }
               }
             }
@@ -2829,7 +2917,7 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
 //AmongTheManyAnimationOptionsForSliding,WeChooseScrollMotion
                                                         endActionPane:
                                                             ActionPane(
-//StartActionPaneIsForOptionsInLeftSide
+//endActionPaneIsForOptionsInRightSide
                                                           motion:
                                                               const ScrollMotion(),
                                                           children: [
@@ -2928,7 +3016,7 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                                                             ),
                                                           ],
                                                         ),
-//EndActionPaneIsForRightSideSlidableOptions
+//StartActionPaneIsForLeftSideSlideOptions
                                                         startActionPane:
                                                             ActionPane(
                                                           motion:
@@ -2975,6 +3063,8 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                                                                           } else if (itemStatus == 7 ||
                                                                               itemStatus == 10) {
 //ThisIsForMakingCancellationMap
+//WeWillPutItInBothCancellationMapAndOriginalMap
+//OriginalMapIsForChefToSeeWhileCancellationMapIsForDoingCancellation
                                                                             Map<String, dynamic>
                                                                                 tempItemMapForCancel =
                                                                                 itemsInOrderFromServerMap[itemID];
@@ -2994,7 +3084,7 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                                                                             if (itemStatus ==
                                                                                 7) {
                                                                               tempMapToUpdateStatus.addAll({
-                                                                                'itemCancelled': 'acceptedToDelete'
+                                                                                'itemCancelled': 'acceptedToDelete',
                                                                               });
                                                                             } else if (itemStatus ==
                                                                                 10) {
@@ -3040,6 +3130,8 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                                                                                 itemsInOrderFromServerMap[itemID];
 //ifItIs11,It'sAnRejectedItemAndTheChefNameWillBeAlreadyThereInTheRejectedList
 //SoWeDontNeedToChangeCaptain
+//IfItIsNot11,itHasNotBeenAcceptedByChefYet.
+//WeCanStraightAwayPutItInCancelledOrdersList
                                                                             if (itemStatus !=
                                                                                 11) {
                                                                               tempItemMapForCancel['cancellingCaptainName'] = json.decode(Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).allUserProfilesFromClass)[Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false).currentUserPhoneNumberFromClass]['username'];
@@ -3162,7 +3254,7 @@ class _ItemsWithCancelRegisterState extends State<ItemsWithCancelRegister>
                                                           context,
                                                           MaterialPageRoute(
                                                               builder: (context) =>
-                                                                  BillPrintWithStatsCheck(
+                                                                  BillScreenWithNewBottomButton(
                                                                     hotelName:
                                                                         widget
                                                                             .hotelName,

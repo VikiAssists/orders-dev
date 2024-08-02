@@ -638,6 +638,8 @@ class _LoginPageState extends State<LoginPage> with WidgetsBindingObserver {
       });
       if (restaurantsUserHasAccess.length == 1) {
         hotelName = restaurantsUserHasAccess[0].toString();
+        Provider.of<PrinterAndOtherDetailsProvider>(context, listen: false)
+            .restaurantChosenByUser(hotelName);
         BackgroundCheck().saveHotelNameInBackground(hotelName);
         //ThisIsWhenSomeOneIsSigningInWithOTP(NotAutoSigningInAsCurrentUser)
 //RememberThatWhenUserIsSigningInFirstTime,HisOwnTokenWontBeThereAlreadyInThe

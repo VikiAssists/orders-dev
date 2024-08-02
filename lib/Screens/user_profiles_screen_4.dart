@@ -1900,8 +1900,6 @@ class _UserProfilesAccessChangesState extends State<UserProfilesAccessChanges> {
                       });
                       temporaryMapToAdd.addAll(eachDoc[widget.hotelName]);
                       users.add(temporaryMapToAdd);
-                      print('fgfgfg1');
-                      print(users);
                     }
                   }
                   return Expanded(

@@ -170,97 +170,10 @@ class _MenuPageWithBackButtonUsageState
       localUnavailableItems;
     });
   }
+
 //
 // // ThisIsTheButtonInTheSideWhereWeAdd/MinusTheNumberOfItems
 // // WrittenExplanationIn "added_items_list" page
-//   Widget addOrCounterButton(String item) {
-//     if (itemsAddedMap.containsKey(item)) {
-//       return Container(
-//         decoration: kMenuAddButtonDecoration,
-//         height: kMenuButtonHeight,
-//         width: kMenuButtonWidth,
-//         child: Row(
-//           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//           children: [
-//             IconButton(
-//                 onPressed: () {
-//                   setState(() {
-//                     if (itemsAddedMap[item] == 1) {
-//                       itemsAddedMap[item] = itemsAddedMap[item]! - 1;
-//                       itemsAddedMap.remove(item);
-//                       itemsAddedComment.remove(item);
-//                       itemsAddedTime.remove(item);
-//                     } else {
-//                       itemsAddedMap[item] = itemsAddedMap[item]! - 1;
-//                     }
-//                   });
-//                 },
-//                 icon: const Icon(
-//                   Icons.remove,
-//                   color: Colors.green,
-//                   size: kAddMinusButtonIconSize,
-//                 )),
-//             Text(
-//               itemsAddedMap[item]!.toString(),
-//               style: kAddButtonNumberTextStyle,
-//             ),
-//             IconButton(
-//                 onPressed: () {
-//                   setState(() {
-//                     itemsAddedMap[item] = itemsAddedMap[item]! + 1;
-//                   });
-//                 },
-//                 icon: const Icon(
-//                   Icons.add,
-//                   color: Colors.green,
-//                   size: kAddMinusButtonIconSize,
-//                 ))
-//           ],
-//         ),
-//       );
-//     } else {
-//       return Container(
-//         decoration: kMenuAddButtonDecoration,
-//         height: kMenuButtonHeight,
-//         width: kMenuButtonWidth,
-//         child: TextButton(
-//             onPressed: () {
-//               setState(() {
-//                 DateTime now = DateTime.now();
-//                 itemsAddedMap.addAll({item: 1});
-//                 itemsAddedComment.addAll({item: ''});
-//
-//                 itemsAddedTime.addAll({
-//                   item: ((now.hour * 3600000) +
-//                       (now.minute * 60000) +
-//                       (now.second * 1000) +
-//                       now.millisecond)
-//                 });
-//               });
-//             },
-//             child: Text(
-//               'ADD',
-//               style: kAddButtonWordTextStyle,
-//             )),
-//       );
-//     }
-//   }
-
-  void _scrollingToIndex(String value) {
-//WeHaveFloatingActionButtonInWhichWeCanChooseTitle
-//AndTheScreenWillScrollToThatParticularList
-//Example:IfYouClick "Beverages", itWillScrollToTheSpotWithTea/Coffee
-//ItWorksWithIndex,FirstWeCheckTheIndexOfWhatIsClickedInTheMenu
-//ThenUsingItemsScrollController,WeScrollToThatSpotInDuration1Second
-    int index = (localMenuItems.indexOf(value));
-    if (index >= 0) {
-      _itemScrollController.scrollTo(
-          index: index,
-          duration: const Duration(seconds: 1),
-          curve: Curves.easeInOutCubic);
-    }
-  }
-
   Widget addOrCounterButton(String item) {
     if (itemsAddedMap.containsKey(item)) {
       return Container(
@@ -315,18 +228,15 @@ class _MenuPageWithBackButtonUsageState
             onPressed: () {
               setState(() {
                 DateTime now = DateTime.now();
-                for (int i = 351; i < 401; i++) {
-                  itemsAddedMap.addAll({'Item ${i.toString()}': 1});
-                  itemsAddedComment.addAll({'Item ${i.toString()}': ''});
+                itemsAddedMap.addAll({item: 1});
+                itemsAddedComment.addAll({item: ''});
 
-                  itemsAddedTime.addAll({
-                    'Item ${i.toString()}': ((now.hour * 3600000) +
-                            (now.minute * 60000) +
-                            (now.second * 1000) +
-                            now.millisecond) +
-                        i
-                  });
-                }
+                itemsAddedTime.addAll({
+                  item: ((now.hour * 3600000) +
+                      (now.minute * 60000) +
+                      (now.second * 1000) +
+                      now.millisecond)
+                });
               });
             },
             child: Text(
@@ -334,6 +244,21 @@ class _MenuPageWithBackButtonUsageState
               style: kAddButtonWordTextStyle,
             )),
       );
+    }
+  }
+
+  void _scrollingToIndex(String value) {
+//WeHaveFloatingActionButtonInWhichWeCanChooseTitle
+//AndTheScreenWillScrollToThatParticularList
+//Example:IfYouClick "Beverages", itWillScrollToTheSpotWithTea/Coffee
+//ItWorksWithIndex,FirstWeCheckTheIndexOfWhatIsClickedInTheMenu
+//ThenUsingItemsScrollController,WeScrollToThatSpotInDuration1Second
+    int index = (localMenuItems.indexOf(value));
+    if (index >= 0) {
+      _itemScrollController.scrollTo(
+          index: index,
+          duration: const Duration(seconds: 1),
+          curve: Curves.easeInOutCubic);
     }
   }
 

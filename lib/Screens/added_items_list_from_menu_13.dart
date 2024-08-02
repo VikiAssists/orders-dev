@@ -1319,17 +1319,20 @@ class _AddedItemsWithCaptainInfoState extends State<AddedItemsWithCaptainInfo> {
           tempItemAddingMap = {};
           String itemComment = 'noComment';
           num itemPrice = 0;
+          String itemCategory = '';
 //InCase,TheWaiterReducedItToZero,ThenWeShouldn'tAddItRight
           if (widget.itemsAddedMap[key] != 0) {
             final filteredItem = allItemsFromMenuMap
                 .firstWhere((element) => element['itemName'] == key);
             itemPrice = filteredItem['price'];
+            itemCategory = filteredItem['category'];
             tempItemAddingMap.addAll({'itemName': key});
             if (widget.itemsAddedComment[key] != '') {
               itemComment = widget.itemsAddedComment[key]!;
             }
             tempItemAddingMap.addAll({'itemComment': itemComment});
             tempItemAddingMap.addAll({'itemPrice': itemPrice});
+            tempItemAddingMap.addAll({'itemCategory': itemCategory});
             tempItemAddingMap
                 .addAll({'numberOfItem': widget.itemsAddedMap[key]});
             tempItemAddingMap.addAll(
@@ -1353,24 +1356,16 @@ class _AddedItemsWithCaptainInfoState extends State<AddedItemsWithCaptainInfo> {
                           listen: false)
                       .currentUserPhoneNumberFromClass]['username']
             });
-            tempItemAddingMap.addAll({
-              'cancellingCaptainName': 'notCancelled'
-            });
-            tempItemAddingMap.addAll({
-              'cancellingCaptainPhone': 'notCancelled'
-            });
-            tempItemAddingMap.addAll({
-              'rejectingChefName': 'notRejected'
-            });
-            tempItemAddingMap.addAll({
-              'rejectingChefPhone': 'notRejected'
-            });
+            tempItemAddingMap.addAll({'cancellingCaptainName': 'notCancelled'});
+            tempItemAddingMap
+                .addAll({'cancellingCaptainPhone': 'notCancelled'});
+            tempItemAddingMap.addAll({'rejectingChefName': 'notRejected'});
+            tempItemAddingMap.addAll({'rejectingChefPhone': 'notRejected'});
             //AddingItemWithRandomID
             itemsInOrderMap.addAll({
               (10000 + Random().nextInt(99999 - 10000)).toString():
                   tempItemAddingMap
             });
-
           }
         });
         masterOrderMapToServer.addAll({'itemsInOrderMap': itemsInOrderMap});
@@ -1397,17 +1392,20 @@ class _AddedItemsWithCaptainInfoState extends State<AddedItemsWithCaptainInfo> {
         widget.itemsAddedMap.forEach((key, value) {
           tempItemAddingMap = {};
           String itemComment = 'noComment';
+          String itemCategory = '';
           num itemPrice = 0;
           if (widget.itemsAddedMap[key] != 0) {
             final filteredItem = allItemsFromMenuMap
                 .firstWhere((element) => element['itemName'] == key);
             itemPrice = filteredItem['price'];
+            itemCategory = filteredItem['category'];
             tempItemAddingMap.addAll({'itemName': key});
             if (widget.itemsAddedComment[key] != '') {
               itemComment = widget.itemsAddedComment[key]!;
             }
             tempItemAddingMap.addAll({'itemComment': itemComment});
             tempItemAddingMap.addAll({'itemPrice': itemPrice});
+            tempItemAddingMap.addAll({'itemCategory': itemCategory});
             tempItemAddingMap
                 .addAll({'numberOfItem': widget.itemsAddedMap[key]});
             tempItemAddingMap.addAll(
@@ -1432,18 +1430,11 @@ class _AddedItemsWithCaptainInfoState extends State<AddedItemsWithCaptainInfo> {
                           listen: false)
                       .currentUserPhoneNumberFromClass]['username']
             });
-            tempItemAddingMap.addAll({
-              'cancellingCaptainName': 'notCancelled'
-            });
-            tempItemAddingMap.addAll({
-              'cancellingCaptainPhone': 'notCancelled'
-            });
-            tempItemAddingMap.addAll({
-              'rejectingChefName': 'notRejected'
-            });
-            tempItemAddingMap.addAll({
-              'rejectingChefPhone': 'notRejected'
-            });
+            tempItemAddingMap.addAll({'cancellingCaptainName': 'notCancelled'});
+            tempItemAddingMap
+                .addAll({'cancellingCaptainPhone': 'notCancelled'});
+            tempItemAddingMap.addAll({'rejectingChefName': 'notRejected'});
+            tempItemAddingMap.addAll({'rejectingChefPhone': 'notRejected'});
             //AddingItemWithRandomID
             itemsInOrderMap.addAll({
               (10000 + Random().nextInt(99999 - 10000)).toString():

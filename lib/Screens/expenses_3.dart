@@ -1116,6 +1116,7 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
           ) {
 //ThisMeansWeCanUpdateIncrementsAsBatch
         var batch = _fireStore.batch();
+
         entireCashBalanceChangeSheet.forEach((key, value) {
           var statisticsMonthlyReportForExpensesRef = _fireStore
               .collection(Provider.of<PrinterAndOtherDetailsProvider>(context,
@@ -1124,6 +1125,8 @@ class _ExpensesForCashBalanceState extends State<ExpensesForCashBalance> {
               .doc('reports')
               .collection('monthlyReports')
               .doc(key);
+
+
           batch.set(statisticsMonthlyReportForExpensesRef,
               {'cashBalanceData': value}, SetOptions(merge: true));
         });

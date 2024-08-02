@@ -14,11 +14,13 @@ import 'package:orders_dev/Screens/about_app_info_screen.dart';
 import 'package:orders_dev/Screens/captain_screen_10.dart';
 
 import 'package:orders_dev/Screens/chef_to_cook_13.dart';
+import 'package:orders_dev/Screens/chef_to_cook_14.dart';
 import 'package:orders_dev/Screens/choosing_chef_specialities_screen_2.dart';
 import 'package:orders_dev/Screens/edit_menu_base_options.dart';
 
 import 'package:orders_dev/Screens/expenses_2.dart';
 import 'package:orders_dev/Screens/expenses_3.dart';
+import 'package:orders_dev/Screens/expenses_4.dart';
 import 'package:orders_dev/Screens/inventory_chef_specialities.dart';
 import 'package:orders_dev/Screens/inventory_chef_specialities_2.dart';
 import 'package:orders_dev/Screens/main_settings_screen.dart';
@@ -30,6 +32,7 @@ import 'package:orders_dev/Screens/printer_settings_screen.dart';
 import 'package:orders_dev/Screens/statistics_page.dart';
 import 'package:orders_dev/Screens/statistics_page_2.dart';
 import 'package:orders_dev/Screens/statistics_page_3.dart';
+import 'package:orders_dev/Screens/statistics_page_4.dart';
 import 'package:orders_dev/Screens/user_profiles_screen_4.dart';
 
 import 'package:orders_dev/constants.dart';
@@ -264,7 +267,7 @@ class ChefOrCaptainWithSeparateRestaurantInfo extends StatelessWidget {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          ChefToCookNewPrinterPackage(
+                                          ChefToCookWithRejectionRegistering(
                                             hotelName: hotelName,
                                             currentUserProfileMap:
                                             currentUserProfileMap,
@@ -433,8 +436,8 @@ class NavigationDrawer extends StatelessWidget {
         onTap: () {
           Navigator.pop(context);
           Navigator.push(context,
-              MaterialPageRoute(builder: (BuildContext) => StatisticsWithExpensesAndIncome(
-
+              MaterialPageRoute(builder: (BuildContext) => StatisticsWithExpenseIncomeCashBalance(
+hotelName: hotelName,
               )));
         },
       ),
@@ -445,8 +448,7 @@ class NavigationDrawer extends StatelessWidget {
         onTap: () {
           Navigator.pop(context);
           Navigator.push(context,
-              MaterialPageRoute(builder: (BuildContext) => ExpensesForCashBalance(
-
+              MaterialPageRoute(builder: (BuildContext) => ExpensesSeparateFolder(
               )));
         },
       ),
